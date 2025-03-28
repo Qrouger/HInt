@@ -1,4 +1,5 @@
-# HInt ![HInt_logo](https://github.com/user-attachments/assets/f4701588-b624-4afa-aa8f-9a3352a6572c = 250x250)
+# HInt
+<img src="https://github.com/user-attachments/assets/f4701588-b624-4afa-aa8f-9a3352a6572c" alt="HInt logo" width="400"/><br>
 
 
 HInt allows you to find homologous proteins with significant differences in sequence and structure.
