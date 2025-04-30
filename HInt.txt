@@ -1,0 +1,11 @@
+###Informations
+Signal_peptide :#No, Yes or None
+Homo-oligomer :#Oligomerization (integers)
+Interact_with :#Proteins names expected to be interacting with
+
+
+###Paths
+Path_Uniprot_ID : 
+Path_AlphaFold_Data :
+Path_Singularity_Image :
+Path_Pickle_Feature :
