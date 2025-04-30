@@ -2,7 +2,7 @@
 Signal_peptide :#No, Yes or None
 Homo-oligomer :#Oligomerization (integers)
 Interact_with :#Proteins names expected to be interacting with
-
+Organism : #Organism of interest: arch, gram+, gram-, or euk for SignalP
 
 ###Paths
 Path_Uniprot_ID : 
