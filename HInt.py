@@ -31,20 +31,24 @@ def main() :
     path_dict = define_path()
     HInt_object = File_proteins(path_dict["Path_Uniprot_ID"])
     HInt_object.find_proteins_sequence() #and real name of proteins
+    PPI_object.find_proteins_sequence() #and real name of proteins
+    PPI_object.create_fasta_file()
+    if args.use_signalP == True :
+        remove_SP(PPI_object,args.org)
     if len(HInt_object.already_pickle(path_dict["Path_Pickle_Feature"])) > 0 : #if new feature pickle is need
-        HInt_object.create_fasta_file()
-        remove_SP(HInt_object,args.org)
-        if path_dict["Signal_P"] :
-            for prot with signalP
-        create_feature(HInt_object,path_dict["Path_AlphaFold_Data"])
-    Make_all_MSA_coverage(PPI_object) #make MSA depth for new pickle and set shallow_MSA.txt
-    recover_prot_sequence(PPI_object) #set sequence dict without peptide signal
+        create_feature(PPI_object,path_dict["Path_AlphaFold_Data"],path_dict["Path_Pickle_Feature"],args.use_mmseq)
+    Make_all_MSA_coverage(PPI_object,path_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    recover_prot_sequence(PPI_object,path_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal
     HInt_object.find_prot_lenght()
+
+
+
+    
     generate_APD_script(PPI_object, args.max_aa)
-    if nbr_all_int > 50 :
-      Rosetta_PPI
-    else :
-      Make_all_int
+    Rosetta_PPI
+    if bait_prot :
+
+    
     add_iQ_score(path_dict["Path_Singularity_Image"])
     if path_dict["homo-oligomerization"] == "" :
       Make_homo_oligo(path_dict["Path_AlphaFold_Data"])
