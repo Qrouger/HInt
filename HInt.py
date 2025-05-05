@@ -43,16 +43,16 @@ def main() :
     if bait_prot :
         Rosetta_PPI #set better interactions
     
-    generate_APD_script(PPI_object, args.max_aa)
-    Rosetta_PPI
+    #generate_APD_script(PPI_object, args.max_aa)
+y
 
 
     
-    add_iQ_score(path_dict["Path_Singularity_Image"])
-    if path_dict["homo-oligomerization"] == "" :
-      Make_homo_oligo(path_dict["Path_AlphaFold_Data"])
-      add_hiQ_score(path_dict["Path_Singularity_Image"])
-      PPI_object.update_iQ_score_hiQ_score()
+    #add_iQ_score(path_dict["Path_Singularity_Image"])
+    #if path_dict["homo-oligomerization"] == "" :
+    #  Make_homo_oligo(path_dict["Path_AlphaFold_Data"])
+    #  add_hiQ_score(path_dict["Path_Singularity_Image"])
+    #  PPI_object.update_iQ_score_hiQ_score()
         
         
  
