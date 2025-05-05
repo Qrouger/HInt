@@ -41,6 +41,7 @@ def main() :
     recover_prot_sequence(PPI_object,path_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal
     HInt_object.find_prot_lenght()
     if bait_prot :
+        #write_bait_file
         Rosetta_PPI #set better interactions
     
     #generate_APD_script(PPI_object, args.max_aa)
