@@ -31,14 +31,13 @@ def main() :
     path_dict = define_path()
     HInt_object = File_proteins(path_dict["Path_Uniprot_ID"])
     HInt_object.find_proteins_sequence() #and real name of proteins
-    PPI_object.find_proteins_sequence() #and real name of proteins
-    PPI_object.create_fasta_file()
+    HInt_object.create_fasta_file()
     if args.use_signalP == True :
-        remove_SP(PPI_object,args.org)
+        remove_SP(HInt_object,args.org)
     if len(HInt_object.already_pickle(path_dict["Path_Pickle_Feature"])) > 0 : #if new feature pickle is need
-        create_feature(PPI_object,path_dict["Path_AlphaFold_Data"],path_dict["Path_Pickle_Feature"],args.use_mmseq)
-    Make_all_MSA_coverage(PPI_object,path_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
-    recover_prot_sequence(PPI_object,path_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal
+        create_feature(HInt_object,path_dict["Path_AlphaFold_Data"],path_dict["Path_Pickle_Feature"],args.use_mmseq)
+    Make_all_MSA_coverage(HInt_object,path_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    recover_prot_sequence(HInt_object,path_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal
     HInt_object.find_prot_lenght()
     if bait_prot :
         #write_bait_file
