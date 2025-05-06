@@ -3,3 +3,13 @@
 
 HInt allows you to find homologous proteins with significant differences in sequence and structure.
 It allows you to find homologous proteins with similar interactions.
+
+
+
+
+
+###Informations
+Signal_peptide :#No, Yes or None
+Homo-oligomer :#Oligomerization (integer : 1-20)
+Interact_with :#Proteins names expected to be interacting with (Uniprot name or fasta name)
+Organism : #Organism of interest: arch, gram+, gram-, or euk for SignalP
