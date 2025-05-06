@@ -2,9 +2,9 @@
 
     Author: Quentin Rouger
 """
-import argparse
 
-from .Utils_HInt import *
+from Utils_HInt import *
+from File_proteins import *
 
 import sys
 import logging
@@ -27,32 +27,40 @@ class Logger(object):
 sys.stdout = Logger(log_filename)
 sys.stderr = Logger(log_filename)
 
-def main() :
-    path_dict = define_path()
-    HInt_object = File_proteins(path_dict["Path_Uniprot_ID"])
+if __name__ == "__main__":
+    informations_dict = define_informations()
+    print(informations_dict)
+    HInt_object = File_proteins(informations_dict["Path_Uniprot_ID"])
     HInt_object.find_proteins_sequence() #and real name of proteins
     HInt_object.create_fasta_file()
-    if args.use_signalP == True :
-        remove_SP(HInt_object,args.org)
-    if len(HInt_object.already_pickle(path_dict["Path_Pickle_Feature"])) > 0 : #if new feature pickle is need
-        create_feature(HInt_object,path_dict["Path_AlphaFold_Data"],path_dict["Path_Pickle_Feature"],args.use_mmseq)
-    Make_all_MSA_coverage(HInt_object,path_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
-    recover_prot_sequence(HInt_object,path_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal
+    #remove_SP(HInt_object,informations_dict["Organism"])
+    if len(HInt_object.already_pickle(informations_dict["Path_Pickle_Feature"])) > 0 : #if new feature pickle is need
+        create_feature(HInt_object,informations_dict["Path_AlphaFold_Data"],informations_dict["Path_Pickle_Feature"])
+    Make_all_MSA_coverage(HInt_object,informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    recover_prot_sequence(HInt_object,informations_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal #remplacer par une fonctions qui prends les séquences en fonction du SignalP
     HInt_object.find_prot_lenght()
-    if bait_prot :
-        #write_bait_file
-        Rosetta_PPI #set better interactions
-    
+    if informations_dict["Signal_peptide"] != "None" : #mettre avant la génération des MSA ?
+        filtered_signalP(HInt_object,informations_dict["Signal_peptide"])
+        print(HInt_object.get_possible_prey())
+    if informations_dict["Interact_with"] != "" :
+        if len(HInt_object.get_possible_prey()) > 15 :
+            Rosetta_PPI #set better interactions all_vs_bait
+        else :
+            generate_bait_vs_prey(HInt_object,1500,informations_dict)
+
+ #   if informations_dict["Homo-oligomer"] >= 2 :
+                    
+ #   else :
+
     #generate_APD_script(PPI_object, args.max_aa)
-y
+
 
 
     
-    #add_iQ_score(path_dict["Path_Singularity_Image"])
-    #if path_dict["homo-oligomerization"] == "" :
-    #  Make_homo_oligo(path_dict["Path_AlphaFold_Data"])
-    #  add_hiQ_score(path_dict["Path_Singularity_Image"])
+    #add_iQ_score(informations_dict["Path_Singularity_Image"])
+    #if informations_dict["homo-oligomerization"] == "" :
+    #  Make_homo_oligo(informations_dict["Path_AlphaFold_Data"])
+    #  add_hiQ_score(informations_dict["Path_Singularity_Image"])
     #  PPI_object.update_iQ_score_hiQ_score()
         
         
- 
