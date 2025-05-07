@@ -27,27 +27,23 @@ class Logger(object):
 sys.stdout = Logger(log_filename)
 sys.stderr = Logger(log_filename)
 
+#enlever new_pickle ?
 if __name__ == "__main__":
     informations_dict = define_informations()
-    print(informations_dict)
     HInt_object = File_proteins(informations_dict["Path_Uniprot_ID"])
     HInt_object.find_proteins_sequence() #and real name of proteins
     HInt_object.create_fasta_file()
-    #remove_SP(HInt_object,informations_dict["Organism"])
-    if len(HInt_object.already_pickle(informations_dict["Path_Pickle_Feature"])) > 0 : #if new feature pickle is need
-        create_feature(HInt_object,informations_dict["Path_AlphaFold_Data"],informations_dict["Path_Pickle_Feature"])
+    remove_SP(HInt_object,informations_dict["Organism"])
+    if informations_dict["Signal_peptide"] != "None" : #generated MSA just for protein of interest
+        filtered_signalP(HInt_object,informations_dict)
+    create_feature(HInt_object,informations_dict["Path_AlphaFold_Data"],informations_dict["Path_Pickle_Feature"])
     Make_all_MSA_coverage(HInt_object,informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
-    recover_prot_sequence(HInt_object,informations_dict["Path_Pickle_Feature"]) #set sequence dict without peptide signal #remplacer par une fonctions qui prends les séquences en fonction du SignalP
-    HInt_object.find_prot_lenght()
-    if informations_dict["Signal_peptide"] != "None" : #mettre avant la génération des MSA ?
-        filtered_signalP(HInt_object,informations_dict["Signal_peptide"])
-        print(HInt_object.get_possible_prey())
     if informations_dict["Interact_with"] != "" :
-        if len(HInt_object.get_possible_prey()) > 15 :
-            Rosetta_PPI #set better interactions all_vs_bait
-        else :
-            generate_bait_vs_prey(HInt_object,1500,informations_dict)
-
+        generate_bait_vs_prey(HInt_object,1500,informations_dict)
+        while len(HInt_object.get_possible_prey()) > 15 :
+            Rosetta_PPI #set better interactions all_vs_bait #need to set_possible_prey
+        generate_bait_vs_prey(HInt_object,1500,informations_dict) #regenerate bait_vs_prey with new preys
+        Make_bait_vs_prey(informations_dict)
  #   if informations_dict["Homo-oligomer"] >= 2 :
                     
  #   else :

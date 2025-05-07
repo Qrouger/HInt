@@ -26,7 +26,7 @@ class File_proteins() :
 
     def set_proteins_sequence (self, new_protein_sequence) :
         """
-        Sets a dict of all sequences.
+        Sets a dict of all sequences and set a lenght dict.
         
         Parameters:
         ----------
@@ -36,6 +36,7 @@ class File_proteins() :
         ----------
         """
         self.protein_sequence = new_protein_sequence
+        self.find_prot_lenght(new_protein_sequence)
 
     def set_proteins (self, new_protein) :
         """

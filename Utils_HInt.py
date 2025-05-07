@@ -2,6 +2,9 @@ import os
 import pickle
 import subprocess
 import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+
 
 def define_informations() :
     """
@@ -74,10 +77,10 @@ def remove_SP (file, org) :
             new_line2 = line2
             if SP_signal == 0 and line2[0] != ">" :
                 new_line2 = line2
-                new_fasta_dict[save_key] = line2
+                new_fasta_dict[save_key] = line2.strip("\n")
             if int(SP_signal) > 0 :
                 new_line2 = line2[int(SP_signal)-1:len(line2)]
-                new_fasta_dict[save_key] = line2[int(SP_signal)+1:len(line2)]
+                new_fasta_dict[save_key] = line2[int(SP_signal)+1:len(line2)].strip("\n")
                 SP_signal = 0
             if line2[0] == ">" :
                 save_key = line2[1:len(line2)-1]
@@ -112,7 +115,8 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     f"--output_dir={Path_Pickle_Feature}",
     "--max_template_date=2024-05-02",
     "--skip_existing=True",
-    "--use_mmseqs2=True"]
+    "--use_mmseqs2=True",
+    "--use_precomputed_msas=True"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
     for line in process.stdout:
        print(line, end="")
@@ -131,31 +135,34 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     Returns:
     ----------
     """
-    all_proteins = file.get_proteins()
-    new_proteins = file.get_new_pickle() 
+    all_proteins = file.get_possible_prey()
     shallow_MSA = str()
     result_dict = file.get_result_dict()
-    for prot in new_proteins :
-        pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
-        feature_dict = pre_feature_dict.feature_dict
-        msa = feature_dict['msa']
-        seqid = (np.array(msa[0] == msa).mean(-1))
-        seqid_sort = seqid.argsort()
-        non_gaps = (msa != 21).astype(float)
-        non_gaps[non_gaps == 0] = np.nan
-        final = non_gaps[seqid_sort] * seqid[seqid_sort, None]
-        plt.figure(figsize=(14, 4), dpi=100)
-        plt.subplot(1, 2, 1)
-        plt.title(f"Sequence coverage ({prot})")
-        plt.imshow(final, interpolation='nearest', aspect='auto', cmap="rainbow_r", vmin=0, vmax=1, origin='lower')
-        plt.plot((msa != 21).sum(0), color='black')
-        plt.xlim(-0.5, msa.shape[1] - 0.5)
-        plt.ylim(-0.5, msa.shape[0] - 0.5)
-        plt.colorbar(label="Sequence identity to query", )
-        plt.xlabel("Positions")
-        plt.ylabel("Sequences")
-        plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
-        plt.close()
+    for prot in all_proteins :
+        if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() :
+            pass
+        else :    
+            pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
+            feature_dict = pre_feature_dict.feature_dict
+            msa = feature_dict['msa']
+            print(msa)
+            seqid = (np.array(msa[0] == msa).mean(-1))
+            seqid_sort = seqid.argsort()
+            non_gaps = (msa != 21).astype(float)
+            non_gaps[non_gaps == 0] = np.nan
+            final = non_gaps[seqid_sort] * seqid[seqid_sort, None]
+            plt.figure(figsize=(14, 4), dpi=100)
+            plt.subplot(1, 2, 1)
+            plt.title(f"Sequence coverage ({prot})")
+            plt.imshow(final, interpolation='nearest', aspect='auto', cmap="rainbow_r", vmin=0, vmax=1, origin='lower')
+            plt.plot((msa != 21).sum(0), color='black')
+            plt.xlim(-0.5, msa.shape[1] - 0.5)
+            plt.ylim(-0.5, msa.shape[0] - 0.5)
+            plt.colorbar(label="Sequence identity to query", )
+            plt.xlabel("Positions")
+            plt.ylabel("Sequences")
+            plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
+            plt.close()
     for prot in all_proteins : #just write shallow_MSA.txt
         pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
         feature_dict = pre_feature_dict.feature_dict
@@ -166,36 +173,40 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     with open("shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
 
-def recover_prot_sequence(file, path_pkl) :
-   """
-   Take sequence from pickle files.
+#def recover_prot_sequence(file, path_pkl) :
+#   """
+#   Take sequence from after SignalP.
 
-   Parameters:
-   ----------
-   file : object of File_proteins class
-   path_pkl : string
+#   Parameters:
+#   ----------
+#   file : object of File_proteins class
+#   path_pkl : string
 
-   Returns:
-   ----------
-   """
-   list_proteins = file.get_proteins()
-   new_dict_sequence = file.get_proteins_sequence()
-   for protein in list_proteins :
-      with open(os.path.join(f'{path_pkl}/{protein}.pkl'), 'rb') as pkl_file :
-         pickle_dict = pickle.load(pkl_file)
-         new_dict_sequence[protein] = pickle_dict.sequence
-   file.set_proteins_sequence(new_dict_sequence)
+#   Returns:
+#   ----------
+#   """
+#   list_proteins = file.get_proteins()
+#   new_dict_sequence = file.get_proteins_sequence()
+#   for protein in list_proteins :
+#      with open(os.path.join(f'{path_pkl}/{protein}.pkl'), 'rb') as pkl_file :
+#         pickle_dict = pickle.load(pkl_file)
+#         new_dict_sequence[protein] = pickle_dict.sequence
+#   file.set_proteins_sequence(new_dict_sequence)
 
-def filtered_signalP(file, SignalP) :
+def filtered_signalP(file, informations_dict) :
     file_signalp = file.get_fasta_file().replace(".fasta","_summary.signalp5")
     result_dict = file.get_result_dict()
+    seq_dict = file.get_proteins_sequence()
     possible_prey = list()
+    fasta_lines = str()
+    SignalP = informations_dict["Signal_peptide"]
     with open(file_signalp, "r") as SP_file :
         for line in SP_file :
             new_line = line.split("\t")
             if SignalP == "Yes" :
                 if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                     possible_prey.append(new_line[0])
+                    fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
                     result_dict[new_line[0]] = "Don't have a signal peptide"
             if SignalP == "No" :
@@ -203,6 +214,12 @@ def filtered_signalP(file, SignalP) :
                     result_dict[new_line[0]] = "Have a signal peptide"
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
                     possible_prey.append(new_line[0])
+                    fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
+    baits = [prot for prot in informations_dict["Interact_with"].split(",")]
+    for bait in baits :
+        fasta_lines += ">"+bait+"\n"+seq_dict[bait]+"\n"
+    with open(file.get_fasta_file(), "w") as fasta_file :
+        fasta_file.write(fasta_lines)
     file.set_possible_prey(possible_prey)
 
 def generate_bait_vs_prey (file, max_aa, informations_dict) :
@@ -237,3 +254,36 @@ def generate_bait_vs_prey (file, max_aa, informations_dict) :
        all_file.write(bait_vs_prey_script)
     with open("OOM_int.txt", "w") as OOM_file :
        OOM_file.write(OOM_int)
+
+def Make_bait_vs_prey (informations_dict) :
+    """
+    Use Alphapulldown script to generate bait versus prey interactions.
+
+    Parameters:
+    ----------
+    informations_dict : dict
+
+    Returns:
+    ----------
+    """
+    data_dir = informations_dict["Path_AlphaFold_Data"]
+    Path_Pickle_Feature = informations_dict["Path_Pickle_Feature"]
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+    os.environ['TF_FORCE_UNIFIED_MEMORY'] = 'true'
+    os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
+    os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
+    cmd = ["run_multimer_jobs.py",
+    "--mode=custom",
+    "--num_cycle=3",
+    "--num_predictions_per_model=1",
+    "--compress_result_pickles=True",
+    "--output_path=./result_bait_vs_prey",
+    f"--data_dir={data_dir}",
+    "--protein_lists=bait_vs_prey.txt",
+    f"--monomer_objects_dir={Path_Pickle_Feature}",
+    "--remove_keys_from_pickles=False"]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+    for line in process.stdout:
+       print(line, end="")
+    process.stdout.close()
+    process.wait()
