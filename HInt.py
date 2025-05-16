@@ -29,22 +29,25 @@ sys.stderr = Logger(log_filename)
 
 #enlever new_pickle ?
 if __name__ == "__main__":
-    informations_dict = define_informations()
-    HInt_object = File_proteins(informations_dict["Path_Uniprot_ID"])
+    Informations_dict = Define_informations()
+    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
     HInt_object.find_proteins_sequence() #and real name of proteins
     HInt_object.create_fasta_file()
-    remove_SP(HInt_object,informations_dict["Organism"])
-    if informations_dict["Signal_peptide"] != "None" : #generated MSA just for protein of interest
-        filtered_signalP(HInt_object,informations_dict)
-    create_feature(HInt_object,informations_dict["Path_AlphaFold_Data"],informations_dict["Path_Pickle_Feature"])
-    Make_all_MSA_coverage(HInt_object,informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
-    if informations_dict["Interact_with"] != "" :
-        generate_bait_vs_prey(HInt_object,1500,informations_dict)
-        while len(HInt_object.get_possible_prey()) > 15 :
-            Rosetta_PPI #set better interactions all_vs_bait #need to set_possible_prey
-        generate_bait_vs_prey(HInt_object,1500,informations_dict) #regenerate bait_vs_prey with new preys
-        Make_bait_vs_prey(informations_dict)
- #   if informations_dict["Homo-oligomer"] >= 2 :
+    remove_SP(HInt_object,Informations_dict["Organism"])
+    if Informations_dict["Signal_peptide"] != "None" : #select proteins with or without peptide signal
+        filtered_signalP(HInt_object,Informations_dict)
+    create_feature(HInt_object,Informations_dict["Path_AlphaFold_Data"],Informations_dict["Path_Pickle_Feature"])
+    Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    if Informations_dict["Homo-oligomer"] != 1 : #select proteins who can create an homo-oligomer
+        Use_Rosetta_PPI(HInt_object,Informations_dict,"RoseTTAFold_homo_int") #set better interactions all_vs_bait
+    if Informations_dict["Interact_with"] != "" :
+        if len(HInt_object.get_possible_prey()) > 15 :
+            Use_Rosetta_PPI(HInt_object,Informations_dict,"RoseTTAFold_PPI_int") #set better interactions all_vs_bait
+        generate_bait_vs_prey(HInt_object,1500,Informations_dict) #regenerate bait_vs_prey with new preys
+        Generate_3D_model(Informations_dict,"bait_vs_prey")
+        Score_PPI_interaction(Informations_dict)
+
+ #   if int(informations_dict["Homo-oligomer"]) >= 2 :
                     
  #   else :
 
@@ -57,6 +60,4 @@ if __name__ == "__main__":
     #if informations_dict["homo-oligomerization"] == "" :
     #  Make_homo_oligo(informations_dict["Path_AlphaFold_Data"])
     #  add_hiQ_score(informations_dict["Path_Singularity_Image"])
-    #  PPI_object.update_iQ_score_hiQ_score()
-        
         

@@ -1,11 +1,11 @@
 ###Informations
-Signal_peptide :
-Homo-oligomer :
-Interact_with :
-Organism :
+Signal_peptide : Yes
+Homo-oligomer : 5
+Interact_with : O50333
+Organism : gram-
 
 ###Paths
-Path_Uniprot_ID : 
-Path_AlphaFold_Data :
-Path_Singularity_Image :
-Path_Pickle_Feature :
+Path_Uniprot_ID : R388.txt
+Path_AlphaFold_Data : /data/alphadata_v2
+Path_Pickle_Feature : ./feature_mmseq
+Path_Singularity_Image : /home/emmanuel/Downloads/alpha-analysis_jax_0.4.sif

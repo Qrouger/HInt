@@ -367,6 +367,7 @@ class File_proteins() :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
                     new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
+                    result_dict[save_prot] = ""
                 elif len(line) > 2 and save_prot != "" :
                     already_fasta[save_prot] = already_fasta[save_prot] + line.strip("\n")
         self.set_file_name(path_txt)
