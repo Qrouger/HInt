@@ -13,6 +13,10 @@ MSA generation is mandatory for using this tool.
 
 ## Generated MSA with mmseq2 GPU (recommended for more than 100 proteins)
 
+mmseqs databases UniRef90 . tmp
+mmseqs createdb examples/DB.fasta targetDB
+mmseqs makepaddedseqdb targetDB targetDB_gpu
+mmseqs rmdb targetDB
 
 # Instalations
 Colabfoldlocal
