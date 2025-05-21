@@ -5,8 +5,9 @@ HInt allows you to find homologous proteins with significant differences in sequ
 It allows you to find homologous proteins with similar interactions.
 
 
-
-
+###Instalations
+Colabfoldlocal
+https://github.com/YoshitakaMo/localcolabfold
 
 ###Informations
 Signal_peptide :#No, Yes or None
