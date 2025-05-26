@@ -1,9 +1,28 @@
 # <img src="https://github.com/user-attachments/assets/f4701588-b624-4afa-aa8f-9a3352a6572c" alt="HInt logo" width="200"/><br>
 
 
+
 HInt allows you to find homologous proteins with significant differences in sequence and structure.
 It allows you to find homologous proteins with similar interactions.
-
+# Instalations
+## HInt for eucaryote
+## HInt for procaryote
+```bash
+git clone https://github.com/SNU-CSSB/RF2-Lite.git
+cd RF2-Lite
+conda create -n HInt_RF2-lite -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 networkx hhsuite hmmer
+conda activate HInt_RF2-lite
+pip install HInt
+pip install -U "jax[cuda12]"==0.5.3
+cd SE3Transformer
+pip install --no-cache-dir -r requirements.txt
+python setup.py install
+pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
+pip install torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric
+cd ../networks/
+wget http://files.ipd.uw.edu/pub/pathogens/weights.tar.gz
+tar xfz weights.tar.gz
+```
 # MSA generations
 MSA generation is mandatory for using this tool.
 
