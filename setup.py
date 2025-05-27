@@ -19,7 +19,13 @@ setup(
         'seaborn',
         'urllib3',
         'matplotlib',
-        'scipy'
+        'scipy',
+        'torchdata==0.9.0',
+        'pandas',
+        'pydantic',
+        'packaging',
+        'opt_einsum',
+        'torch-geometric'
     ],
     entry_points={'console_scripts': ['PPIFold=PPIFold.PPIFold:main',],}
 )
