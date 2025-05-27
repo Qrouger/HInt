@@ -16,8 +16,7 @@ pip install -U "jax[cuda12]"==0.5.3 && \
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
 
 git clone https://github.com/SNU-CSSB/RF2-Lite.git
-cd RF2-Lite
-cd SE3Transformer
+cd RF2-Lite/SE3Transformer
 pip install --no-cache-dir -r requirements.txt
 python setup.py install
 cd ../networks/
