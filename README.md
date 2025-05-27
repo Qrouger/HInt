@@ -11,8 +11,8 @@ It allows you to find homologous proteins with similar interactions.
 
 conda create -n HInt_RF2-lite -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 networkx hhsuite hmmer
 conda activate HInt_RF2-lite
-pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric
-pip install -U "jax[cuda12]"==0.5.3
+pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric && \
+pip install -U "jax[cuda12]"==0.5.3 && \
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
 
 git clone https://github.com/SNU-CSSB/RF2-Lite.git
