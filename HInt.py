@@ -34,25 +34,26 @@ if __name__ == "__main__":
     HInt_object.find_proteins_sequence() #and real name of proteins
     HInt_object.create_fasta_file()
     remove_SP(HInt_object,Informations_dict["Organism"])
-    if Informations_dict["Signal_peptide"] != "None" : #select proteins with or without peptide signal
-        filtered_signalP(HInt_object,Informations_dict)
+    filtered_signalP(HInt_object,Informations_dict)
     create_feature(HInt_object,Informations_dict["Path_AlphaFold_Data"],Informations_dict["Path_Pickle_Feature"])
     Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
     if Informations_dict["Homo-oligomer"] != 1 : #select proteins who can create an homo-oligomer
-        Use_Rosetta_PPI(HInt_object,Informations_dict,"RoseTTAFold_homo_int") #set better interactions all_vs_bait
+        Use_RoseTTA_PPI(HInt_object,Informations_dict,"RF2_homo_int") #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != "" :
-        if len(HInt_object.get_possible_prey()) > 15 :
-            Use_Rosetta_PPI(HInt_object,Informations_dict,"RoseTTAFold_PPI_int") #set better interactions all_vs_bait
-        generate_bait_vs_prey(HInt_object,1500,Informations_dict) #regenerate bait_vs_prey with new preys
-        Generate_3D_model(Informations_dict,"bait_vs_prey")
-        Score_PPI_interaction(Informations_dict)
-
- #   if int(informations_dict["Homo-oligomer"]) >= 2 :
-                    
- #   else :
-
-    #generate_APD_script(PPI_object, args.max_aa)
-
+        #if len(HInt_object.get_possible_prey()) > 15 :
+        if Informations_dict["Organism"] == "euk" :
+            Use_RoseTTA_PPI(HInt_object,Informations_dict,"RF2_PPI_int") #set better interactions all_vs_bait
+        if Informations_dict["Organism"] in ["gram+","gram-"] :
+            Use_RoseTTA_Lite(HInt_object,Informations_dict)      
+        Generate_scripts(HInt_object,1500,Informations_dict,"APD_PPI_int") #generate bait_vs_prey with new preys
+        Generate_3D_model(Informations_dict,"APD_PPI_int")
+        Score_interaction_APD(HInt_object,Informations_dict,"APD_PPI_int")
+    if Informations_dict["Homo-oligomer"] != 1 : #select proteins who can create an homo-oligomer
+        Generate_scripts(HInt_object,1500,Informations_dict,"APD_homo_int")
+        Generate_3D_model(Informations_dict,"APD_homo_int")
+        Score_interaction_APD(HInt_object,Informations_dict,"APD_homo_int")
+    print(HInt_object.get_result_dict())
 
 
     

@@ -6,6 +6,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from datetime import datetime
 import csv
+import logging
+from numpy import load
 
 def Define_informations() :
     """
@@ -19,6 +21,7 @@ def Define_informations() :
     Informations_dict : dict
     """
     Informations_dict = dict()
+    logging.basicConfig(level=logging.INFO)
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -27,14 +30,14 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for informations_key in Informations_dict.keys() :
         if len(Informations_dict[informations_key]) == 0 :
-            print (f'Informations for {informations_key} is empty')
+            logging.info(f'Informations : {informations_key} is empty')
             if informations_key == "Path_Uniprot_ID" or informations_key == "Path_Singularity_Image" :
                 exit()
             elif informations_key == "Path_AlphaFold_Data" :
-                print("set by default on ./alphadata")
+                logging.info("set by default on ./alphadata")
                 Informations_dict[informations_key] = "./alphadata"
             elif informations_key == "Path_Pickle_Feature" :
-                print("set by default on ./feature")
+                logging.info("set by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
@@ -45,7 +48,7 @@ def Define_informations() :
         elif informations_key == "Interact_with" :
             Informations_dict["Interact_with"] = [prot for prot in Informations_dict["Interact_with"].split(",")]
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
-        print("need information to discriminate the potential homologue")
+        logging.info("need information to discriminate the potential homologue")
         exit()
     
     return(Informations_dict)
@@ -114,7 +117,7 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     cmd = ["create_individual_features.py",
     f"--fasta_paths=./{fasta_file}",
     f"--data_dir={Path_AlphaFold_Data}",
-    "--save_msa_files=True",
+    "--save_msa_files=False",
     f"--output_dir={Path_Pickle_Feature}",
     "--max_template_date=2024-05-02",
     "--skip_existing=True",
@@ -149,7 +152,6 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
             pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
             feature_dict = pre_feature_dict.feature_dict
             msa = feature_dict['msa']
-            print(msa)
             seqid = (np.array(msa[0] == msa).mean(-1))
             seqid_sort = seqid.argsort()
             non_gaps = (msa != 21).astype(float)
@@ -178,35 +180,15 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
                possible_prey.remove(prot)
             else :
                shallow_MSA += prot + " : " + str(len(msa)) + " sequences\n"
-               result_dict[prot] = result_dict[prot] + "Shallow MSA"
+               result_dict[prot] = result_dict[prot] + "Shallow MSA | "
     with open("shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
-#def recover_prot_sequence(file, path_pkl) :
-#   """
-#   Take sequence from after SignalP.
-
-#   Parameters:
-#   ----------
-#   file : object of File_proteins class
-#   path_pkl : string
-
-#   Returns:
-#   ----------
-#   """
-#   list_proteins = file.get_proteins()
-#   new_dict_sequence = file.get_proteins_sequence()
-#   for protein in list_proteins :
-#      with open(os.path.join(f'{path_pkl}/{protein}.pkl'), 'rb') as pkl_file :
-#         pickle_dict = pickle.load(pkl_file)
-#         new_dict_sequence[protein] = pickle_dict.sequence
-#   file.set_proteins_sequence(new_dict_sequence)
-
 def filtered_signalP(file, Informations_dict) :
     """
-    Set possible prey in function of signal peptide.
+    Set possible prey in function of signal peptide and re-write a new fasta file in function of the argument selected.
 
     Parameters:
     ----------
@@ -230,23 +212,29 @@ def filtered_signalP(file, Informations_dict) :
                     fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
                     possible_prey.remove(new_line[0])
-                    result_dict[new_line[0]] = "Don't have a signal peptide"
+                    result_dict[new_line[0]] = "Don't have a signal peptide | "
             if SignalP == "No" :
                 if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                     possible_prey.remove(new_line[0])
-                    result_dict[new_line[0]] = "Have a signal peptide"
+                    result_dict[new_line[0]] = "Have a signal peptide |"
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
                     fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
+            if SignalP == "None" :
+                fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
+                if new_line[1] != "OTHER" and new_line[0][0] != "#" :
+                    result_dict[new_line[0]] = "Have a signal peptide |"
+                if new_line[1] == "OTHER" and new_line[0][0] != "#" :
+                    result_dict[new_line[0]] = "Don't have a signal peptide |"
     baits = Informations_dict["Interact_with"]
     for bait in baits :
         if bait not in possible_prey :
-            fasta_lines += ">"+bait+"\n"+seq_dict[bait]+"\n"
+            fasta_lines += ">"+bait+"\n"+seq_dict[bait]+"\n" #add baits to the new fasta file
     with open(file.get_fasta_file(), "w") as fasta_file :
         fasta_file.write(fasta_lines)
     file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
-def generate_bait_vs_prey (file, max_aa, Informations_dict) :
+def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
     """
     Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
 
@@ -259,63 +247,47 @@ def generate_bait_vs_prey (file, max_aa, Informations_dict) :
     Returns:
     ----------
     """
-    bait_vs_prey_script = str()
+    all_lines = str()
     OOM_int = str()
     result_dict = file.get_result_dict()
-    possible_bait = Informations_dict["Interact_with"]
+    possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
-    possible_prey = [protein for protein in possible_prey if protein not in possible_bait] #remove baits from prey list
     lenght_prot = file.get_lenght_prot()
-    for bait in possible_bait :
-        lenght = lenght_prot[bait]
+    if Interaction_file == "APD_PPI_int" :
+        for bait in possible_baits :
+            nbr_prey = 0
+            lenght = lenght_prot[bait]
+            for prey in possible_prey :
+                int_lenght = lenght + lenght_prot[prey]
+                if nbr_prey > 30 :
+                    break
+                if int_lenght >= max_aa :
+                    OOM_int = OOM_int + bait + ";" +  prey + "\n"
+                    result_dict[prey] = result_dict[prey] + "Interaction with bait too large for your GPU"
+                elif os.path.exists(f"./result_APD_PPI_int/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_APD_PPI_int/{prey}_and_{bait}/ranked_0.pdb") == False: #make interaction if doesn't exist and is not too long
+                    all_lines +=bait + ";" +  prey + "\n"
+                    nbr_prey += 1
+                else :
+                    pass
+    if Interaction_file == "APD_homo_int" :
+        nbr_oligo = Informations_dict["Homo-oligomer"]
+        nbr_prey = 0
         for prey in possible_prey :
-            int_lenght = lenght + lenght_prot[prey]
-            if int_lenght >= max_aa :
-                OOM_int = OOM_int + bait + ";" +  prey + "\n"
-                result_dict[prey] = result_dict[prey] + "Interaction too large for your GPU"
-            elif os.path.exists(f"./result_bait_vs_prey/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_bait_vs_prey/{prey}_and_{bait}/ranked_0.pdb") == False: #make interaction if doesn't exist and is not too long
-                bait_vs_prey_script = bait_vs_prey_script + bait + ";" +  prey + "\n"
-            else :
-                pass
-    with open("bait_vs_prey.txt", "w") as all_file:
-       all_file.write(bait_vs_prey_script)
-    with open("OOM_int.txt", "w") as OOM_file :
-       OOM_file.write(OOM_int)
-    file.set_result_dict(result_dict)
-
-    def generate_homo_oligomer (file, max_aa, Informations_dict) :
-    """
-    Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
-
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    max_aa : integer
-    Informations_dict : dictionnary
-
-    Returns:
-    ----------
-    """
-    homo_oligo_script = str()
-    OOM_int = str()
-    result_dict = file.get_result_dict()
-    possible_prey = file.get_possible_prey()
-    possible_prey = [protein for protein in possible_prey if protein not in possible_bait] #remove baits from prey list
-    lenght_prot = file.get_lenght_prot()
-    nbr_oligo = Informations_dict["Homo-oligomer"]
-    for prey in possible_prey :
-        int_lenght = lenght + lenght_prot[prey]
+            int_lenght = lenght_prot[prey] * int(nbr_oligo)
+            if nbr_prey > 30 : #take 30 better interactions from RosseTTA
+                break
             if int_lenght >= max_aa :
                 OOM_int = prey + ":" + lenght_prot + "\n"
                 result_dict[prey] = result_dict[prey] + "Homo-oligomer too large for your GPU"
-            elif os.path.exists(f"./result_homo_oligo/{prey}_homo_{nbr_oligo}/ranked_0.pdb") == False : #make interaction if doesn't exist and is not too long
-                homo_oligo_script = bait_vs_prey_script + prey + ":" +  nbr_oligo + "\n"
+            elif os.path.exists(f"./result_APD_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb") == False : #make interaction if doesn't exist and is not too long
+                all_lines += prey + ":" +  nbr_oligo + "\n"
+                nbr_prey += 1
             else :
                 pass
-    with open("homo_oligo.txt", "w") as all_file:
-       all_file.write(homo_oligo_script)
-    with open("OOM_int.txt", "w") as OOM_file :
-       OOM_file.write(OOM_int)
+    with open(f"{Interaction_file}.txt", "w") as final_file:
+        final_file.write(all_lines)
+    with open("OOM_interactions.txt", "w") as OOM_file :
+        OOM_file.write(OOM_int)
     file.set_result_dict(result_dict)
 
 def Generate_3D_model (Informations_dict, Interaction_file) :
@@ -352,61 +324,93 @@ def Prepare_RoseTTA_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) 
 
     Returns:
     ----------
+    dict_file : dictionnary
     """
     total_int = 0
     all_lines = str()
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
+    result_dict = file.get_result_dict()
+    index_file = 0
+    vram = 48
+    max_lenght_int = int((vram + 15.9) / 0.0223) #bench on data
     if os.path.exists(f"{Path_Pickle_Feature}/{Interaction}.txt") :
        os.remove(f"{Path_Pickle_Feature}/{Interaction}.txt")
-    if Interaction == "RoseTTAFold_homo_int" :
+    if Interaction == "RF2_homo_int" :
         for prey in possible_prey :
             lenght_first_prot = lenght_prot[prey]
             total_int += 1
             all_lines += f"{prey}_and_{prey}.a3m {lenght_first_prot}\n"
             if os.path.exists(f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m") == False :
-                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, lenght_prot)
-    if Interaction == "RoseTTAFold_PPI_int" :
+                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "RF_PPI")
+    if Interaction == "RF2_PPI_int" :
         for bait in possible_baits :
-            lenght_first_prot = lenght_prot[bait]
             for prey in possible_prey :
-                total_int += 1
-                all_lines += f"{bait}_and_{prey}.a3m {lenght_first_prot}\n"
-                if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                    fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, lenght_prot)
-    with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'a') as file_int :
+                total_lenght = lenght_prot[bait] + lenght_prot[prey]
+                if total_lenght > max_lenght_int :#remove interactions with a too big length
+                    result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-PPI OOM"
+                    pass
+                else :
+                    total_int += 1
+                    if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
+                        fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "RF_PPI")
+                    all_lines += f"{bait}_and_{prey}.a3m {lenght_prot[bait]}\n"
+    with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
         file_int.write(all_lines)
-
-#    print(lenght_prot)
-#    with open("bait_vs_prey.txt","r") as in_file :
-#        for line in in_file :
-#            save_prot = ""
-#            new_line = line.strip("\n").split(";")
-#            with open(f'{Path_Pickle_Feature}/{new_line[0]}.a3m') as a3m_file :
-#                index_line = 0
-#                for lines in a3m_file :
-#                    while index_line <= 1 :
-#                        index_line += 1
-#                        if lines[0] == "#" :
-#                            lenght_first_prot[new_line[0]] = lines.split("\t")[0].split("#")[1].strip("\n")
-#            with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'a') as file_int :
-#                file_int.write(f"{new_line[0]}_{new_line[1]}.a3m {lenght_first_prot[new_line[0]]}\n")
-#                total_int += 1
-#            if os.path.exists(f"{Path_Pickle_Feature}/{new_line[0]}_{new_line[1]}.a3m") == False :
-#                fusioned_MSA(new_line[0]+".a3m",new_line[1]+".a3m", Path_Pickle_Feature)
     print(total_int)
+    file.set_result_dict(result_dict)
 
-
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, lenght_prot):
+def Prepare_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits) :
     """
-    Fusioned MSA files.
+    Prepare all RF2-Lite files.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    Path_Pickle_Feature : string
+    Interaction : string
+
+    Returns:
+    ----------
+    dict_file : dictionnary
+    """
+    total_int = 0
+    all_lines = str()
+    possible_prey = file.get_possible_prey()
+    lenght_prot = file.get_lenght_prot()
+    result_dict = file.get_result_dict()
+    index_file = 0
+    vram = 48
+    max_lenght_int = int(vram * 45.833) #need to bench RF2-Lite on data
+    if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
+        os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
+    for bait in possible_baits :
+        for prey in possible_prey :
+            total_lenght = lenght_prot[bait] + lenght_prot[prey]
+            if total_lenght > 2200 :#remove interactions with a too big length
+                result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-Lite OOM"
+                possible_prey.remove(prey) #remove prey with too big interactions
+                pass
+            else :
+                total_int += 1
+                if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
+                    fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "RF2_Lite")
+                all_lines += f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"
+    with open(f"{Path_Pickle_Feature}/RF2_PPI_int.txt",'w') as file_int :
+        file_int.write(all_lines)
+    print(total_int)
+    file.set_result_dict(result_dict)
+
+
+def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, tool):
+    """
+    Fusioned MSA files adn calcul size of a file (length * depth)
 
     Parameters:
     ----------
     a3m1 : string
     a3m1 : string
     Path_Pickle_Feature : string
-    lenght_prot : dictionnary
 
     Returns:
     ----------
@@ -423,19 +427,8 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, lenght_prot):
     hash1 = Uni_to_idx(valid_lab1) #hash in fucntion of UniprotID
     hash2 = Uni_to_idx(valid_lab2)
     idx1, idx2 = np.where(np.abs(hash1[:, None] - hash2[None, :]) < 10) #found close pairs (hash deviation of 10)
-
-    size_file = (int(lenght_prot[a3m2.split(".")[0]])+int(lenght_prot[a3m1.split(".")[0]])) * len(idx1) #calcul the size of one file in caractere (protein lenght * depth of fusioned MSA)
-    print(a3m1,a3m2,"file_size",size_file)
-    vram = 48
-    maximum_size = vram * 17700 #based on our benchmark
-    if size_file > maximum_size :
-        max_depth = maximum_size / (int(lenght_prot[a3m2.split(".")[0]])+int(lenght_prot[a3m1.split(".")[0]]))
-        idx1 = idx1[:max_depth]
-        idx2 = idx2[:max_depth]
-        print("Reduce MSA depth to ", max_depth)
-
     name = str(a3m1).split(".")[0] + "_and_" + str(a3m2).split(".")[0]
-    with open(f'{Path_Pickle_Feature}/fusionned_MSA/{name}.a3m', 'wt') as f: #write fusion file
+    with open(f'{Path_Pickle_Feature}/{name}.a3m', 'wt') as f: #write fusion file
         f.write('>query\n%s%s\n' % (msa1[0], msa2[0])) #add first query sequence
         for i, j in zip(idx1, idx2): #add found pairs
             f.write(">%s_%s\n%s%s\n" % (valid_lab1[i], valid_lab2[j],msa1_valid[i], msa2_valid[j]))
@@ -482,6 +475,7 @@ def read_a3m(a3m):
             else:
                 continue
     return seq, lab
+
 
 def Uni_to_idx(ids):
     """
@@ -530,7 +524,7 @@ def Uni_to_idx(ids):
     table_idx = np.sum(arr * coef, axis=-1)
     return table_idx
 
-def Launch_RoseTTA_PPI(Path_Pickle_Feature,Interaction) :
+def Launch_RoseTTA_PPI(Path_Pickle_Feature, Interaction) :
     """
     Launch RoseTTAFold-PPI.
 
@@ -538,60 +532,75 @@ def Launch_RoseTTA_PPI(Path_Pickle_Feature,Interaction) :
     ----------
     Path_Pickle_Feature : string
     Interaction : string
+    dict_file : dictionnary
 
     Returns:
     ----------
     """
     print("Launch RoseTTAFold2-PPI")
     start_time = datetime.now()
-    cmd = f"singularity exec   --bind {Path_Pickle_Feature}:/work/users   --bind /data/Rosetta-PPI/RoseTTAFold2-PPI:/home/RoseTTAFold2-PPI   --nv /data/Rosetta-PPI/SE3nv.sif   /bin/bash -c 'cd /work/users && python /home/RoseTTAFold2-PPI/src/predict_list_PPI.py -list_fn {Interaction}.txt -model_file /home/RoseTTAFold2-PPI/src/models/RF2-PPI.pt -number_seqs 5000'"
+    cmd = f"singularity exec   --bind {Path_Pickle_Feature}:/work/users   --bind /data/Rosetta-PPI/RoseTTAFold2-PPI:/home/RoseTTAFold2-PPI   --nv /data/Rosetta-PPI/SE3nv.sif   /bin/bash -c 'cd /work/users && python /home/RoseTTAFold2-PPI/src/predict_list_PPI.py -list_fn {Interaction}.txt -model_file /home/RoseTTAFold2-PPI/src/models/RF2-PPI.pt -number_seqs 10000'"
     os.system(cmd)
     end_time = datetime.now()
     duration = end_time - start_time
     print("Durée :", duration)
 
-def Class_output(file, Path_Pickle_Feature, Interaction) :
+
+def Launch_RoseTTA_Lite(Path_Pickle_Feature) :
+    print("Launch RoseTTAFold2-Lite")
+    start_time = datetime.now()
+    cmd = f"python ~/RF2-Lite/networks/predict_complex_list.py -list {Path_Pickle_Feature}/RF2_PPI_int.txt -p cuda:0"
+    os.system(cmd)
+    end_time = datetime.now()
+    duration = end_time - start_time
+    print("Durée :", duration)
+
+def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction) :
     """
-    Classified the PPIs and set new possible prey.
+    Classified PPIs and set new possible prey classed in function of scores.
 
     Parameters:
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
     Interaction : string
+    dict_file : dictionnary
 
     Returns:
     ----------
     """
+    result_dict = file.get_result_dict()
     score_dict = dict()
     possible_prey = list()
     with open(f"{Path_Pickle_Feature}/{Interaction}.txt.log", "r") as log_file :
-            for line in log_file :
-                if line.strip("\n") != "done" :
-                    name = line.split("\t")[0].split("_and_")[1].split(".")[0]
-                    score = line.split("\t")[1]
+        for line in log_file :
+            if line.strip("\n") != "done" :
+                name = line.split("\t")[0].split("_and_")[1].split(".")[0]
+                score = line.split("\t")[1]
+                if name not in score_dict.keys() :
                     score_dict[name] = score
-    if Interaction == "RoseTTAFold_homo_int" :
+                else :
+                    if score_dict[name] < score :
+                        score_dict[name] = score
+    print(score_dict)
+    if Interaction == "RF2_homo_int" :
         for key in score_dict.keys() :
-            if float(score_dict[key]) >= 0.50 :
+            print(score_dict)
+            result_dict[key] = result_dict[key] + f"RF2_homo_int : {score_dict[key]}"
+            if float(score_dict[key]) >= 0.24 :
                 possible_prey.append(key)
-    if Interaction == "RoseTTAFold_PPI_int" :
-        score_dict = dict(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
-        index_k = 0
-        print(score_dict)
-        for key in score_dict.keys() :
-            index_k += 1
-            possible_prey.append(key)
-            if index_k == 30 :
-                break
-    cmd = f"cp {Path_Pickle_Feature}/{Interaction}.txt.log ."
-    os.system(cmd)
+    if Interaction == "RF2_PPI_int" :
+        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
+        for prot_score in sorted_list :
+            possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
     print(possible_prey)
     file.set_possible_prey(possible_prey)
+    file.set_result_dict(result_dict)
 
-def Use_Rosetta_PPI(file, Informations_dict, Interaction) :
+
+def Use_RoseTTA_PPI(file, Informations_dict, Interaction) :
     """
-    Main of RoseTTA_PPI.
+    Main of RoseTTA-PPI.
 
     Parameters:
     ----------
@@ -603,12 +612,37 @@ def Use_Rosetta_PPI(file, Informations_dict, Interaction) :
     ----------
     """
     Prepare_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction)
-    Launch_RoseTTA_PPI(Informations_dict["Path_Pickle_Feature"],Interaction)
-    Class_output(file, Informations_dict["Path_Pickle_Feature"],Interaction)
+    Launch_RoseTTA_PPI(Informations_dict["Path_Pickle_Feature"],Interaction) 
+    Class_output_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"],Interaction)
 
-def Score_PPI_interaction (Informations_dict) :
+def Class_output_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits) :
+    result_dict = file.get_result_dict()
+    score_dict = dict()
+    possible_prey = file.get_possible_prey()
+    new_possible_prey = list()
+    for bait in possible_baits :
+        for prey in possible_prey :
+            data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}_00.npz")
+            int_score = np.max(data['dist'][:-10,10:])
+            score_dict[prey] = int_score
+            result_dict[prey] += result_dict[prey] + f" | RF2_Lite_int : {int_score}" 
+        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
+        for prot_score in sorted_list :
+            new_possible_prey.append(prot_score[0])
+    print(score_dict)
+    print(new_possible_prey)
+    file.set_possible_prey(new_possible_prey)
+    file.set_result_dict(result_dict)
+
+def Use_RoseTTA_Lite(file, Informations_dict) :
+    Prepare_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"])
+    Launch_RoseTTA_Lite(Informations_dict["Path_Pickle_Feature"])
+    Class_output_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"],Informations_dict["Interact_with"])
+
+
+def Score_interaction_APD (file, Informations_dict, Interaction) :
     """
-    Generate scores for all interactions.
+    Generate scores for all interactions and set a list of possible prey based on the scores.
 
     Parameters:
     ----------
@@ -617,24 +651,69 @@ def Score_PPI_interaction (Informations_dict) :
     Returns:
     ----------
     """
+    result_dict = file.get_result_dict()
+    score_dict = dict()
+    possible_prey = list()
     Path_Singularity_Image = Informations_dict["Path_Singularity_Image"]
-    if os.path.isdir("./result_bait_vs_prey") == True :
-        cmd = f"singularity exec --no-home --bind result_bait_vs_prey:/mnt {Path_Singularity_Image} run_get_good_pae.sh --output_dir=/mnt --cutoff=10"
+    if os.path.isdir(f"./result_{Interaction}") == True :
+        cmd = f"singularity exec --no-home --bind result_{Interaction}:/mnt {Path_Singularity_Image} run_get_good_pae.sh --output_dir=/mnt --cutoff=10"
         os.system(cmd)
-        with open("result_bait_vs_prey/predictions_with_good_interpae.csv", "r") as file1 :
+        with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as file1 :
             reader = csv.DictReader(file1)
-            all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
-            for row in reader :
-                job = row['jobs']
-                if '_and_' in job :
-                    if row['pi_score'] == 'No interface detected' :
-                        iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so is set on -2.63
-                        line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+
+            if Interaction == "APD_PPI_int" :
+                all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
+                for row in reader :
+                    job = row['jobs']
+                    if '_and_' in job :
+                        if row['pi_score'] == 'No interface detected' :
+                            iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so is set on -2.63
+                            line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                        else :
+                            iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
+                            line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                    result_dict[job.split("_and_")[1]] += f" | iQ_score : {iQ_score}"
+                    all_lines = all_lines + line
+                    score_dict[job.split("_and_")[1]] = iQ_score
+                sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
+                for prot_score in sorted_list :
+                    print(prot_score)
+                    possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
+
+            if Interaction == "APD_homo_int" :
+                all_homo = dict()
+                save_pi_score = dict()
+                all_lines = "jobs,pi_score,iptm_ptm,hiQ_score\n"
+                for row in reader :
+                    job = row['jobs']
+                    if row['pi_score'] != 'No interface detected' :
+                        if job not in all_homo.keys() :
+                            all_homo[job] = (row['pi_score'],1,row)
+                            save_pi_score[job] = [float(row['pi_score'])]
+                        else :
+                            save_pi_score[job].append(float(row['pi_score']))
+                            sum_pi_score = float(all_homo[job][0]) + float(row['pi_score'])
+                            sum_int = all_homo[job][1] + 1
+                            all_homo[job] = (sum_pi_score,sum_int,row)
+                for key in all_homo.keys() :
+                    row = all_homo[key][2]
+                    number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4
+                    if len(save_pi_score[key]) > int(number_oligo) : #if model have more interface than number of homo-oligomerization
+                        new_sum_pi_score = 0
+                        save_pi_score[key].sort(reverse=True)
+                        for index in range(0,int(number_oligo)) :
+                            new_sum_pi_score += save_pi_score[key][index]
+                            hiQ_score = (((float(new_sum_pi_score)/int(number_oligo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
+                        line =f'{key},{str(float(new_sum_pi_score)/int(number_oligo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                        all_lines += line
                     else :
-                        iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
-                        line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                all_lines = all_lines + line
-        with open("result_bait_vs_prey/new_predictions_with_good_interpae.csv", "w") as file2 :
-            file2.write(all_lines)
+                        hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                        line =f'{key},{str(float(all_homo[key][0])/all_homo[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                        all_lines += line
+                    result_dict[key.split("_homo_")[0]] += f" | hiQ_score : {hiQ_score}"
+            with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
+                file2.write(all_lines)
+        file.set_result_dict(result_dict)
+        file.set_possible_prey(possible_prey)
     else :
-        print("result_bait_vs_prey don't exist")
+        print(f"result_{Interaction}/ don't exist")
