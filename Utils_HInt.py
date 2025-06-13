@@ -129,7 +129,7 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     process.stdout.close()
     process.wait()
 
-def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
+def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour parse toutes les prot
     """
     Generating MSA coverage for all proteins and write shallow_MSA text file.
 
@@ -145,6 +145,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     shallow_MSA = str()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
+    new_possible_prey = list()
     for prot in all_proteins :
         if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() :
             pass
@@ -177,13 +178,15 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
             if len(msa) <= 2 :
                shallow_MSA += prot + " : " + str(len(msa)) + " sequences\n"
                result_dict[prot] = result_dict[prot] + "No MSA"
-               possible_prey.remove(prot)
             else :
                shallow_MSA += prot + " : " + str(len(msa)) + " sequences\n"
                result_dict[prot] = result_dict[prot] + "Shallow MSA | "
+               new_possible_prey.append(prot)
+        else :
+            new_possible_prey.append(prot)
     with open("shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
-    file.set_possible_prey(possible_prey)
+    file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
 def filtered_signalP(file, Informations_dict) :
@@ -202,6 +205,7 @@ def filtered_signalP(file, Informations_dict) :
     result_dict = file.get_result_dict()
     seq_dict = file.get_proteins_sequence()
     possible_prey = file.get_possible_prey()
+    new_possible_prey = list()
     fasta_lines = str()
     SignalP = Informations_dict["Signal_peptide"]
     with open(file_signalp, "r") as SP_file :
@@ -210,31 +214,34 @@ def filtered_signalP(file, Informations_dict) :
             if SignalP == "Yes" :
                 if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                     fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
+                    new_possible_prey.append(new_line[0])
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
-                    possible_prey.remove(new_line[0])
-                    result_dict[new_line[0]] = "Don't have a signal peptide | "
+                    result_dict[new_line[0]] = "Don't have a signal peptide"
             if SignalP == "No" :
                 if new_line[1] != "OTHER" and new_line[0][0] != "#" :
-                    possible_prey.remove(new_line[0])
-                    result_dict[new_line[0]] = "Have a signal peptide |"
+                    result_dict[new_line[0]] = "Have a signal peptide"
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
+                    new_possible_prey.append(new_line[0])
                     fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
             if SignalP == "None" :
-                fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
                 if new_line[1] != "OTHER" and new_line[0][0] != "#" :
-                    result_dict[new_line[0]] = "Have a signal peptide |"
+                    result_dict[new_line[0]] = "Have a signal peptide | "
+                    fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n" #avoid to make fasta with wrong
+                    new_possible_prey.append(new_line[0])
                 if new_line[1] == "OTHER" and new_line[0][0] != "#" :
-                    result_dict[new_line[0]] = "Don't have a signal peptide |"
+                    result_dict[new_line[0]] = "Don't have a signal peptide | "
+                    fasta_lines += ">"+new_line[0]+"\n"+seq_dict[new_line[0]]+"\n"
+                    new_possible_prey.append(new_line[0])
     baits = Informations_dict["Interact_with"]
     for bait in baits :
         if bait not in possible_prey :
             fasta_lines += ">"+bait+"\n"+seq_dict[bait]+"\n" #add baits to the new fasta file
     with open(file.get_fasta_file(), "w") as fasta_file :
         fasta_file.write(fasta_lines)
-    file.set_possible_prey(possible_prey)
+    file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
-def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
+def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
     """
     Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
 
@@ -243,6 +250,7 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
     file : object of class File_proteins
     max_aa : integer
     Informations_dict : dictionnary
+    GPU : list
 
     Returns:
     ----------
@@ -253,6 +261,7 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
+    save_lenght_line = dict()
     if Interaction_file == "APD_PPI_int" :
         for bait in possible_baits :
             nbr_prey = 0
@@ -261,14 +270,16 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
                 int_lenght = lenght + lenght_prot[prey]
                 if nbr_prey > 30 :
                     break
-                if int_lenght >= max_aa :
-                    OOM_int = OOM_int + bait + ";" +  prey + "\n"
-                    result_dict[prey] = result_dict[prey] + "Interaction with bait too large for your GPU"
-                elif os.path.exists(f"./result_APD_PPI_int/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_APD_PPI_int/{prey}_and_{bait}/ranked_0.pdb") == False: #make interaction if doesn't exist and is not too long
-                    all_lines +=bait + ";" +  prey + "\n"
-                    nbr_prey += 1
+                if os.path.exists(f"./result_APD_PPI_int/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_APD_PPI_int/{prey}_and_{bait}/ranked_0.pdb") == False : #if model don't exist
+                    if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
+                        save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
+                        nbr_prey += 1
+                    else : #if interaction is too large
+                        OOM_int = OOM_int + bait + ";" +  prey + "\n"
+                        result_dict[prey] = result_dict[prey] + "| Interaction with bait too large for your GPU"
                 else :
-                    pass
+                    nbr_prey += 1
+                    pass  
     if Interaction_file == "APD_homo_int" :
         nbr_oligo = Informations_dict["Homo-oligomer"]
         nbr_prey = 0
@@ -276,21 +287,25 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file) :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
             if nbr_prey > 30 : #take 30 better interactions from RosseTTA
                 break
-            if int_lenght >= max_aa :
-                OOM_int = prey + ":" + lenght_prot + "\n"
-                result_dict[prey] = result_dict[prey] + "Homo-oligomer too large for your GPU"
-            elif os.path.exists(f"./result_APD_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb") == False : #make interaction if doesn't exist and is not too long
-                all_lines += prey + ":" +  nbr_oligo + "\n"
-                nbr_prey += 1
+            if os.path.exists(f"./result_APD_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb") == False : #if model don't exist
+                if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
+                    save_lenght_line[f"{prey}_homer_{nbr_oligo}er"] = [int_lenght, f"{prey}:{nbr_oligo}\n"]
+                    nbr_prey += 1
+                else : #if interaction is too large
+                    OOM_int = prey + ":" + nbr_oligo + "\n"
+                    result_dict[prey] = result_dict[prey] + "Homo-oligomer too large for your GPU"
             else :
-                pass
-    with open(f"{Interaction_file}.txt", "w") as final_file:
-        final_file.write(all_lines)
+                nbr_prey += 1
+                pass  
+    dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
+    for GPU_i in dict_split_GPU.keys() :          
+        with open(f"{Interaction_file}_{GPU_i}.txt",'w') as final_file :
+            final_file.write(dict_split_GPU[GPU_i])
     with open("OOM_interactions.txt", "w") as OOM_file :
         OOM_file.write(OOM_int)
     file.set_result_dict(result_dict)
 
-def Generate_3D_model (Informations_dict, Interaction_file) :
+def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
     """
     Use Alphapulldown script to generate 3D interactions.
 
@@ -298,6 +313,7 @@ def Generate_3D_model (Informations_dict, Interaction_file) :
     ----------
     Informations_dict : dictionnary
     Interaction_file : string
+    GPU : list
 
     Returns:
     ----------
@@ -308,27 +324,38 @@ def Generate_3D_model (Informations_dict, Interaction_file) :
     os.environ['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
-    cmd1 =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists={Interaction_file}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
-    os.system(cmd1)
+    processes = []
+    start_time = datetime.now()
+    for GPU_index in GPU:
+        env = {"CUDA_VISIBLE_DEVICES": GPU_index}
+        cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists={Interaction_file}_GPU_{GPU_index}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
+        p = subprocess.Popen(cmd, shell=True, env={**env, **dict(os.environ)})
+        processes.append(p)
+    for p in processes:
+        p.wait()
+    end_time = datetime.now()
+    duration = end_time - start_time
+    print("Durée APD:", duration)
 
-
-def Prepare_RoseTTA_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
+def Prepare_RoseTTA_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU) :
     """
-    Prepare all RoseTTA-PPI files.
+    Prepare script for RoseTTAFold2-PPI.
 
     Parameters:
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
     Interaction : string
+    GPU : list
 
     Returns:
     ----------
     dict_file : dictionnary
     """
     total_int = 0
-    all_lines = str()
+    save_lenght_line = dict()
     possible_prey = file.get_possible_prey()
+    new_possible_prey = list()
     lenght_prot = file.get_lenght_prot()
     result_dict = file.get_result_dict()
     index_file = 0
@@ -339,72 +366,79 @@ def Prepare_RoseTTA_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) 
     if Interaction == "RF2_homo_int" :
         for prey in possible_prey :
             lenght_first_prot = lenght_prot[prey]
+            save_lenght_line[f"{prey}_and_{prey}.a3m"] = [lenght_prot[prey] + lenght_prot[prey],f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m {lenght_first_prot}\n"] #save lenght of interactions and line to write in the final
             total_int += 1
-            all_lines += f"{prey}_and_{prey}.a3m {lenght_first_prot}\n"
             if os.path.exists(f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m") == False :
-                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "RF_PPI")
+                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI")
     if Interaction == "RF2_PPI_int" :
         for bait in possible_baits :
             for prey in possible_prey :
-                total_lenght = lenght_prot[bait] + lenght_prot[prey]
-                if total_lenght > max_lenght_int :#remove interactions with a too big length
+                lenght_int = lenght_prot[bait] + lenght_prot[prey]
+                if lenght_int > max_lenght_int :#remove interactions with a too big length
                     result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-PPI OOM"
-                    pass
                 else :
                     total_int += 1
                     if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                        fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "RF_PPI")
-                    all_lines += f"{bait}_and_{prey}.a3m {lenght_prot[bait]}\n"
-    with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
-        file_int.write(all_lines)
+                        fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI")
+                    save_lenght_line[f"{bait}_and_{prey}.a3m"] = [lenght_prot[bait] + lenght_prot[prey], f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]}\n"]
+                    new_possible_prey.append(prey)
+    dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
+    for GPU_i in dict_split_GPU.keys() :
+        with open(f"{Path_Pickle_Feature}/{Interaction}_{GPU_i}.txt",'w') as file_int :
+            file_int.write(dict_split_GPU[GPU_i])
     print(total_int)
+    file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
-def Prepare_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits) :
+def Prepare_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     """
-    Prepare all RF2-Lite files.
+    Prepare script for RF2-Lite.
 
     Parameters:
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
     Interaction : string
+    GPU : list
 
     Returns:
     ----------
     dict_file : dictionnary
     """
     total_int = 0
-    all_lines = str()
+    save_lenght_line = dict()
     possible_prey = file.get_possible_prey()
+    new_possible_prey = list()
     lenght_prot = file.get_lenght_prot()
     result_dict = file.get_result_dict()
     index_file = 0
     vram = 48
-    max_lenght_int = int(vram * 45.833) #need to bench RF2-Lite on data
+    max_lenght_int = int(vram * 50) #need to bench RF2-Lite on data
     if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
         os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
-    for bait in possible_baits :
+    for bait in possible_baits  :
         for prey in possible_prey :
             total_lenght = lenght_prot[bait] + lenght_prot[prey]
-            if total_lenght > 2200 :#remove interactions with a too big length
-                result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-Lite OOM"
-                possible_prey.remove(prey) #remove prey with too big interactions
-                pass
+            if total_lenght > max_lenght_int :#remove interactions with a too big length
+                result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-Lite OOM"                
             else :
                 total_int += 1
                 if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                    fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "RF2_Lite")
-                all_lines += f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"
-    with open(f"{Path_Pickle_Feature}/RF2_PPI_int.txt",'w') as file_int :
-        file_int.write(all_lines)
+                    fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite")
+                save_lenght_line[f"{bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"]
+                new_possible_prey.append(prey) #add all preys to the new possible prey list
+    dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
+    for GPU_i in dict_split_GPU.keys() :          
+        with open(f"{Path_Pickle_Feature}/RF2_PPI_int_{GPU_i}.txt",'w') as file_int :
+            file_int.write(dict_split_GPU[GPU_i])
     print(total_int)
+    file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
 
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, tool):
+def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2):
     """
-    Fusioned MSA files adn calcul size of a file (length * depth)
+    Fusioned MSA files and calcul size of a file (length * depth)
 
     Parameters:
     ----------
@@ -427,6 +461,9 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, tool):
     hash1 = Uni_to_idx(valid_lab1) #hash in fucntion of UniprotID
     hash2 = Uni_to_idx(valid_lab2)
     idx1, idx2 = np.where(np.abs(hash1[:, None] - hash2[None, :]) < 10) #found close pairs (hash deviation of 10)
+    if RF2=="Lite" and len(idx1) >= 4095:
+        idx1 = idx1[:4095]
+        idx2 = idx2[:4095]
     name = str(a3m1).split(".")[0] + "_and_" + str(a3m2).split(".")[0]
     with open(f'{Path_Pickle_Feature}/{name}.a3m', 'wt') as f: #write fusion file
         f.write('>query\n%s%s\n' % (msa1[0], msa2[0])) #add first query sequence
@@ -524,38 +561,72 @@ def Uni_to_idx(ids):
     table_idx = np.sum(arr * coef, axis=-1)
     return table_idx
 
-def Launch_RoseTTA_PPI(Path_Pickle_Feature, Interaction) :
+def Launch_RoseTTA_PPI(Path_Pickle_Feature, Interaction, GPU) :
     """
-    Launch RoseTTAFold-PPI.
+    Launch RoseTTAFold2-PPI.
 
     Parameters:
     ----------
     Path_Pickle_Feature : string
     Interaction : string
     dict_file : dictionnary
+    GPU : list
 
     Returns:
     ----------
     """
     print("Launch RoseTTAFold2-PPI")
     start_time = datetime.now()
-    cmd = f"singularity exec   --bind {Path_Pickle_Feature}:/work/users   --bind /data/Rosetta-PPI/RoseTTAFold2-PPI:/home/RoseTTAFold2-PPI   --nv /data/Rosetta-PPI/SE3nv.sif   /bin/bash -c 'cd /work/users && python /home/RoseTTAFold2-PPI/src/predict_list_PPI.py -list_fn {Interaction}.txt -model_file /home/RoseTTAFold2-PPI/src/models/RF2-PPI.pt -number_seqs 10000'"
-    os.system(cmd)
+    processes = []
+    for GPU_index in GPU:
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = str(GPU_index)
+        cmd = ["python",
+        "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/predict_list_PPI.py",
+        "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{GPU_index}.txt",
+        "-model_file", "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
+        "-number_seqs", "5000"]
+        p = subprocess.Popen(cmd,env=env)
+        processes.append(p)
+    for p in processes:
+        p.wait()
     end_time = datetime.now()
     duration = end_time - start_time
-    print("Durée :", duration)
+    print("Durée RoseTTA-PPI:", duration)
 
+def Launch_RoseTTA_Lite(Path_Pickle_Feature, GPU) :
+    """
+    Launch RoseTTAFold2_Lite.
 
-def Launch_RoseTTA_Lite(Path_Pickle_Feature) :
+    Parameters:
+    ----------
+    Path_Pickle_Feature : string
+    Path_Pickle_Feature : string
+    GPU : list
+
+    Returns:
+    ----------
+    """
     print("Launch RoseTTAFold2-Lite")
     start_time = datetime.now()
-    cmd = f"python ~/RF2-Lite/networks/predict_complex_list.py -list {Path_Pickle_Feature}/RF2_PPI_int.txt -p cuda:0"
-    os.system(cmd)
+    processes = []
+    for GPU_index in GPU:
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = str(GPU_index)
+        script_path = os.path.expanduser("~/RF2-Lite/networks/predict_complex_list.py")
+        cmd = ["python",
+                script_path,
+                "-list", f"{Path_Pickle_Feature}/RF2_PPI_int_GPU_{GPU_index}.txt",
+                "-p", "cuda:0"]
+        p = subprocess.Popen(cmd,env=env)
+        processes.append(p)
+    for p in processes:
+        p.wait()
     end_time = datetime.now()
     duration = end_time - start_time
-    print("Durée :", duration)
+    print("Durée RoseTTA_Lite :", duration)
 
-def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction) :
+def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
     """
     Classified PPIs and set new possible prey classed in function of scores.
 
@@ -564,7 +635,7 @@ def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction) :
     file : object of class File_proteins
     Path_Pickle_Feature : string
     Interaction : string
-    dict_file : dictionnary
+    GPU : list
 
     Returns:
     ----------
@@ -572,20 +643,19 @@ def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction) :
     result_dict = file.get_result_dict()
     score_dict = dict()
     possible_prey = list()
-    with open(f"{Path_Pickle_Feature}/{Interaction}.txt.log", "r") as log_file :
-        for line in log_file :
-            if line.strip("\n") != "done" :
-                name = line.split("\t")[0].split("_and_")[1].split(".")[0]
-                score = line.split("\t")[1]
-                if name not in score_dict.keys() :
-                    score_dict[name] = score
-                else :
-                    if score_dict[name] < score :
+    for GPU_index in GPU :
+        with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{GPU_index}.txt.log", "r") as log_file :
+            for line in log_file :
+                if line.strip("\n") != "done" :
+                    name = line.split("\t")[0].split("_and_")[1].split(".")[0]
+                    score = line.split("\t")[1]
+                    if name not in score_dict.keys() :
                         score_dict[name] = score
-    print(score_dict)
+                    else :
+                        if score_dict[name] < score :
+                            score_dict[name] = score
     if Interaction == "RF2_homo_int" :
         for key in score_dict.keys() :
-            print(score_dict)
             result_dict[key] = result_dict[key] + f"RF2_homo_int : {score_dict[key]}"
             if float(score_dict[key]) >= 0.24 :
                 possible_prey.append(key)
@@ -593,12 +663,11 @@ def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction) :
         sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
         for prot_score in sorted_list :
             possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
-    print(possible_prey)
     file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
 
-def Use_RoseTTA_PPI(file, Informations_dict, Interaction) :
+def Use_RoseTTA_PPI(file, Informations_dict, Interaction, GPU) :
     """
     Main of RoseTTA-PPI.
 
@@ -607,37 +676,63 @@ def Use_RoseTTA_PPI(file, Informations_dict, Interaction) :
     file : object of class File_proteins
     Informations_dict : dictionary
     Interaction : string
+    GPU : list
 
     Returns:
     ----------
     """
-    Prepare_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction)
-    Launch_RoseTTA_PPI(Informations_dict["Path_Pickle_Feature"],Interaction) 
-    Class_output_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"],Interaction)
+    Prepare_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU)
+    Launch_RoseTTA_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU) 
+    Class_output_RoseTTA_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
 
-def Class_output_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits) :
+def Class_output_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
+    """
+    Classified PPIs and set new possible prey classed in function of scores.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    Path_Pickle_Feature : string
+    possible_baits : list
+    GPU : list
+
+    Returns:
+    ----------
+    """
     result_dict = file.get_result_dict()
     score_dict = dict()
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
+    all_lines = ""
     for bait in possible_baits :
         for prey in possible_prey :
             data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}_00.npz")
             int_score = np.max(data['dist'][:-10,10:])
+            all_lines += f"{bait}_and_{prey} {int_score}\n"
             score_dict[prey] = int_score
-            result_dict[prey] += result_dict[prey] + f" | RF2_Lite_int : {int_score}" 
-        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
-        for prot_score in sorted_list :
-            new_possible_prey.append(prot_score[0])
-    print(score_dict)
-    print(new_possible_prey)
+            result_dict[prey] += f" | RF2_Lite_int : {int_score}" 
+    sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
+    for prot_score in sorted_list :
+        new_possible_prey.append(prot_score[0])
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
-def Use_RoseTTA_Lite(file, Informations_dict) :
-    Prepare_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"])
-    Launch_RoseTTA_Lite(Informations_dict["Path_Pickle_Feature"])
-    Class_output_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"],Informations_dict["Interact_with"])
+def Use_RoseTTA_Lite(file, Informations_dict, GPU) :
+    """
+    Main of RoseTTA_Lite.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    Informations_dict : dictionary
+    GPU : list
+
+    Returns:
+    ----------
+    """
+    Prepare_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], GPU)
+    Launch_RoseTTA_Lite(Informations_dict["Path_Pickle_Feature"], GPU)
+    Class_output_RoseTTA_Lite(file, Informations_dict["Path_Pickle_Feature"],Informations_dict["Interact_with"], GPU)
 
 
 def Score_interaction_APD (file, Informations_dict, Interaction) :
@@ -677,7 +772,6 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                     score_dict[job.split("_and_")[1]] = iQ_score
                 sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
                 for prot_score in sorted_list :
-                    print(prot_score)
                     possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
 
             if Interaction == "APD_homo_int" :
@@ -717,3 +811,40 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
         file.set_possible_prey(possible_prey)
     else :
         print(f"result_{Interaction}/ don't exist")
+
+def Split_to_GPU(file, save_lenght_line, GPU) :
+    """
+    Split interactions in function of their lenght in different GPU.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    save_lenght_line : dictionnary
+    GPU : list
+
+    Returns:
+    ----------
+    dict_split_GPU : dictionnary
+    """
+    sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
+    index_GPU = 0
+    dict_split_GPU = dict()
+    for nbr_GPU in GPU :
+        dict_split_GPU[f"GPU_{nbr_GPU}"] = ""
+    for interactions in sorted_list :
+        dict_split_GPU[f"GPU_{GPU[index_GPU]}"] += interactions[1][1]
+        index_GPU += 1
+        if index_GPU > len(GPU)-1 :
+            index_GPU = 0
+    return (dict_split_GPU)
+
+def Resume_file(file) :
+    all_lines = str()
+    result_dict = file.get_result_dict()
+    for prey in result_dict.keys() :
+        all_lines += prey + " : " + result_dict[prey] + "\n"
+        list_arg = result_dict[prey].split("|")
+#        if iQ_score in list_arg and hiQ_score in list_arg :
+            
+    with open("Final_result.txt", "w") as result_file :
+        result_file.write(all_lines)
