@@ -146,7 +146,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour 
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
-    for prot in all_proteins :
+    for prot in possible_prey :
         if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() :
             pass
         else :    
@@ -170,7 +170,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour 
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
-    for prot in all_proteins : #just write shallow_MSA.txt
+    for prot in possible_prey : #just write shallow_MSA.txt
         pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
         feature_dict = pre_feature_dict.feature_dict
         msa = feature_dict['msa']
@@ -240,6 +240,7 @@ def filtered_signalP(file, Informations_dict) :
         fasta_file.write(fasta_lines)
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
+    print(new_possible_prey)
 
 def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
     """
@@ -413,7 +414,7 @@ def Prepare_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     result_dict = file.get_result_dict()
     index_file = 0
     vram = 48
-    max_lenght_int = int(vram * 50) #need to bench RF2-Lite on data
+    max_lenght_int = int(vram * 47) #need to bench RF2-Lite on data
     if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
         os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
     for bait in possible_baits  :
@@ -612,12 +613,12 @@ def Launch_RoseTTA_Lite(Path_Pickle_Feature, GPU) :
     processes = []
     for GPU_index in GPU:
         env = os.environ.copy()
-        env["CUDA_VISIBLE_DEVICES"] = str(GPU_index)
+#        env["CUDA_VISIBLE_DEVICES"] = str(GPU_index)
         script_path = os.path.expanduser("~/RF2-Lite/networks/predict_complex_list.py")
         cmd = ["python",
                 script_path,
                 "-list", f"{Path_Pickle_Feature}/RF2_PPI_int_GPU_{GPU_index}.txt",
-                "-p", "cuda:0"]
+                "-p", f"cuda:{GPU_index}"]
         p = subprocess.Popen(cmd,env=env)
         processes.append(p)
     for p in processes:
@@ -842,9 +843,10 @@ def Resume_file(file) :
     all_lines = str()
     result_dict = file.get_result_dict()
     for prey in result_dict.keys() :
-        all_lines += prey + " : " + result_dict[prey] + "\n"
         list_arg = result_dict[prey].split("|")
-#        if iQ_score in list_arg and hiQ_score in list_arg :
-            
+        if iQ_score in list_arg :
+            all_lines = prey + " : " + result_dict[prey] + "\n" + all_lines
+        else :
+            all_lines += prey + " : " + result_dict[prey] + "\n"
     with open("Final_result.txt", "w") as result_file :
         result_file.write(all_lines)
