@@ -8,6 +8,7 @@ from datetime import datetime
 import csv
 import logging
 from numpy import load
+from multiprocessing import Process
 
 def Define_informations() :
     """
@@ -125,7 +126,7 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     "--use_precomputed_msas=True"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
     for line in process.stdout:
-       print(line, end="")
+        print(line, end="")
     process.stdout.close()
     process.wait()
 
@@ -240,7 +241,6 @@ def filtered_signalP(file, Informations_dict) :
         fasta_file.write(fasta_lines)
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
-    print(new_possible_prey)
 
 def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
     """
@@ -321,22 +321,31 @@ def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
     """
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-    os.environ['TF_FORCE_UNIFIED_MEMORY'] = 'true'
-    os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
-    os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
-    processes = []
     start_time = datetime.now()
-    for GPU_index in GPU:
-        env = {"CUDA_VISIBLE_DEVICES": GPU_index}
-        cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists={Interaction_file}_GPU_{GPU_index}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
-        p = subprocess.Popen(cmd, shell=True, env={**env, **dict(os.environ)})
+    processes = []
+    for gpu_id in GPU:
+        p = Process(
+            target=run_job_on_gpu,
+            args=(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature)
+        )
+        p.start()
         processes.append(p)
     for p in processes:
-        p.wait()
+        p.join()
     end_time = datetime.now()
-    duration = end_time - start_time
-    print("Durée APD:", duration)
+    print("Durée APD:", end_time - start_time)
+
+def run_job_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature):
+    env = os.environ.copy()
+    env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+    env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
+    env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
+    env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
+    cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists={Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
+    log_file = f"log_GPU_{gpu_id}.txt"
+    subprocess.run(cmd, shell=True, env=env)
+
 
 def Prepare_RoseTTA_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU) :
     """
@@ -414,7 +423,7 @@ def Prepare_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     result_dict = file.get_result_dict()
     index_file = 0
     vram = 48
-    max_lenght_int = int(vram * 47) #need to bench RF2-Lite on data
+    max_lenght_int = int(vram * 48) #need to bench RF2-Lite on data
     if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
         os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
     for bait in possible_baits  :
@@ -593,7 +602,7 @@ def Launch_RoseTTA_PPI(Path_Pickle_Feature, Interaction, GPU) :
         p.wait()
     end_time = datetime.now()
     duration = end_time - start_time
-    print("Durée RoseTTA-PPI:", duration)
+    print("Time RoseTTA-PPI:", duration)
 
 def Launch_RoseTTA_Lite(Path_Pickle_Feature, GPU) :
     """
@@ -613,7 +622,6 @@ def Launch_RoseTTA_Lite(Path_Pickle_Feature, GPU) :
     processes = []
     for GPU_index in GPU:
         env = os.environ.copy()
-#        env["CUDA_VISIBLE_DEVICES"] = str(GPU_index)
         script_path = os.path.expanduser("~/RF2-Lite/networks/predict_complex_list.py")
         cmd = ["python",
                 script_path,
@@ -625,7 +633,7 @@ def Launch_RoseTTA_Lite(Path_Pickle_Feature, GPU) :
         p.wait()
     end_time = datetime.now()
     duration = end_time - start_time
-    print("Durée RoseTTA_Lite :", duration)
+    print("Time RoseTTAFold2-Lite :", duration)
 
 def Class_output_RoseTTA_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
     """
@@ -707,11 +715,11 @@ def Class_output_RoseTTA_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     all_lines = ""
     for bait in possible_baits :
         for prey in possible_prey :
-            data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}_00.npz")
+            data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey }_00.npz")
             int_score = np.max(data['dist'][:-10,10:])
             all_lines += f"{bait}_and_{prey} {int_score}\n"
             score_dict[prey] = int_score
-            result_dict[prey] += f" | RF2_Lite_int : {int_score}" 
+            result_dict[prey] += f" RF2_Lite_int : {int_score}" 
     sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
     for prot_score in sorted_list :
         new_possible_prey.append(prot_score[0])
@@ -842,11 +850,12 @@ def Split_to_GPU(file, save_lenght_line, GPU) :
 def Resume_file(file) :
     all_lines = str()
     result_dict = file.get_result_dict()
-    for prey in result_dict.keys() :
-        list_arg = result_dict[prey].split("|")
-        if iQ_score in list_arg :
-            all_lines = prey + " : " + result_dict[prey] + "\n" + all_lines
-        else :
-            all_lines += prey + " : " + result_dict[prey] + "\n"
+    possible_prey = file.get_possible_prey()
+    proteins = file.get_proteins()
+    for prey in possible_prey :
+        all_lines += prey + " : " + result_dict[prey] + "\n"
+        proteins.remove(prey) 
+    for rest_prey in proteins :
+        all_lines += prey + " : " + result_dict[rest_prey] + "\n"
     with open("Final_result.txt", "w") as result_file :
         result_file.write(all_lines)

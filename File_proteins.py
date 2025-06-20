@@ -377,7 +377,7 @@ class File_proteins() :
         self.set_interface_dict(interface_dict)
         self.set_result_dict(result_dict)
  
-    def find_proteins_sequence (self) :
+    def find_proteins_sequence (self, Path_Pickle_Feature) :
         """
         Search for the amino acid sequence on the UniProt website and clean it and the name of proteins.
         
@@ -394,19 +394,30 @@ class File_proteins() :
         del_car = ["\n"," ","//"]
         for proteins in self.get_proteins() :
             if proteins not in sequences.keys() :
-                print("Search sequence for " + proteins)
-                urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
-                if os.path.getsize("temp_file.txt") == 0 :
-                    print(f"{proteins} is not a compliant UniprotID")
-                with open("temp_file.txt","r") as in_file:
-                    for seq in re.finditer(pattern, in_file.read()):
-                        sequences[proteins] = seq.group(1)
-                with open("temp_file.txt","r") as in_file:
-                    for name in re.finditer(pattern2, in_file.read()) :
-                        names[proteins] = name.group(1)
-                for car in del_car :
-                    sequences[proteins] = sequences[proteins].replace(car,"")
-                os.remove("temp_file.txt")
+                if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True :
+                    with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
+                        new_sequence = str()
+                        for line in file :
+                            if line[0] != "#" and line[0] != ">" :
+                                new_sequence = line.strip("\n")
+                            if new_sequence != "" :
+                                break
+                        sequences[proteins] = new_sequence
+                        print(f"Sequence for {proteins} found in pickle feature")
+                else :
+                    print("Search sequence for " + proteins)
+                    urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
+                    if os.path.getsize("temp_file.txt") == 0 :
+                        print(f"{proteins} is not a compliant UniprotID")
+                    with open("temp_file.txt","r") as in_file:
+                        for seq in re.finditer(pattern, in_file.read()):
+                            sequences[proteins] = seq.group(1)
+                    with open("temp_file.txt","r") as in_file:
+                        for name in re.finditer(pattern2, in_file.read()) :
+                            names[proteins] = name.group(1)
+                    for car in del_car :
+                        sequences[proteins] = sequences[proteins].replace(car,"")
+                    os.remove("temp_file.txt")
         self.set_proteins_sequence(sequences)
         self.set_names(names)
 

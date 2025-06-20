@@ -33,10 +33,11 @@ GPU = ["0","1"]
 if __name__ == "__main__":
     Informations_dict = Define_informations()
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
-    HInt_object.find_proteins_sequence() #and real name of proteins
+    HInt_object.find_proteins_sequence(Informations_dict["Path_Pickle_Feature"]) #and real name of proteins
     HInt_object.create_fasta_file()
     filtered_signalP(HInt_object,Informations_dict)
     create_feature(HInt_object,Informations_dict["Path_AlphaFold_Data"],Informations_dict["Path_Pickle_Feature"])
+    print("Generation of MSA depth figures")
     Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
     if Informations_dict["Homo-oligomer"] != 1 : #select proteins who can create an homo-oligomer
