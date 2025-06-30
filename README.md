@@ -30,12 +30,15 @@ MSA generation is mandatory for using this tool.
 
 ## Generated MSA with colabfold (recommended for less than 100 sequences)
 
+
 ## Generated MSA with mmseq2 GPU (recommended for more than 100 proteins)
+
 
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
 mmseqs createdb examples/DB.fasta targetDB <br>
 mmseqs makepaddedseqdb targetDB targetDB_gpu <br>
 mmseqs rmdb targetDB <br>
+colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
 # Instalations
 Colabfoldlocal
