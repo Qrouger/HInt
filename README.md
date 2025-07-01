@@ -40,9 +40,10 @@ mmseqs makepaddedseqdb targetDB targetDB_gpu <br>
 mmseqs rmdb targetDB <br>
 colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-# Instalations
+# Instalation localcolabfold
 Colabfoldlocal
 https://github.com/YoshitakaMo/localcolabfold
+mmseqs databases Uniref30 colab_fold_data/Uniref30 tmp
 GPU=1 ./setup_databases.sh /path/to/db_folder
 
 
