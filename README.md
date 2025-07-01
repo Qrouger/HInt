@@ -43,6 +43,8 @@ colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br
 # Instalations
 Colabfoldlocal
 https://github.com/YoshitakaMo/localcolabfold
+GPU=1 ./setup_databases.sh /path/to/db_folder
+
 
 # Informations
 Signal_peptide :#No, Yes or None
