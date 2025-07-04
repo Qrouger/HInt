@@ -56,7 +56,7 @@ def Define_informations() :
     
     return(Informations_dict)
 
-def remove_SP (file, Informations_dict) :
+def remove_SP (file, Informations_dict, need_msa) :
     """
     Create a new FASTA file without the signal peptide using SignalP and filtred signal peptide.
 
@@ -114,10 +114,11 @@ def remove_SP (file, Informations_dict) :
             fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
     baits = Informations_dict["Interact_with"]
     for bait in baits :
-        if SignalP == "Yes" and bait not in prot_SP.keys() :
+        if SignalP == "Yes" and bait not in prot_SP.keys() and bait in need_msa :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
-        if SignalP == "No" and bait in prot_SP.keys() :
+        if SignalP == "No" and bait in prot_SP.keys() and bait in need_msa :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
+    print(fasta_lines)
     with open(fasta_file, "w") as new_file2 :
         new_file2.write(fasta_lines)
     file.set_proteins_sequence(new_fasta_dict)
@@ -140,8 +141,9 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     nb_line = 0
     for line in a3m_file:
         nb_line += 1
+    print(f"Number of sequences in {fasta_file} : {nb_line}")
     if nb_line > 1 :
-        cmd = f"colabfold_search {fasta_file} /data/colab_fold_data {Path_Pickle_Feature} --gpu 1 --db-load-mode 2 -e 0.1"
+        cmd = f"colabfold_search {fasta_file} /data/colab_fold_data {Path_Pickle_Feature} --gpu 1 --db-load-mode 2" #-e 0.1
         os.system(cmd)
     else : 
         logging.info("All MSAs have already been generated")
@@ -295,7 +297,7 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
                         nbr_prey += 1
                     else : #if interaction is too large
                         OOM_int = OOM_int + bait + ";" +  prey + "\n"
-                        result_dict[prey] = result_dict[prey] + "| Interaction with bait too large for your GPU"
+                        result_dict[prey] = result_dict[prey] + " Too big interactions : AF OOM"
                 else :
                     nbr_prey += 1
                     pass  
@@ -747,19 +749,29 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
     ----------
     """
     nbr_line = 0
-    if os.path.exists(Informations_dict["Path_Pickle_Feature"]+f"/RF2_PPI_int.txt") == True :
-        with open(Informations_dict["Path_Pickle_Feature"]+f"/RF2_PPI_int.txt") as script_file :
-            for line in script_file :
-                nbr_line += 1
-    if os.path.exists(Informations_dict["Path_Pickle_Feature"]+f"/RF2_PPI_int.txt") == False or nbr < (len(Informations_dict["Interact_with"]) * len(file.get_possible_prey())) : #check if all interactions have been done
-        print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
-        Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction)
+    print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
+    Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction)
+    with open(Informations_dict["Path_Pickle_Feature"]+f"/{Interaction}.txt") as script_file :
+        for line in script_file :
+            nbr_line += 1
+    nbr_line_result = 0
+    for GPU_index in GPU :
+        if os.path.exists(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log") == True :
+            with open(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log", "r") as result_file :
+                for line in result_file:
+                    nbr_line_result += 1
+    nbr_line_result = nbr_line_result // 2
+    print(nbr_line)
+    print(nbr_line_result)
+    if nbr_line != nbr_line_result : #check if all interactions have been done
         print(str(datetime.now()) + " Launch RoseTTAFold2-PPI")
         Launch_RF2_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
         print(str(datetime.now()) + " Scoring RoseTTAFold2-PPI")
         Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
     else :
-        print("RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete RF2_PPI_int.txt and relaunch.")
+        print("c'est good")
+        Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
+        print(f"RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete {Interaction}.txt and relaunch.")
 
 def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     """
@@ -848,7 +860,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                         else :
                             iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
                             line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                    result_dict[job.split("_and_")[1]] += f" | iQ_score : {iQ_score}"
+                    result_dict[job.split("_and_")[1]] += f" iQ_score : {iQ_score}"
                     all_lines = all_lines + line
                     score_dict[job.split("_and_")[1]] = iQ_score
                 sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))

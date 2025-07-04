@@ -33,10 +33,11 @@ GPU = ["0","1"]
 if __name__ == "__main__":
     Informations_dict = Define_informations()
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
+    HInt_object.get_result_dict()
     need_msa = HInt_object.find_proteins_sequence(Informations_dict["Path_Pickle_Feature"]) #and real name of proteins
     HInt_object.create_fasta_file(need_msa)
     if len(need_msa) > 0 :
-        remove_SP(HInt_object,Informations_dict)
+        remove_SP(HInt_object,Informations_dict, need_msa)
     filter_signalP(HInt_object,Informations_dict)
     create_feature(HInt_object,Informations_dict["Path_AlphaFold_Data"],Informations_dict["Path_Pickle_Feature"])
     print(str(datetime.datetime.now())+" Generation of MSA depth figures")
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != "" :
-        if len(HInt_object.get_possible_prey()) > 15 :
+        if len(HInt_object.get_possible_prey()) > 1 :
            if Informations_dict["Organism"] == "euk" :
               Use_RF2_PPI(HInt_object, Informations_dict, "RF2_PPI_int", GPU) #set better interactions all_vs_bait
            if Informations_dict["Organism"] in ["gram+","gram-"] :

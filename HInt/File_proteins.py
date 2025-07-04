@@ -376,7 +376,7 @@ class File_proteins() :
         self.set_proteins_sequence(already_fasta)
         self.set_interface_dict(interface_dict)
         self.set_result_dict(result_dict)
- 
+    
     def find_proteins_sequence (self, Path_Pickle_Feature) :
         """
         Search for the amino acid sequence on the UniProt website and clean it. If the a3m file exist, take the sequence from it and return a list of proteins that do not have a MSA. Set if the sequence have Peptide signal or not.
