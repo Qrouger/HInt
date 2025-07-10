@@ -9,7 +9,7 @@ It allows you to find homologous proteins with similar interactions.
 ## HInt for procaryote
 ```bash
 
-conda create -n HInt_RF2-lite -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer
+conda create -n HInt_RF2-lite -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer colabfold
 conda activate HInt_RF2-lite
 pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric matplotlib && \
 pip install -U "jax[cuda12]"==0.5.3 && \
