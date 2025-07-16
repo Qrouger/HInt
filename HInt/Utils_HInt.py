@@ -49,11 +49,24 @@ def Define_informations() :
             elif informations_key == "Organism" :
                 exit()
         elif informations_key == "Interact_with" :
-            Informations_dict["Interact_with"] = [prot for prot in Informations_dict["Interact_with"].split(",")]
+            regions_dict = dict()
+            new_baits_list = list()
+            list_baits = [prot for prot in Informations_dict["Interact_with"].split(",")]
+            for prot in list_baits :
+                if "-" in prot :
+                    name_prot = prot.split("(")[0]
+                    new_baits_list.append(name_prot)
+                    regions_dict[name_prot] = prot.split("(")[1].strip(")")
+                else :
+                    regions_dict[prot] = "0-0"
+                    new_baits_list.append(prot)
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
         logging.info("need information to discriminate the potential homologue")
         exit()
-    
+    Informations_dict["Regions"] = regions_dict
+    Informations_dict["Interact_with"] = new_baits_list
+    print(Informations_dict["Interact_with"])
+    print(Informations_dict["Regions"])
     return(Informations_dict)
 
 def remove_SP (file, Informations_dict, need_msa) :
@@ -101,17 +114,18 @@ def remove_SP (file, Informations_dict, need_msa) :
     fasta_lines = str()
     for proteins in new_fasta_dict.keys() :
         if SignalP == "Yes" :
-            if proteins in prot_SP.keys() :
+            if proteins in prot_SP.keys() and proteins in need_msa :
                 fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
             else :
                 pass
         if SignalP == "No" :
-            if proteins not in prot_SP.keys() :
+            if proteins not in prot_SP.keys() and proteins in need_msa :
                 fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
             else :
                 pass
         if SignalP == "None" :
-            fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
+            if proteins in need_msa :
+                fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
     baits = Informations_dict["Interact_with"]
     for bait in baits :
         if SignalP == "Yes" and bait not in prot_SP.keys() and bait in need_msa :
@@ -123,7 +137,7 @@ def remove_SP (file, Informations_dict, need_msa) :
         new_file2.write(fasta_lines)
     file.set_proteins_sequence(new_fasta_dict)
 
-def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
+def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature, GPU) :
     """
     Launch command to generate features.
 
@@ -132,18 +146,24 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature) :
     file : object of class File_proteins
     Path_AlphaFold_Data : string
     Path_Pickle_Feature : string
-    
+    GPU : list
+
     Returns:
     ----------
     """
     fasta_file = file.get_fasta_file()
     a3m_file = open(fasta_file, 'r')
     nb_line = 0
+    GPU_str = ""
+    for nbr_GPU in GPU :
+        GPU_str += nbr_GPU + ","
+    GPU_str = GPU_str.strip(",")
+    print(GPU_str)
     for line in a3m_file:
         nb_line += 1
-    print(f"Number of sequences in {fasta_file} : {nb_line}")
+    print(f"Number of sequences in {fasta_file} : {int(nb_line/2)}")
     if nb_line > 1 :
-        cmd = f"colabfold_search {fasta_file} /data/colab_fold_data {Path_Pickle_Feature} --gpu 1 --db-load-mode 2" #-e 0.1
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {fasta_file} /data/colab_fold_data {Path_Pickle_Feature} --gpu 1 --db-load-mode 2" #-e 0.1
         os.system(cmd)
     else : 
         logging.info("All MSAs have already been generated")
@@ -367,7 +387,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     subprocess.run(cmd, shell=True, env=env)
 
 
-def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
+def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regions) :
     """
     Prepare script for RoseTTAFold2-PPI.
 
@@ -377,6 +397,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
     Path_Pickle_Feature : string
     possible_baits : list
     Interaction : string
+    regions : dict
 
     Returns:
     ----------
@@ -399,7 +420,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
             save_lenght_line[f"{prey}_and_{prey}.a3m"] = [lenght_prot[prey] + lenght_prot[prey],f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m {lenght_first_prot}\n"] #save lenght of interactions and line to write in the final
             total_int += 1
             if os.path.exists(f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m") == False :
-                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int)
+                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int, regions)
     if Interaction == "RF2_PPI_int" :
         for bait in possible_baits :
             for prey in possible_prey :
@@ -409,7 +430,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
                 else :
                     total_int += 1
                     if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                        total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int)
+                        total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int, regions)
                     save_lenght_line[f"{bait}_and_{prey}.a3m"] = [lenght_prot[bait] + lenght_prot[prey], f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]}\n"]
                     new_possible_prey.append(prey)   
     sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
@@ -423,7 +444,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction) :
     file.set_result_dict(result_dict)
     return total_int
 
-def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
+def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU, regions) :
     """
     Prepare script for RF2-Lite.
 
@@ -433,6 +454,7 @@ def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     Path_Pickle_Feature : string
     Interaction : string
     GPU : list
+    regions : dict
 
     Returns:
     ----------
@@ -456,7 +478,7 @@ def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
             else :
                 total_int += 1
                 if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                    new_total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite", total_int)
+                    new_total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite", total_int, regions)
                     if new_total_int != total_int-1 :#if fusionned MSA have seqeuence to merge
                         save_lenght_line[f"{bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"]
                         new_possible_prey.append(prey) #add all preys to the new possible prey list
@@ -476,7 +498,7 @@ def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
 
 
 
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
+def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int, regions):
     """
     Fusioned MSA files.
     Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
@@ -484,14 +506,16 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
     Parameters:
     ----------
     a3m1 : string
-    a3m1 : string
+    a3m2 : string
     Path_Pickle_Feature : string
     total_int :  integer
+    regions : dict
 
     Returns:
     total_int : integer
     ----------
     """
+
     msa1, lab1 = read_a3m(f"{Path_Pickle_Feature}/{a3m1}")
     msa2, lab2 = read_a3m(f"{Path_Pickle_Feature}/{a3m2}")
     if len(lab1[1:]) == 0 or len(lab2[1:]) == 0: #check if we have sequences in MSA
@@ -499,9 +523,22 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
         return total_int-1
     valid_lab1 = [id_ for id_ in lab1[1:] if len(id_) in (6, 10)] #filtred valid IDs
     valid_lab2 = [id_ for id_ in lab2[1:] if len(id_) in (6, 10)]
-    msa1_valid = [msa1[i+1] for i, id_ in enumerate(lab1[1:]) if len(id_) in (6, 10)]
-    msa2_valid = [msa2[i+1] for i, id_ in enumerate(lab2[1:]) if len(id_) in (6, 10)]
-    hash1 = Uni_to_idx(valid_lab1) #hash in fucntion of UniprotID
+    based_msa1 = [msa1[i+1] for i, id_ in enumerate(lab1[1:]) if len(id_) in (6, 10)]
+    based_msa2 = [msa2[i+1] for i, id_ in enumerate(lab2[1:]) if len(id_) in (6, 10)]
+    start = int(regions[a3m1.split(".")[0]].split("-")[0]) - 1
+    end = int(regions[a3m1.split(".")[0]].split("-")[1]) - 1
+    if a3m1 == a3m2: #if same MSA
+        start = 0 
+        end = 0
+    if start != -1 and end != -1 :
+        msa1_valid = [seq[start:end] for seq in based_msa1]
+        msa2_valid = based_msa2
+        msa1_query = msa1[0][start:end]
+    else :
+        msa1_valid = based_msa1
+        msa2_valid = based_msa2
+        msa1_query = msa1[0]
+    hash1 = Uni_to_idx(valid_lab1) #hash in function of UniprotID
     hash2 = Uni_to_idx(valid_lab2)
     idx1, idx2 = np.where(np.abs(hash1[:, None] - hash2[None, :]) < 10) #found close pairs (hash deviation of 10)
     if RF2=="Lite" and len(idx1) >= 4095:
@@ -509,7 +546,7 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
         idx2 = idx2[:4095]
     name = str(a3m1).split(".")[0] + "_and_" + str(a3m2).split(".")[0]
     with open(f'{Path_Pickle_Feature}/{name}.a3m', 'wt') as f: #write fusion file
-        f.write('>query\n%s%s\n' % (msa1[0], msa2[0])) #add first query sequence
+        f.write('>query\n%s%s\n' % (msa1_query, msa2[0])) #add first query sequence
         for i, j in zip(idx1, idx2): #add found pairs
             f.write(">%s_%s\n%s%s\n" % (valid_lab1[i], valid_lab2[j],msa1_valid[i], msa2_valid[j]))
     return total_int
@@ -746,7 +783,7 @@ def Class_output_RF2_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
     file.set_result_dict(result_dict)
 
 
-def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
+def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
     """
     Main of RoseTTAFold2-PPI.
 
@@ -762,7 +799,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
     ----------
     """
     print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
-    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction)
+    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, regions)
     nbr_line_result = 0
     for GPU_index in GPU :
         if os.path.exists(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log") == True :
@@ -811,7 +848,7 @@ def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
-def Use_RF2_Lite(file, Informations_dict, GPU) :
+def Use_RF2_Lite(file, Informations_dict, GPU, regions) :
     """
     Main of RoseTTA_Lite.l
 
@@ -825,7 +862,7 @@ def Use_RF2_Lite(file, Informations_dict, GPU) :
     ----------
     """
     print(str(datetime.now()) + " Prepare RoseTTAFold2-Lite")
-    Prepare_RF2_Lite(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], GPU)
+    Prepare_RF2_Lite(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], GPU, regions)
     print(str(datetime.now()) + " Launch RoseTTAFold2-Lite")
     Launch_RF2_Lite(Informations_dict["Path_Pickle_Feature"], GPU)
     print(str(datetime.now()) + " Scoring RoseTTAFold2-Lite")
