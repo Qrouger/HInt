@@ -32,9 +32,16 @@ MSA generation is mandatory for using this tool.
 
 
 ## Generated MSA with mmseq2 GPU (recommended for more than 100 proteins)
-wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
-tar xvzf mmseqs-linux-gpu.tar.gz
-export PATH=$(pwd)/mmseqs/bin/:$PATH
+wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz <br>
+tar xvzf mmseqs-linux-gpu.tar.gz <br>
+export PATH=$(pwd)/mmseqs/bin/:$PATH <br>
+wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh <br>
+bash install_colabbatch_linux.sh <br>
+<br>
+nano ~/.bashrc<br>
+export PATH=/data/Rosetta-PPI/localcolabfold/colabfold-conda/bin:$PATH<br>
+or<br>
+export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH <br>
 
 
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
