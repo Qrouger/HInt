@@ -32,6 +32,9 @@ MSA generation is mandatory for using this tool.
 
 
 ## Generated MSA with mmseq2 GPU (recommended for more than 100 proteins)
+wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
+tar xvzf mmseqs-linux-gpu.tar.gz
+export PATH=$(pwd)/mmseqs/bin/:$PATH
 
 
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
