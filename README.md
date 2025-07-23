@@ -38,6 +38,8 @@ export PATH=$(pwd)/mmseqs/bin/:$PATH <br>
 wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh <br>
 bash install_colabbatch_linux.sh <br>
 <br>
+add .git at th insal file<br>
+
 nano ~/.bashrc<br>
 export PATH=/data/Rosetta-PPI/localcolabfold/colabfold-conda/bin:$PATH<br>
 or<br>
