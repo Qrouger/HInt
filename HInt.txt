@@ -3,6 +3,7 @@ Signal_peptide : Yes
 Homo-oligomer : 5
 Interact_with : O50333
 Organism : gram-
+DeepLoc :
 
 ###Paths
 Path_Uniprot_ID : R388.txt
