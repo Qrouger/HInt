@@ -62,7 +62,8 @@ GPU=1 ./setup_databases.sh /path/to/db_folder
 
 
 # Informations
-Signal_peptide :#No, Yes or None
-Homo-oligomer :#Oligomerization (integer : 1-20)
-Interact_with :#Proteins names expected to be interacting with (Uniprot name or fasta name), separate by ","
-Organism : #Organism of interest: arch, gram+, gram-, or euk for SignalP
+Signal_peptide :#No, Yes or None.
+Homo-oligomer :#Oligomerization (integer : 1-20).
+Interact_with :#Proteins names expected to be interacting with (Uniprot name or fasta name), separate by ",".
+Organism : #Organism of interest: arch, gram+, gram-, or euk for SignalP.
+DeepLoc : #Cellular localisation of your research, only for euk. Possible localisation : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. It's possible to select multiple localisation with coma.
