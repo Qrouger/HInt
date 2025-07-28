@@ -9,6 +9,7 @@ from File_proteins import *
 import sys
 import logging
 import datetime
+import argparse
 
 
 log_filename = "./HInt.log"
@@ -27,10 +28,17 @@ class Logger(object):
 sys.stdout = Logger(log_filename)
 sys.stderr = Logger(log_filename)
 
+def add_arguments(parser) :
+    parser.add_argument("--gpu", help = "list of GPUs available for work", required = False, default = "0")
 
-GPU = ["0","1"]
+
+
 #enlever new_pickle ?
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    add_arguments(parser)
+    args = parser.parse_args()
+    GPU =[gpu for gpu in args.gpu.split(",")]
     Informations_dict = Define_informations()
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
     HInt_object.get_result_dict()
@@ -39,7 +47,7 @@ if __name__ == "__main__":
     if len(need_msa) > 0 :
         remove_SP(HInt_object,Informations_dict, need_msa)
     filter_signalP(HInt_object,Informations_dict)
-    create_feature(HInt_object,Informations_dict["Path_AlphaFold_Data"],Informations_dict["Path_Pickle_Feature"],GPU)
+    create_feature(HInt_object,Informations_dict,GPU)
     print(str(datetime.datetime.now())+" Generation of MSA depth figures")
     Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
     print(str(datetime.datetime.now()) + " Remove baits from prey list")
@@ -47,16 +55,16 @@ if __name__ == "__main__":
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU, Informations_dict["Regions"]) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != "" :
-        if len(HInt_object.get_possible_prey()) > 1 :
+        if len(HInt_object.get_possible_prey()) > 30 :
            if Informations_dict["Organism"] == "euk" :
               Use_RF2_PPI(HInt_object, Informations_dict, "RF2_PPI_int", GPU, Informations_dict["Regions"]) #set better interactions all_vs_bait
            if Informations_dict["Organism"] in ["gram+","gram-"] :
               Use_RF2_Lite(HInt_object, Informations_dict, GPU, Informations_dict["Regions"])      
-        Generate_scripts(HInt_object, 1500, Informations_dict, "APD_PPI_int", GPU) #generate bait_vs_prey with new preys
+        Generate_scripts(HInt_object, Informations_dict, "APD_PPI_int", GPU) #generate bait_vs_prey with new preys
         Generate_3D_model(Informations_dict, "APD_PPI_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "APD_PPI_int")
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
-        Generate_scripts(HInt_object, 1500, Informations_dict, "APD_homo_int", GPU)
+        Generate_scripts(HInt_object, Informations_dict, "APD_homo_int", GPU)
         Generate_3D_model(Informations_dict, "APD_homo_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "APD_homo_int")
     print(HInt_object.get_result_dict())

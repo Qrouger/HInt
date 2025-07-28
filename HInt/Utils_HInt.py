@@ -10,6 +10,7 @@ from numpy import load
 import subprocess
 import multiprocessing
 from queue import Queue
+import pynvml
 
 
 def Define_informations() :
@@ -48,7 +49,7 @@ def Define_informations() :
                 Informations_dict[informations_key] = 1
             elif informations_key == "Organism" :
                 exit()
-        elif informations_key == "Interact_with" :
+        elif informations_key == "Interact_with" and Informations_dict[informations_key] != "" :
             regions_dict = dict()
             new_baits_list = list()
             list_baits = [prot for prot in Informations_dict["Interact_with"].split(",")]
@@ -60,11 +61,11 @@ def Define_informations() :
                 else :
                     regions_dict[prot] = "0-0"
                     new_baits_list.append(prot)
+    Informations_dict["Regions"] = regions_dict
+    Informations_dict["Interact_with"] = new_baits_list
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
         logging.info("need information to discriminate the potential homologue")
         exit()
-    Informations_dict["Regions"] = regions_dict
-    Informations_dict["Interact_with"] = new_baits_list
     print(Informations_dict["Interact_with"])
     print(Informations_dict["Regions"])
     return(Informations_dict)
@@ -137,20 +138,23 @@ def remove_SP (file, Informations_dict, need_msa) :
         new_file2.write(fasta_lines)
     file.set_proteins_sequence(new_fasta_dict)
 
-def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature, GPU) :
+def create_feature (file, Informations_dict, GPU) :
     """
     Launch command to generate features.
 
     Parameters:
     ----------
     file : object of class File_proteins
-    Path_AlphaFold_Data : string
-    Path_Pickle_Feature : string
+    informations_dict : dict
     GPU : list
 
     Returns:
     ----------
     """
+    Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
+    Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+    baits = Informations_dict["Interact_with"]
+    regions = Informations_dict["Regions"]
     fasta_file = file.get_fasta_file()
     a3m_file = open(fasta_file, 'r')
     nb_line = 0
@@ -181,7 +185,42 @@ def create_feature (file, Path_AlphaFold_Data, Path_Pickle_Feature, GPU) :
         print(line, end="")
     process.stdout.close()
     process.wait()
+    all_lines = str()
+    for bait in baits :
+        start = int(regions[bait].split("-")[0]) - 1
+        end = int(regions[bait].split("-")[1]) - 1
+        bait_name_file = f"{bait}_{str(start+1)}_{str(end+1)}"
+        if regions[bait] != "0-0" and f"{bait_name_file}.a3m" not in os.listdir(Path_Pickle_Feature) : #if MSA regions of bait not exist
+            with open(f"{Path_Pickle_Feature}/{bait}.a3m", "r") as a3m_file :
+                for line in a3m_file:
+                    if line[0] == ">" :
+                        mem_name = line.strip().split("\t")[0] + "\n"
+                    else :
+                        if not all(cara == '-' for cara in line[start:end]) :
+                            all_lines += mem_name + line[start:end] + "\n"
+            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as new_file :
+                new_file.write(all_lines)
+            cmd1 = f"mafft --anysymbol {Path_Pickle_Feature}/{bait_name_file}.a3m > {Path_Pickle_Feature}/{bait_name_file}.aln"
+            cmd2 = f"reformat.pl fas a3m {Path_Pickle_Feature}/{bait_name_file}.aln {Path_Pickle_Feature}/{bait_name_file}.a3m"
+            os.system(cmd1)
+            os.system(cmd2)
+            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "r") as a3m2_file :
+                all_lines = str()
+                all_seq = str()
+                for line in a3m2_file:
+                    if line[0] == ">" :
+                        if all_seq != "" :
+                            all_lines += mem_name + all_seq + "\n"
+                        mem_name = line.strip().split("\t")[0] + "\n"
+                        all_seq = str()
+                    else :
+                        all_seq += line.strip()
+            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as a3m2_file :
+                a3m2_file.write(all_lines)
+            cmd3 = f"rm {Path_Pickle_Feature}/{bait_name_file}.aln"
+            os.system(cmd3)
 
+        
 def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour parse toutes les prot #need to make this just with .a3m files
     """
     Generating MSA coverage for all proteins and write shallow_MSA text file.
@@ -282,15 +321,15 @@ def filter_signalP(file, Informations_dict) :
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
 
-def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
+def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     """
     Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
 
     Parameters:
     ----------
     file : object of class File_proteins
-    max_aa : integer
     Informations_dict : dictionnary
+    Interaction_file : string
     GPU : list
 
     Returns:
@@ -303,6 +342,7 @@ def Generate_scripts (file, max_aa, Informations_dict, Interaction_file, GPU) :
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
     save_lenght_line = dict()
+    max_aa = 2400 #need to bench
     if Interaction_file == "APD_PPI_int" :
         for bait in possible_baits :
             nbr_prey = 0
@@ -376,6 +416,19 @@ def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
     print("Durée APD:", end_time - start_time)
 
 def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature):
+    """
+    Run the AlphaFold script on a specific GPU.
+
+    Parameters:
+    ----------
+    gpu_id : int
+    Interaction_file : string
+    Path_AlphaFold_Data : string
+    Path_Pickle_Feature : string
+
+    Returns:
+    ----------
+    """
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
@@ -387,7 +440,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     subprocess.run(cmd, shell=True, env=env)
 
 
-def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regions) :
+def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU, regions) :
     """
     Prepare script for RoseTTAFold2-PPI.
 
@@ -397,6 +450,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regi
     Path_Pickle_Feature : string
     possible_baits : list
     Interaction : string
+    GPU : list
     regions : dict
 
     Returns:
@@ -410,7 +464,14 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regi
     lenght_prot = file.get_lenght_prot()
     result_dict = file.get_result_dict()
     index_file = 0
-    vram = 48
+    pynvml.nvmlInit()
+    device_count = pynvml.nvmlDeviceGetCount()
+    for i in range(len(GPU)):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        vram = (mem_info.total / 1024**2) * 0.001  # in MiB
+    pynvml.nvmlShutdown()
     max_lenght_int = int((vram + 14.2) / 0.0223) #bench on data
     if os.path.exists(f"{Path_Pickle_Feature}/{Interaction}.txt") :
        os.remove(f"{Path_Pickle_Feature}/{Interaction}.txt")
@@ -423,15 +484,23 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regi
                 fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int, regions)
     if Interaction == "RF2_PPI_int" :
         for bait in possible_baits :
+            if regions[bait] != "0-0" :
+                start = regions[bait].split("-")[0]
+                end = regions[bait].split("-")[1]
+                lenght_bait = int(end) - int(start)
+                name_bait = f"{bait}_{start}_{end}"
+            else :
+                lenght_bait = lenght_prot[bait]
+                name_bait = bait
             for prey in possible_prey :
-                lenght_int = lenght_prot[bait] + lenght_prot[prey]
+                lenght_int = lenght_bait + lenght_prot[prey]
                 if lenght_int > max_lenght_int :#remove interactions with a too big length
                     result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-PPI OOM"
                 else :
                     total_int += 1
-                    if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                        total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int, regions)
-                    save_lenght_line[f"{bait}_and_{prey}.a3m"] = [lenght_prot[bait] + lenght_prot[prey], f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]}\n"]
+                    if os.path.exists(f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m") == False :
+                        total_int = fusioned_MSA(name_bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int, regions)
+                    save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [lenght_bait + lenght_prot[prey], f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait}\n"]
                     new_possible_prey.append(prey)   
     sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
     all_lines = str()
@@ -439,6 +508,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, regi
         all_lines += interactions[1][1]
     with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
         file_int.write(all_lines)
+        print(all_lines)
     print("Total interactions : " + str(total_int))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
@@ -466,28 +536,40 @@ def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU, regions) :
     lenght_prot = file.get_lenght_prot()
     result_dict = file.get_result_dict()
     index_file = 0
-    vram = 48
+    for i in range(len(GPU)):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        vram = (mem_info.total / 1024**2) * 0.001  # en MiB
+    pynvml.nvmlShutdown()
     max_lenght_int = int(vram * 47) #need to bench RF2-Lite on data
     if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
         os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
     for bait in possible_baits  :
+        if regions[bait] != "0-0" :
+            lenght_bait = int(regions[bait].split("-")[1]) - int(regions[bait].split("-")[0])
+            name_bait = f"{bait}_{str(regions[bait].split('-')[0])}_{str(regions[bait].split('-')[1])}"
+        else :
+            lenght_bait = lenght_prot[bait]
+            name_bait = bait
         for prey in possible_prey :
-            total_lenght = lenght_prot[bait] + lenght_prot[prey]
+            total_lenght = lenght_bait + lenght_prot[prey]
             if total_lenght > max_lenght_int :#remove interactions with a too big length
                 result_dict[prey] =  result_dict[prey] + "Too big interactions : RF2-Lite OOM"                
             else :
                 total_int += 1
-                if os.path.exists(f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m") == False :
-                    new_total_int = fusioned_MSA(bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite", total_int, regions)
-                    if new_total_int != total_int-1 :#if fusionned MSA have seqeuence to merge
-                        save_lenght_line[f"{bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"]
+                if os.path.exists(f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m") == False : #if paired MSA doesn't exist
+                    new_total_int = fusioned_MSA(name_bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite", total_int)
+                    if new_total_int != total_int-1 :#if fusionned MSA have sequence to merge
+                        save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{name_bait}_and_{prey}\n"]
                         new_possible_prey.append(prey) #add all preys to the new possible prey list
                     else :
-                        total_int = new_total_int #new nbr of prey
+                        total_int = new_total_int #set new number of prey
                         result_dict[prey] =  result_dict[prey] + "No MSA to merge with bait" 
-                else :
-                    save_lenght_line[f"{bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{bait}_and_{prey}.a3m {lenght_prot[bait]} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey}\n"]
+                else : #if paired MSA exist
+                    save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{name_bait}_and_{prey}\n"]
                     new_possible_prey.append(prey) #add all preys to the new possible prey list
+    print(str(datetime.now()) + " End of MSA fusion")
     dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
     for GPU_i in dict_split_GPU.keys() :          
         with open(f"{Path_Pickle_Feature}/RF2_PPI_int_{GPU_i}.txt",'w') as file_int :
@@ -498,7 +580,7 @@ def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU, regions) :
 
 
 
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int, regions):
+def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
     """
     Fusioned MSA files.
     Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
@@ -509,13 +591,11 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int, regions):
     a3m2 : string
     Path_Pickle_Feature : string
     total_int :  integer
-    regions : dict
 
     Returns:
     total_int : integer
     ----------
     """
-
     msa1, lab1 = read_a3m(f"{Path_Pickle_Feature}/{a3m1}")
     msa2, lab2 = read_a3m(f"{Path_Pickle_Feature}/{a3m2}")
     if len(lab1[1:]) == 0 or len(lab2[1:]) == 0: #check if we have sequences in MSA
@@ -523,22 +603,9 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int, regions):
         return total_int-1
     valid_lab1 = [id_ for id_ in lab1[1:] if len(id_) in (6, 10)] #filtred valid IDs
     valid_lab2 = [id_ for id_ in lab2[1:] if len(id_) in (6, 10)]
-    based_msa1 = [msa1[i+1] for i, id_ in enumerate(lab1[1:]) if len(id_) in (6, 10)]
-    based_msa2 = [msa2[i+1] for i, id_ in enumerate(lab2[1:]) if len(id_) in (6, 10)]
-    start = int(regions[a3m1.split(".")[0]].split("-")[0]) - 1
-    end = int(regions[a3m1.split(".")[0]].split("-")[1]) - 1
-    if a3m1 == a3m2: #if same MSA
-        start = 0 
-        end = 0
-    if start != -1 and end != -1 :
-        msa1_valid = [seq[start:end] for seq in based_msa1]
-        msa2_valid = based_msa2
-        msa1_query = msa1[0][start:end]
-    else :
-        msa1_valid = based_msa1
-        msa2_valid = based_msa2
-        msa1_query = msa1[0]
-    hash1 = Uni_to_idx(valid_lab1) #hash in function of UniprotID
+    msa1_valid = [msa1[i+1] for i, id_ in enumerate(lab1[1:]) if len(id_) in (6, 10)]
+    msa2_valid = [msa2[i+1] for i, id_ in enumerate(lab2[1:]) if len(id_) in (6, 10)]
+    hash1 = Uni_to_idx(valid_lab1) #hash in fucntion of UniprotID
     hash2 = Uni_to_idx(valid_lab2)
     idx1, idx2 = np.where(np.abs(hash1[:, None] - hash2[None, :]) < 10) #found close pairs (hash deviation of 10)
     if RF2=="Lite" and len(idx1) >= 4095:
@@ -546,9 +613,12 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int, regions):
         idx2 = idx2[:4095]
     name = str(a3m1).split(".")[0] + "_and_" + str(a3m2).split(".")[0]
     with open(f'{Path_Pickle_Feature}/{name}.a3m', 'wt') as f: #write fusion file
-        f.write('>query\n%s%s\n' % (msa1_query, msa2[0])) #add first query sequence
+        f.write('>query\n%s%s\n' % (msa1[0], msa2[0])) #add first query sequence
         for i, j in zip(idx1, idx2): #add found pairs
-            f.write(">%s_%s\n%s%s\n" % (valid_lab1[i], valid_lab2[j],msa1_valid[i], msa2_valid[j]))
+            if not all(cara == '-' for cara in msa1_valid[i]) :
+                f.write(">%s_%s\n%s%s\n" % (valid_lab1[i], valid_lab2[j],msa1_valid[i], msa2_valid[j]))
+            else :
+                pass
     return total_int
 
 def read_a3m(a3m):
@@ -799,7 +869,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
     ----------
     """
     print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
-    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, regions)
+    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU, regions)
     nbr_line_result = 0
     for GPU_index in GPU :
         if os.path.exists(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log") == True :
@@ -816,7 +886,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
         Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
         print(f"RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete {Interaction}.txt and relaunch.")
 
-def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
+def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU, regions) :
     """
     Classified PPIs and set new possible prey classed in function of scores.
 
@@ -826,6 +896,7 @@ def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     Path_Pickle_Feature : string
     possible_baits : list
     GPU : list
+    regions : dict
 
     Returns:
     ----------
@@ -836,10 +907,14 @@ def Class_output_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU) :
     new_possible_prey = list()
     all_lines = ""
     for bait in possible_baits :
+        if regions[bait] != "0-0" :
+            name_bait = f"{bait}_{str(regions[bait].split('-')[0])}_{str(regions[bait].split('-')[1])}"
+        else :
+            name_bait = bait
         for prey in possible_prey :
-            data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{bait}_and_{prey }_00.npz")
+            data = load(f"{Path_Pickle_Feature}/result_RF2_Lite_PPI/{name_bait}_and_{prey}_00.npz")
             int_score = np.max(data['dist'][:-10,10:])
-            all_lines += f"{bait}_and_{prey} {int_score}\n"
+            all_lines += f"{name_bait}_and_{prey} {int_score}\n"
             score_dict[prey] = int_score
             result_dict[prey] += f" RF2_Lite_int : {int_score}" 
     sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
@@ -866,7 +941,7 @@ def Use_RF2_Lite(file, Informations_dict, GPU, regions) :
     print(str(datetime.now()) + " Launch RoseTTAFold2-Lite")
     Launch_RF2_Lite(Informations_dict["Path_Pickle_Feature"], GPU)
     print(str(datetime.now()) + " Scoring RoseTTAFold2-Lite")
-    Class_output_RF2_Lite(file, Informations_dict["Path_Pickle_Feature"],Informations_dict["Interact_with"], GPU)
+    Class_output_RF2_Lite(file, Informations_dict["Path_Pickle_Feature"],Informations_dict["Interact_with"], GPU, regions)
 
 
 def Score_interaction_APD (file, Informations_dict, Interaction) :

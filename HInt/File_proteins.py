@@ -102,58 +102,6 @@ class File_proteins() :
         ----------
         """
         self.name = name
-
-    def set_iQ_score_dict (self, iQ_score_dict) : 
-        """
-        Sets iQ_score for all proteins.
-        
-        Parameters:
-        ----------
-        iQ_score_dict = dictionary
-        
-        Returns:
-        ----------
-        """
-        self.iQ_score_dict = iQ_score_dict
-
-    def set_hiQ_score_dict (self, hiQ_score_dict) :
-        """
-        Sets hiQ_score for all proteins.
-        
-        Parameters:
-        ----------
-        hiQ_score_dict = dictionary
-        
-        Returns:
-        ----------
-        """
-        self.hiQ_score_dict = hiQ_score_dict
-
-    def set_interface_dict (self, interface_dict) :
-        """
-        Sets interface_dict for new interactions.
-        
-        Parameters:
-        ----------
-        interface_dict = dictionary
-        
-        Returns:
-        ----------
-        """
-        self.interface_dict = interface_dict
-
-    def set_new_pickle (self, new_pickle) :
-        """
-        Sets list of new pickle feature.
-        
-        Parameters:
-        ----------
-        new_pickle = list
-        
-        Returns:
-        ----------
-        """
-        self.new_pickle = new_pickle
     
     def set_result_dict (self, result_dict) :
         """
@@ -259,58 +207,6 @@ class File_proteins() :
         """
         return self.name
 
-    def get_iQ_score_dict (self) :
-        """
-        Return iQ_score for all interactions.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        iQ_score_dict : dictionary
-        """
-        return self.iQ_score_dict
-
-    def get_hiQ_score_dict (self) :
-        """
-        Return hiQ_score for all homo-oligomer.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        hiQ_score_dict : dictionary
-        """
-        return self.hiQ_score_dict
-        
-    def get_interface_dict (self) :
-        """
-        Return all interfaces for all proteins.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        interface_dict : dictionary
-        """
-        return self.interface_dict
-    
-    def get_new_pickle (self) :
-        """
-        Return new UniprotID list who did not have pickle feature.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        new_pickle : list
-        """
-        return self.new_pickle
-
     def get_result_dict (self) :
         """
         Return new result dict.
@@ -351,7 +247,6 @@ class File_proteins() :
         ----------
         """
         new_proteins = list()
-        interface_dict = dict()
         already_fasta = dict()
         result_dict = dict()
         save_prot = ""
@@ -374,7 +269,6 @@ class File_proteins() :
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)
         self.set_proteins_sequence(already_fasta)
-        self.set_interface_dict(interface_dict)
         self.set_result_dict(result_dict)
     
     def find_proteins_sequence (self, Path_Pickle_Feature) :
@@ -470,74 +364,3 @@ class File_proteins() :
         with open(file_out,"w") as fh :
             fh.write(line)
         self.set_fasta_file(file_out)
-
-    def update_iQ_score_hiQ_score (self) :
-        """
-        Generate two dictionaries: the first with a tuple of interacting proteins (UniProt) as the key and iQ_score as the value; 
-        the second with the protein (UniProt) as the key and a tuple containing the best hiQ_score and its homo-oligomerization as the value.
-        
-        Parameters:
-        ----------
-
-        Returns:
-        ----------
-        """
-        iQ_score_dic = dict()
-        with open("result_all_vs_all/new_predictions_with_good_interpae.csv", "r") as file1 :
-            reader1 = csv.DictReader(file1)
-            for row in reader1 :
-                names = row['jobs'].split('_and_')
-                iQ_score_dic[(names[0],names[1])] = row['iQ_score']
-        self.set_iQ_score_dict(iQ_score_dic)
-        hiQ_score_dic = dict()
-        with open("result_homo_oligo/new_predictions_with_good_interpae.csv", "r") as file2 :
-            reader2 = csv.DictReader(file2)
-            for row in reader2 :
-                prot_name = row['jobs'].split("_and_")[0] #.split("_homo_")[0]
-                if prot_name not in hiQ_score_dic.keys() or float(row['hiQ_score']) >= hiQ_score_dic[prot_name][0] :
-                    number_homo = len(row['jobs'].split("_and_"))
-                    #number_homo = int((row['jobs'].split("homo_")[1]).split("er")[0]) #to take the number of homo-oligomerisation of the protein and this score
-                    hiQ_score_dic[prot_name] = (float(row['hiQ_score']),number_homo)
-        self.set_hiQ_score_dict(hiQ_score_dic)
-
-
-    def define_interface (self, list_of_list_int, int) :
-        """
-        Create a dictionary of all interacting residues, including their UniProt IDs.
-
-        Parameters:
-        ----------
-        list_of_list_int : list
-        int : string
-
-        Returns:
-        ----------
-        """
-        all_residues_int = copy.deepcopy(list_of_list_int)
-        old_interface_dict = self.get_interface_dict()
-        protein1 = int[0]
-        protein2 = int[1]
-        list_int_protein1 = list()
-        list_int_protein2 = list()
-        if protein1 not in old_interface_dict.keys() :
-            old_interface_dict[protein1] = []
-        if protein2 not in old_interface_dict.keys() :
-            old_interface_dict[protein2] = []
-        for line in all_residues_int :
-            line[1] = line[1].strip() #remove readability spaces
-            if line[0] != int[0] and "chain" not in line[0] :
-                if line[0].split(":")[1] not in list_int_protein1 :
-                    list_int_protein1.append(line[0].split(":")[1])
-                if line[1].split(":")[1] not in list_int_protein2 :
-                    list_int_protein2.append(line[1].split(":")[1])
-        if protein1 == protein2 : #fusion of residues at interface for homo-oligomer
-            for residue in list_int_protein2 :
-                list_int_protein1.append(residue)
-            list_int_protein1.append(protein2)
-            old_interface_dict[protein1].append(list_int_protein1)
-        else :
-            list_int_protein1.append(protein2) #last values of each list is the second proteins
-            list_int_protein2.append(protein1)
-            old_interface_dict[protein1].append(list_int_protein1)
-            old_interface_dict[protein2].append(list_int_protein2)
-        self.set_interface_dict(old_interface_dict)
