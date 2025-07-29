@@ -22,13 +22,13 @@ Directly add to the pipeline.
 
 ### Download mmseqs2 and localcolabfold
 ```bash
-wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz <br>
-tar xvzf mmseqs-linux-gpu.tar.gz <br>
-export PATH=$(pwd)/mmseqs/bin/:$PATH <br>
-wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh <br>
-bash install_colabbatch_linux.sh <br>
-nano ~/.bashrc <br>
-export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH <br>
+wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
+tar xvzf mmseqs-linux-gpu.tar.gz
+export PATH=$(pwd)/mmseqs/bin/:$PATH
+wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
+bash install_colabbatch_linux.sh
+nano ~/.bashrc
+export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH
 source ~/.bashrc
 activate HInt
 ```
