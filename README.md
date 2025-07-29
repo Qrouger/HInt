@@ -5,45 +5,41 @@
 HInt allows you to find homologous proteins with significant differences in sequence and structure.
 It allows you to find homologous proteins with similar interactions.
 # Instalations
-## HInt for eucaryote
-## HInt for procaryote
 ```bash
-
 conda create -n HInt -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer
 conda activate HInt
 pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric matplotlib && \
 pip install -U "jax[cuda12]"==0.5.3 && \
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
-
-git clone https://github.com/SNU-CSSB/RF2-Lite.git
-cd RF2-Lite/SE3Transformer
-pip install --no-cache-dir -r requirements.txt
-python setup.py install
-cd ../networks/
-wget http://files.ipd.uw.edu/pub/pathogens/weights.tar.gz
-tar xfz weights.tar.gz
 ```
 # MSA generations
 MSA generation is mandatory for using this tool.
 
-## MSA already generated
-
 ## Generated MSA with colabfold (recommended for less than 100 sequences)
+Directly add to the pipeline.
 
+## Generated MSA with mmseqs2 GPU (recommended for more than 100 proteins)
 
-## Generated MSA with mmseq2 GPU (recommended for more than 100 proteins)
+### Download mmseqs2 and localcolabfold
+```bash
 wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz <br>
 tar xvzf mmseqs-linux-gpu.tar.gz <br>
 export PATH=$(pwd)/mmseqs/bin/:$PATH <br>
 wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh <br>
 bash install_colabbatch_linux.sh <br>
-<br>
-add .git at th insal file<br>
-
-nano ~/.bashrc<br>
-export PATH=/data/Rosetta-PPI/localcolabfold/colabfold-conda/bin:$PATH<br>
-or<br>
+nano ~/.bashrc <br>
 export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH <br>
+source ~/.bashrc
+activate HInt
+```
+
+### Download mmseqs2 database
+```bash
+wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
+chmod +x setup_databases.sh 
+GPU=1 ./setup_databases.sh ./mmseq_database
+```
+
 
 
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
@@ -54,11 +50,17 @@ or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
 colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-# Instalation localcolabfold
-Colabfoldlocal
-https://github.com/YoshitakaMo/localcolabfold
-mmseqs databases Uniref30 colab_fold_data/Uniref30 tmp
-GPU=1 ./setup_databases.sh /path/to/db_folder
+## HInt for eucaryote
+## HInt for procaryote
+```bash
+git clone https://github.com/SNU-CSSB/RF2-Lite.git
+cd RF2-Lite/SE3Transformer
+pip install --no-cache-dir -r requirements.txt
+python setup.py install
+cd ../networks/
+wget http://files.ipd.uw.edu/pub/pathogens/weights.tar.gz
+tar xfz weights.tar.gz
+```
 
 
 # Informations
