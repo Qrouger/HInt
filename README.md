@@ -18,9 +18,9 @@ MSA generation is mandatory for using this tool.
 ## Generated MSA with colabfold (recommended for less than 100 sequences)
 Directly add to the pipeline.
 
-## Generated MSA with mmseqs2 GPU (recommended for more than 100 proteins)
+## Generated MSA with MMseqs2 GPU (recommended for more than 100 proteins)
 
-### Download mmseqs2 and localcolabfold
+### Download MMseqs2 and localcolabfold
 ```bash
 wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
 tar xvzf mmseqs-linux-gpu.tar.gz
@@ -33,7 +33,7 @@ source ~/.bashrc
 activate HInt
 ```
 
-### Download mmseqs2 database
+### Download MMseqs2 database
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
