@@ -33,7 +33,7 @@ source ~/.bashrc
 activate HInt
 ```
 
-### Download MMseqs2 database
+### Download MMseqs2 database GPU indexed
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
