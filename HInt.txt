@@ -9,5 +9,5 @@ DeepLoc :
 Path_Uniprot_ID : sequence.txt
 Path_AlphaFold_Data : /data/alphadata_v2
 Path_Pickle_Feature : ./feature_mmseq
-Path_Singularity_Image : {dir}/alpha-analysis_jax_0.4.sif
+Path_Singularity_Image : /data/alpha-analysis_jax_0.4.sif
 Path_mmseqs2_Data : /data/mmseq_database
