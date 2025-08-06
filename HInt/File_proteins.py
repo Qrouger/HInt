@@ -254,7 +254,7 @@ class File_proteins() :
             for line in in_file :
                 if "," in str(line) or (line[0] != ">" and save_prot == "") :
                     save_prot = ""
-                    new_line = (line.split(","))
+                    new_line = (line.strip().split(","))
                     for prot in new_line :
                         new_proteins.append(prot.upper().strip())
                         result_dict[prot.upper().strip()] = ""
@@ -288,36 +288,35 @@ class File_proteins() :
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         pattern2 = r"GN   Name=([\w]*)"
         del_car = ["\n"," ","//"]
-        for proteins in self.get_proteins() :
-            if proteins not in sequences.keys() :
-                if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True :
-                    with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
-                        new_sequence = str()
-                        for line in file :
-                            if line[0] != "#" and line[0] != ">" :
-                                new_sequence = line.strip("\n")
-                            if new_sequence != "" :
-                                break
-                        sequences[proteins] = new_sequence
-                        print(f"Sequence for {proteins} found in pickle feature")
-                else :
-                    print("Search sequence for " + proteins)
-                    urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
-                    if os.path.getsize("temp_file.txt") == 0 :
-                        print(f"{proteins} is not a compliant UniprotID")
-                    with open("temp_file.txt","r") as in_file:
-                        for seq in re.finditer(pattern, in_file.read()):
-                            sequences[proteins] = seq.group(1)
-                    with open("temp_file.txt","r") as in_file:
-                        for name in re.finditer(pattern2, in_file.read()) :
-                            names[proteins] = name.group(1)
-                    for car in del_car :
-                        sequences[proteins] = sequences[proteins].replace(car,"")
-                    os.remove("temp_file.txt")
-                    need_msa.append(proteins)
-            else :
-                if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False :
-                    need_msa.append(proteins)
+        for proteins in self.get_proteins() : 
+            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #priority to the sequence in the pickle feature
+                with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
+                    new_sequence = str()
+                    for line in file :
+                        if line[0] != "#" and line[0] != ">" :
+                            new_sequence = line.strip("\n")
+                        if new_sequence != "" :
+                            break
+                    sequences[proteins] = new_sequence
+                    print(f"Sequence for {proteins} found in pickle feature")
+            if proteins not in sequences.keys() : #so it's an UniprotID and MSA it's not generated
+                print("Search sequence for " + proteins)
+                urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
+                if os.path.getsize("temp_file.txt") == 0 :
+                    print(f"{proteins} is not a compliant UniprotID")
+                with open("temp_file.txt","r") as in_file:
+                    for seq in re.finditer(pattern, in_file.read()):
+                        sequences[proteins] = seq.group(1)
+                with open("temp_file.txt","r") as in_file:
+                    for name in re.finditer(pattern2, in_file.read()) :
+                        names[proteins] = name.group(1)
+                for car in del_car :
+                    sequences[proteins] = sequences[proteins].replace(car,"")
+                os.remove("temp_file.txt")
+                need_msa.append(proteins)
+            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False :
+                need_msa.append(proteins)
+        print("nah alors", sequences["Q1DFE2"])
         self.set_proteins_sequence(sequences)
         self.set_names(names)
         return need_msa
