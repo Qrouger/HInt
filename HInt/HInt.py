@@ -52,17 +52,12 @@ if __name__ == "__main__":
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU, Informations_dict["Regions"]) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != "" :
-        if len(HInt_object.get_possible_prey()) > 1 :
-           if Informations_dict["Organism"] == "euk" :
-              Use_RF2_PPI(HInt_object, Informations_dict, "RF2_PPI_int", GPU, Informations_dict["Regions"]) #set better interactions all_vs_bait
-           if Informations_dict["Organism"] in ["gram+","gram-"] :
-              Use_RF2_Lite(HInt_object, Informations_dict, GPU, Informations_dict["Regions"])      
         Generate_scripts(HInt_object, Informations_dict, "APD_PPI_int", GPU) #generate bait_vs_prey with new preys
         Generate_3D_model(Informations_dict, "APD_PPI_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "APD_PPI_int")
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Generate_scripts(HInt_object, Informations_dict, "APD_homo_int", GPU)
- #       Generate_3D_model(Informations_dict, "APD_homo_int", GPU)
+        Generate_3D_model(Informations_dict, "APD_homo_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "APD_homo_int")
     Resume_file(HInt_object)
 
