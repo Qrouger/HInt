@@ -50,18 +50,6 @@ or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
 colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-## HInt for eucaryote
-## HInt for procaryote
-```bash
-git clone https://github.com/SNU-CSSB/RF2-Lite.git
-cd RF2-Lite/SE3Transformer
-pip install --no-cache-dir -r requirements.txt
-python setup.py install
-cd ../networks/
-wget http://files.ipd.uw.edu/pub/pathogens/weights.tar.gz
-tar xfz weights.tar.gz
-```
-
 
 # Informations
 Signal_peptide :#No, Yes or None.
