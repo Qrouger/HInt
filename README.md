@@ -57,3 +57,4 @@ Homo-oligomer : Oligomerization (integer : 1-20). <br>
 Interact_with : Proteins names expected to be interacting with (Uniprot name or fasta name), separate by "," for multiple targets. <br>
 Organism : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
 DeepLoc : Cellular localisation of your research, only for euk. Possible localisation : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. It's possible to select multiple localisation with coma.
+DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
