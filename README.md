@@ -50,6 +50,11 @@ or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
 colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
+### Install deeplocpro
+
+git clone https://github.com/Jaimomar99/deeplocpro
+cd deeplocpro
+pip install .
 
 # Usage Informations
 Signal_peptide : No, Yes or None. <br>
