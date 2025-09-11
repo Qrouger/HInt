@@ -148,7 +148,6 @@ def remove_SP (file, Informations_dict, need_msa) :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
         if SignalP == "No" and bait in prot_SP.keys() and bait in need_msa :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
-    print(fasta_lines)
     with open(fasta_file, "w") as new_file2 :
         new_file2.write(fasta_lines)
     file.set_proteins_sequence(new_fasta_dict)
