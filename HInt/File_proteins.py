@@ -316,7 +316,6 @@ class File_proteins() :
                 need_msa.append(proteins)
             if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False :
                 need_msa.append(proteins)
-        print("nah alors", sequences["Q1DFE2"])
         self.set_proteins_sequence(sequences)
         self.set_names(names)
         return need_msa
