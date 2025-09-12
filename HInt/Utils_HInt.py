@@ -200,9 +200,9 @@ def create_feature (file, Informations_dict, GPU) :
         print(line, end="")
     process.stdout.close()
     process.wait()
+
+    ### if regions in bait, cut the bait MSA
     all_lines = str()
-
-
     for bait in baits :
         start = int(regions[bait].split("-")[0]) - 1
         end = int(regions[bait].split("-")[1]) - 1
