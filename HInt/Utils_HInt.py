@@ -181,7 +181,7 @@ def create_feature (file, Informations_dict, GPU) :
     for line in a3m_file:
         nb_line += 1
     print(f"Number of sequences in {fasta_file} : {int(nb_line/2)}")
-    if nb_line > 50 and Path_MMseqs2_Data!="" : #if more than 25 sequences, use local colabfold_search
+    if nb_line > 50 and Path_MMseqs2_Data!="" : #if more than 25 sequences, use local colabfold_search GPU
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {fasta_file} {Path_MMseqs2_Data} {Path_Pickle_Feature} --gpu 1 --db-load-mode 2" #-e 0.1
         os.system(cmd)
     if nb_line < 1 :
