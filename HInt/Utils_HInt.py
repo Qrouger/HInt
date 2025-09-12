@@ -85,7 +85,7 @@ def Define_informations() :
         exit()
     return(Informations_dict)
 
-def remove_SP (file, Informations_dict, need_msa) :
+def remove_SP (file, Informations_dict, need_prot, reason) :
     """
     Create a new FASTA file without the signal peptide using SignalP and filtred signal peptide.
 
@@ -93,6 +93,8 @@ def remove_SP (file, Informations_dict, need_msa) :
     ----------
     file : object of class File_proteins
     org : string
+    need_prot : list
+    reason : string
 
     Returns:
     ----------
@@ -101,7 +103,8 @@ def remove_SP (file, Informations_dict, need_msa) :
     SP_signal = 0
     prot_SP = dict()
     Prot_Signal_string = str()
-    fasta_file = file.get_fasta_file()
+    file_name = file.get_file_name()
+    fasta_file = file_name.replace(".txt",f"_{reason}.fasta")
     cmd1 = "signalp -fasta " + fasta_file + " -org " + Informations_dict["Organism"]
     os.system(cmd1)
     SignalP = Informations_dict["Signal_peptide"]
@@ -110,6 +113,7 @@ def remove_SP (file, Informations_dict, need_msa) :
         for line in fh :
             new_line = line.split("\t")
             if new_line[1] != "OTHER" and new_line[0][0] != "#" :
+                print(new_line[len(new_line)-1].split("-"))
                 prot_SP[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
     new_fasta_dict = file.get_proteins_sequence()
     with open(fasta_file, "r") as fa_file :
@@ -130,23 +134,23 @@ def remove_SP (file, Informations_dict, need_msa) :
     fasta_lines = str()
     for proteins in new_fasta_dict.keys() :
         if SignalP == "Yes" :
-            if proteins in prot_SP.keys() and proteins in need_msa :
+            if proteins in prot_SP.keys() and proteins in need_prot :
                 fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
             else :
                 pass
         if SignalP == "No" :
-            if proteins not in prot_SP.keys() and proteins in need_msa :
+            if proteins not in prot_SP.keys() and proteins in need_prot :
                 fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
             else :
                 pass
         if SignalP == "None" :
-            if proteins in need_msa :
+            if proteins in need_prot :
                 fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
     baits = Informations_dict["Interact_with"]
     for bait in baits :
-        if SignalP == "Yes" and bait not in prot_SP.keys() and bait in need_msa :
+        if SignalP == "Yes" and bait not in prot_SP.keys() and bait in need_prot :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
-        if SignalP == "No" and bait in prot_SP.keys() and bait in need_msa :
+        if SignalP == "No" and bait in prot_SP.keys() and bait in need_prot :
             fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
     with open(fasta_file, "w") as new_file2 :
         new_file2.write(fasta_lines)
@@ -170,24 +174,31 @@ def create_feature (file, Informations_dict, GPU) :
     baits = Informations_dict["Interact_with"]
     regions = Informations_dict["Regions"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
-    fasta_file = file.get_fasta_file()
-    a3m_file = open(fasta_file, 'r')
-    nb_line = 0
+    file_name = file.get_file_name()
+    msa_name = file_name.replace(".txt","_msa.fasta")
+    pkl_name = file_name.replace(".txt","_pkl.fasta")
+    #fasta_file = file.get_fasta_file()
     GPU_str = ""
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
     print(GPU_str)
-    for line in a3m_file:
-        nb_line += 1
-    print(f"Number of sequences in {fasta_file} : {int(nb_line/2)}")
-    if nb_line > 50 and Path_MMseqs2_Data!="" : #if more than 25 sequences, use local colabfold_search GPU
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {fasta_file} {Path_MMseqs2_Data} {Path_Pickle_Feature} --gpu 1 --db-load-mode 2" #-e 0.1
-        os.system(cmd)
-    if nb_line < 1 :
-        logging.info("All MSAs have already been generated")
+    with open(msa_name, 'r') as msa_file :
+       nb_line_msa = 0
+       for line in msa_file:
+          nb_line_msa += 1
+       print(f"Number of sequences in {msa_name} : {int(nb_line_msa/2)}")
+    if nb_line_msa > 50 : #if more than 25 sequences, use local colabfold_search GPU
+       cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
+       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+       for line in process.stdout:
+          print(line, end="")
+       process.stdout.close()
+       process.wait()
+    elif nb_line_msa < 1 :
+       logging.info("All MSAs have already been generated")
     cmd = ["create_individual_features.py",
-    f"--fasta_paths=./{fasta_file}",
+    f"--fasta_paths=./{msa_name}",
     f"--data_dir={Path_AlphaFold_Data}",
     "--save_msa_files=False",
     f"--output_dir={Path_Pickle_Feature}",
@@ -197,11 +208,26 @@ def create_feature (file, Informations_dict, GPU) :
     "--use_precomputed_msas=True"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
     for line in process.stdout:
-        print(line, end="")
+       print(line, end="")
     process.stdout.close()
     process.wait()
+    if os.path.isfile(pkl_name) == True :
+       cmd2 = ["create_individual_features.py",
+       f"--fasta_paths=./{pkl_name}",
+       f"--data_dir={Path_AlphaFold_Data}",
+       "--save_msa_files=False",
+       f"--output_dir={Path_Pickle_Feature}",
+       "--max_template_date=2024-05-02",
+       "--skip_existing=True",
+       "--use_mmseqs2=True",
+       "--use_precomputed_msas=True"]
+       process = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+       for line in process.stdout:
+          print(line, end="")
+       process.stdout.close()
+       process.wait()
 
-    ### if regions in bait, cut the bait MSA
+    ### if regions in bait, cut the MSA
     all_lines = str()
     for bait in baits :
         start = int(regions[bait].split("-")[0]) - 1
@@ -246,7 +272,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour 
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
-        
+
     Returns:
     ----------
     """

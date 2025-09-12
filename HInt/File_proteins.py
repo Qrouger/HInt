@@ -64,19 +64,6 @@ class File_proteins() :
         """
         self.file_name = filename
 
-    def set_fasta_file (self, filename) :
-        """
-        Sets new filename for the fasta file.
-        
-        Parameters:
-        ----------
-        filename = string
-        
-        Returns:
-        ----------
-        """
-        self.fasta_file = filename
-
     def set_lenght_prot (self, lenght_prot) :
         """
         Sets lenght of all proteins.
@@ -167,19 +154,6 @@ class File_proteins() :
         file_name : string
         """
         return self.file_name
-    
-    def get_fasta_file (self) :
-        """
-        Return the name of the fasta file.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        fasta_file : string
-        """
-        return self.fasta_file
     
     def get_lenght_prot (self) :
         """
@@ -281,15 +255,17 @@ class File_proteins() :
         Returns:
         ----------
         need_msa : list
+        need_pkl : list
         """
         need_msa = list()
+        need_pkl = list()
         sequences = self.get_proteins_sequence()
         names = dict()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         pattern2 = r"GN   Name=([\w]*)"
         del_car = ["\n"," ","//"]
-        for proteins in self.get_proteins() : 
-            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #priority to the sequence in the pickle feature
+        for proteins in self.get_proteins() :
+            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True and os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == True : #priority to the sequence in the msa
                 with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
                     new_sequence = str()
                     for line in file :
@@ -298,8 +274,8 @@ class File_proteins() :
                         if new_sequence != "" :
                             break
                     sequences[proteins] = new_sequence
-                    print(f"Sequence for {proteins} found in pickle feature")
-            if proteins not in sequences.keys() : #so it's an UniprotID and MSA it's not generated
+                    print(f"Sequence for {proteins} found in msa file")
+            elif proteins not in sequences.keys() : #so it's an UniprotID and MSA it's not generated
                 print("Search sequence for " + proteins)
                 urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
                 if os.path.getsize("temp_file.txt") == 0 :
@@ -314,11 +290,13 @@ class File_proteins() :
                     sequences[proteins] = sequences[proteins].replace(car,"")
                 os.remove("temp_file.txt")
                 need_msa.append(proteins)
-            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False :
+            elif os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False : #proteins is in sequence but don't have msa
                 need_msa.append(proteins)
+            elif os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == False : #proteins with msa without pkl file
+                need_pkl.append(proteins)
         self.set_proteins_sequence(sequences)
         self.set_names(names)
-        return need_msa
+        return need_msa, need_pkl
 
     def find_prot_lenght (self, prot_dict = None) :
         """
@@ -342,23 +320,29 @@ class File_proteins() :
             lenght_prot[protein] = len(sequences[protein])
         self.set_lenght_prot(lenght_prot)
 
-    def create_fasta_file (self, need_msa) :
+    def create_fasta_file (self, need_msa, need_pkl) :
         """
         Generate a FASTA file for protein who don't have MSA.
-
+        Generate a FASTA file for protein who don't have pkl.
         Parameters:
         ----------
         need_msa : list
-        
+        need_pkl : list
+
         Returns:
         ----------
         """
-        line = str()
+        line_msa = str()
         sequences = self.get_proteins_sequence()
         for protein in need_msa :
-            line = line + ">" + protein + "\n" + sequences[protein] + "\n"        
+            line_msa += ">" + protein + "\n" + sequences[protein] + "\n"
         file_name = self.get_file_name()
-        file_out = file_name.replace("txt","fasta")
-        with open(file_out,"w") as fh :
-            fh.write(line)
-        self.set_fasta_file(file_out)
+        file_msa = file_name.replace(".txt","_msa.fasta")
+        with open(file_msa,"w") as f_msa :
+            f_msa.write(line_msa)
+        line_pkl = str()
+        for protein in need_pkl :
+            line_pkl += ">" + protein + "\n" + sequences[protein] + "\n"
+        file_pkl = file_name.replace(".txt","_pkl.fasta")
+        with open(file_pkl,"w") as f_pkl :
+            f_pkl.write(line_pkl)

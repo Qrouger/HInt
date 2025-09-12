@@ -37,10 +37,12 @@ if __name__ == "__main__":
     Informations_dict = Define_informations()
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
     HInt_object.get_result_dict()
-    need_msa = HInt_object.find_proteins_sequence(Informations_dict["Path_Pickle_Feature"]) #and real name of proteins
-    HInt_object.create_fasta_file(need_msa)
+    need_msa, need_pkl = HInt_object.find_proteins_sequence(Informations_dict["Path_Pickle_Feature"]) #and real name of proteins
+    HInt_object.create_fasta_file(need_msa, need_pkl)
     if len(need_msa) > 0 :
-        remove_SP(HInt_object,Informations_dict, need_msa)
+        remove_SP(HInt_object,Informations_dict, need_msa, "msa")
+    if len(need_pkl) > 0 :
+        remove_SP(HInt_object,Informations_dict, need_pkl, "pkl")
     filter_signalP(HInt_object,Informations_dict)
     if Informations_dict["DeepLoc"] != "None" :
         filter_deeploc(HInt_object, Informations_dict["DeepLoc"])
