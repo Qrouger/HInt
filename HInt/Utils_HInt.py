@@ -190,11 +190,12 @@ def create_feature (file, Informations_dict, GPU) :
        print(f"Number of sequences in {msa_name} : {int(nb_line_msa/2)}")
     if nb_line_msa > 50 : #if more than 25 sequences, use local colabfold_search GPU
        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
-       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-       for line in process.stdout:
-          print(line, end="")
-       process.stdout.close()
-       process.wait()
+       os.system(cmd)
+#       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+ #      for line in process.stdout:
+  #        print(line, end="")
+   #    process.stdout.close()
+    #   process.wait()
     elif nb_line_msa < 1 :
        logging.info("All MSAs have already been generated")
     cmd = ["create_individual_features.py",
