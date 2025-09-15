@@ -104,6 +104,7 @@ def remove_SP (file, Informations_dict, need_prot, reason) :
     prot_SP = dict()
     Prot_Signal_string = str()
     file_name = file.get_file_name()
+    print(reason, need_prot)
     fasta_file = file_name.replace(".txt",f"_{reason}.fasta")
     cmd1 = "signalp -fasta " + fasta_file + " -org " + Informations_dict["Organism"]
     os.system(cmd1)
@@ -213,6 +214,7 @@ def create_feature (file, Informations_dict, GPU) :
     process.stdout.close()
     process.wait()
     if os.path.isfile(pkl_name) == True :
+       print("yes")
        cmd2 = ["create_individual_features.py",
        f"--fasta_paths=./{pkl_name}",
        f"--data_dir={Path_AlphaFold_Data}",
@@ -265,7 +267,7 @@ def create_feature (file, Informations_dict, GPU) :
             os.system(cmd3)
 
 
-def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour parse toutes les prot #need to make this just with .a3m files
+def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     """
     Generating MSA coverage for all proteins and write shallow_MSA text file.
 
@@ -305,20 +307,15 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) : #relativement long pour 
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
-#    for prot in possible_prey : #just write shallow_MSA.txt
         a3m_file = open(f'{Path_Pickle_Feature}/{prot}.a3m', 'r')
-        msa = 0
-        for line in a3m_file:
-            msa += 1
-#        pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
-#        feature_dict = pre_feature_dict.feature_dict
-#        msa = feature_dict['msa']
-        if msa/2 <= 100 : #name and sequence
-            if msa <= 2 :
-               shallow_MSA += prot + " : " + str(int(msa/2)) + " sequences\n"
+        msa = subprocess.run(['wc', '-l', f'{Path_Pickle_Feature}/{prot}.a3m'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        line_msa = int(msa.stdout.split()[0])
+        if line_msa/2 <= 100 :
+            if line_msa/2 <= 2 :
+               shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot] = result_dict[prot] + "No MSA"
             else :
-               shallow_MSA += prot + " : " + str(int(msa/2)) + " sequences\n"
+               shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot] = result_dict[prot] + "Shallow MSA | "
                new_possible_prey.append(prot)
         else :
