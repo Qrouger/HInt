@@ -307,6 +307,11 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
+        #pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb')) ### maybe faster
+        #feature_dict = pre_feature_dict.feature_dict
+        #msa = feature_dict['msa']
+        #if len(msa) <= 100 :
+        #    shallow_MSA += prot + " : " + str(len(msa)) + " sequences\n"
         a3m_file = open(f'{Path_Pickle_Feature}/{prot}.a3m', 'r')
         msa = subprocess.run(['wc', '-l', f'{Path_Pickle_Feature}/{prot}.a3m'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         line_msa = int(msa.stdout.split()[0])
