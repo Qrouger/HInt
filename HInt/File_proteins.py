@@ -24,9 +24,9 @@ class File_proteins() :
         """
         self.set_all_att(path_txt_file)
 
-    def set_proteins_sequence (self, new_protein_sequence) :
+    def set_proteins_sequence_SP (self, new_protein_sequence) :
         """
-        Sets a dict of all sequences and set a lenght dict.
+        Sets a dict of all sequences with Signal peptide.
         
         Parameters:
         ----------
@@ -35,7 +35,20 @@ class File_proteins() :
         Returns:
         ----------
         """
-        self.protein_sequence = new_protein_sequence
+        self.protein_sequence_SP = new_protein_sequence
+
+    def set_proteins_sequence_no_SP (self, new_protein_sequence) :
+        """
+        Sets a dict of all sequences without Signal peptide and set a lenght dict.
+        
+        Parameters:
+        ----------
+        new_protein_sequence = dictionary
+        
+        Returns:
+        ----------
+        """
+        self.protein_sequence_no_SP = new_protein_sequence
         self.find_prot_lenght(new_protein_sequence)
 
     def set_proteins (self, new_protein) :
@@ -116,9 +129,9 @@ class File_proteins() :
         """
         self.possible_prey = possible_prey
 
-    def get_proteins_sequence (self) :
+    def get_proteins_sequence_SP (self) :
         """
-        Return the new amino acid sequence list.
+        Return the new amino acid sequence dictionary with SP.
         
         Parameters:
         ----------
@@ -127,8 +140,21 @@ class File_proteins() :
         ----------
         proteins_sequence : dictionary
         """
-        return self.protein_sequence
-    
+        return self.protein_sequence_SP
+
+    def get_proteins_sequence_no_SP (self) :
+        """
+        Return the new amino acid sequence dictionary without SP.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        proteins_sequence : dictionary
+        """
+        return self.protein_sequence_no_SP
+
     def get_proteins (self) :
         """
         Return the new proteins name list.
@@ -221,8 +247,9 @@ class File_proteins() :
         ----------
         """
         new_proteins = list()
-        already_fasta = dict()
+        sequence_SP = dict()
         result_dict = dict()
+        already_fasta = dict()
         save_prot = ""
         with open(path_txt,"r") as in_file :
             for line in in_file :
@@ -231,24 +258,26 @@ class File_proteins() :
                     new_line = (line.strip().split(","))
                     for prot in new_line :
                         new_proteins.append(prot.upper().strip())
-                        result_dict[prot.upper().strip()] = ""
+                        result_dict[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
                     new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
-                    result_dict[save_prot] = ""
+                    sequence_SP[save_prot] = ""
+                    result_dict[save_prot] = dict()
                 elif len(line) > 2 and save_prot != "" :
-                    already_fasta[save_prot] = already_fasta[save_prot] + line.strip("\n")
+                    sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n")
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)
-        self.set_proteins_sequence(already_fasta)
+        self.set_proteins_sequence_SP(sequence_SP)
         self.set_result_dict(result_dict)
     
     def find_proteins_sequence (self, Path_Pickle_Feature) :
         """
         Search for the amino acid sequence on the UniProt website and clean it. If the a3m file exist, take the sequence from it and return a list of proteins that do not have a MSA. Set if the sequence have Peptide signal or not.
-        
+        Generate a reference fasta file for all proteins with SP.
+
         Parameters:
         ----------
 
@@ -259,13 +288,47 @@ class File_proteins() :
         """
         need_msa = list()
         need_pkl = list()
-        sequences = self.get_proteins_sequence()
-        names = dict()
+        line_fasta = str()
+        sequences_SP = self.get_proteins_sequence_SP()
+        sequences_no_SP = dict()
+        #names = dict()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
-        pattern2 = r"GN   Name=([\w]*)"
+        #pattern2 = r"GN   Name=([\w]*)"
         del_car = ["\n"," ","//"]
+        file_name = self.get_file_name()
+        file_fasta = file_name.replace(".txt",".fasta")
         for proteins in self.get_proteins() :
-            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True and os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == True : #priority to the sequence in the msa
+            if proteins not in sequences_SP.keys() :
+                exist = False
+                if os.path.isfile(f"log_file/{file_fasta}") == True : #if reference fasta file exist
+                    with open(f"log_file/{file_fasta}","r") as f_fasta :
+                        op_file = f_fasta.read()
+                    pattern_fasta = re.compile(rf">(.*{proteins}.*)\n([A-Z\n]+)")
+                    match = pattern_fasta.search(op_file)
+                    if match :
+                        raw_seq = match.group(2)
+                        sequence = raw_seq.strip("\n").strip()
+                        sequences_SP[proteins] = sequence
+                        exist = True
+
+                if exist == False : # don't find in reference fasta file
+                    print("Search sequence for " + proteins)
+                    urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","log_file/temp_file.txt")
+                    if os.path.getsize("log_file/temp_file.txt") == 0 :
+                        print(f"{proteins} is not a compliant UniprotID")
+                    with open("log_file/temp_file.txt","r") as in_file:
+                        for seq in re.finditer(pattern, in_file.read()):
+                            sequences_SP[proteins] = seq.group(1)
+                  #  with open("temp_file.txt","r") as in_file:
+                  #      for name in re.finditer(pattern2, in_file.read()) :
+                  #          names[proteins] = name.group(1)
+                    for car in del_car :
+                        sequences_SP[proteins] = sequences_SP[proteins].replace(car,"")
+                    os.remove("log_file/temp_file.txt")
+            line_fasta += ">"+proteins+"\n"+sequences_SP[proteins]+"\n"
+        
+        
+            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #priority to the sequence no SP in the msa
                 with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
                     new_sequence = str()
                     for line in file :
@@ -273,30 +336,20 @@ class File_proteins() :
                             new_sequence = line.strip("\n")
                         if new_sequence != "" :
                             break
-                    sequences[proteins] = new_sequence
+                    sequences_no_SP[proteins] = new_sequence
                     print(f"Sequence for {proteins} found in msa file")
-            elif proteins not in sequences.keys() : #so it's an UniprotID and MSA it's not generated
-                print("Search sequence for " + proteins)
-                urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","temp_file.txt")
-                if os.path.getsize("temp_file.txt") == 0 :
-                    print(f"{proteins} is not a compliant UniprotID")
-                with open("temp_file.txt","r") as in_file:
-                    for seq in re.finditer(pattern, in_file.read()):
-                        sequences[proteins] = seq.group(1)
-                with open("temp_file.txt","r") as in_file:
-                    for name in re.finditer(pattern2, in_file.read()) :
-                        names[proteins] = name.group(1)
-                for car in del_car :
-                    sequences[proteins] = sequences[proteins].replace(car,"")
-                os.remove("temp_file.txt")
+            else : #proteins is in sequence but don't have msa
                 need_msa.append(proteins)
-            elif os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == False : #proteins is in sequence but don't have msa
-                need_msa.append(proteins)
-            elif os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == False : #proteins with msa without pkl file
+            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #proteins with msa without pkl file
                 need_pkl.append(proteins)
-        self.set_proteins_sequence(sequences)
-        self.set_names(names)
+
+        #self.set_names(names)
+        with open(f"log_file/{file_fasta}","w") as f_fasta :
+            f_fasta.write(line_fasta)
+        self.set_proteins_sequence_SP(sequences_SP)
+        self.set_proteins_sequence_no_SP(sequences_no_SP)
         return need_msa, need_pkl
+
 
     def find_prot_lenght (self, prot_dict = None) :
         """
@@ -314,7 +367,7 @@ class File_proteins() :
             proteins = self.get_proteins()
         else :
             proteins = prot_dict
-        sequences = self.get_proteins_sequence()
+        sequences = self.get_proteins_sequence_no_SP()
         lenght_prot = dict()
         for protein in proteins :
             lenght_prot[protein] = len(sequences[protein])
@@ -324,6 +377,7 @@ class File_proteins() :
         """
         Generate a FASTA file for protein who don't have MSA.
         Generate a FASTA file for protein who don't have pkl.
+
         Parameters:
         ----------
         need_msa : list
@@ -333,16 +387,27 @@ class File_proteins() :
         ----------
         """
         line_msa = str()
-        sequences = self.get_proteins_sequence()
-        for protein in need_msa :
-            line_msa += ">" + protein + "\n" + sequences[protein] + "\n"
+        sequence_SP = self.get_proteins_sequence_SP()
+        proteins = self.get_proteins()
         file_name = self.get_file_name()
         file_msa = file_name.replace(".txt","_msa.fasta")
-        with open(file_msa,"w") as f_msa :
-            f_msa.write(line_msa)
-        line_pkl = str()
-        for protein in need_pkl :
-            line_pkl += ">" + protein + "\n" + sequences[protein] + "\n"
         file_pkl = file_name.replace(".txt","_pkl.fasta")
-        with open(file_pkl,"w") as f_pkl :
-            f_pkl.write(line_pkl)
+        if os.path.isfile(f"log_file/{file_msa}") == True :
+            os.remove(f"log_file/{file_msa}")
+        if os.path.isfile(f"log_file/{file_pkl}") == True :
+            os.remove(f"log_file/{file_pkl}")
+        if len(need_msa) != 0 :
+            for protein in need_msa :
+                line_msa += ">" + protein + "\n" + sequence_SP[protein] + "\n"
+            with open(f"log_file/{file_msa}","w") as f_msa :
+                f_msa.write(line_msa)
+
+        sequences_no_SP = self.get_proteins_sequence_no_SP()
+        line_pkl = str()
+        if len(need_pkl) != 0 :
+            for protein in need_pkl :
+                line_pkl += ">" + protein + "\n" + sequences_no_SP[protein] + "\n"
+            print(sequences_no_SP[protein])
+            with open(f"log_file/{file_pkl}","w") as f_pkl :
+                f_pkl.write(line_pkl)
+
