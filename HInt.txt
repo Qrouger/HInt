@@ -1,4 +1,5 @@
 ###Informations
+Signal_peptide :
 Homo-oligomer : 5
 Interact_with : O50333
 Organism : gram-
