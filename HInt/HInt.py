@@ -13,6 +13,8 @@ import argparse
 
 
 log_filename = "./log_file/HInt.log"
+if os.path.exists("log_file") == False :
+    os.system("mkdir log_file")
 logging.getLogger().handlers.clear()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -44,6 +46,7 @@ if __name__ == "__main__":
         filter_deeploc(HInt_object, Informations_dict["DeepLoc"])
     if len(need_msa) > 0 :
         remove_SP(HInt_object,Informations_dict, need_msa)
+    filter_signalP(HInt_object,Informations_dict)
     if len(need_msa) > 0 or len(need_pkl) > 0 :
         create_feature(HInt_object,Informations_dict,GPU)
     print(str(datetime.now())+" Generation of MSA depth figures")
@@ -57,9 +60,9 @@ if __name__ == "__main__":
         Generate_3D_model(Informations_dict, "PPI_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "PPI_int")
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
-        Generate_scripts(HInt_object, Informations_dict, "APD_homo_int", GPU)
+        Generate_scripts(HInt_object, Informations_dict, "homo_int", GPU)
         Generate_3D_model(Informations_dict, "homo_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "homo_int")
-    Resume_file(HInt_object)
+    Resume_file(HInt_object,Informations_dict)
 
     
