@@ -413,7 +413,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     file.set_result_dict(result_dict)
 
 
-def filter_deeploc(file, localisation, need_msa, need_pkl) :
+def filter_deeploc(file, localisation, need_msa, need_pkl, Informations_dict) :
     """
     Filter proteins based on cellular localisation and set new prey list and new need_msa/need_pkl list.
 
@@ -423,6 +423,7 @@ def filter_deeploc(file, localisation, need_msa, need_pkl) :
     localisation : string
     need_msa : list
     need_pkl : list
+    Informations_dict : dict
 
     Returns:
     ----------
@@ -432,7 +433,10 @@ def filter_deeploc(file, localisation, need_msa, need_pkl) :
     localisation = localisation.split(",")
     new_possible_prey = list()
     possible_prey = file.get_possible_prey()
+    possible_baits = Informations_dict["Interact_with"]
     result_dict = file.get_result_dict()
+    new_need_msa = list()
+    new_need_pkl = list()
     for protein in possible_prey :
         for loc in result_dict[protein]["DeepLoc"].split("|") :
             if loc in localisation :
@@ -441,13 +445,14 @@ def filter_deeploc(file, localisation, need_msa, need_pkl) :
         if protein not in new_possible_prey :
             result_dict[protein]["Reason_for_filtering"] = "Cellular localisation : DeepLoc"
     for prot_msa in need_msa :
-        if prot_msa not in new_possible_prey :
-            need_msa.remove(prot_msa)
+        if prot_msa in new_possible_prey or prot_msa in possible_baits :
+            new_need_msa.append(prot_msa)
     for prot_pkl in need_pkl :
-        if prot_pkl not in new_possible_prey :
-            need_pkl.remove(prot_msa)
+        if prot_pkl in new_possible_prey and prot_msa in possible_baits :
+            new_need_pkl.append(prot_msa)
     file.set_possible_prey(new_possible_prey)
-    return(need_msa, need_pkl)
+    print(new_need_msa, new_need_pkl)
+    return(new_need_msa, new_need_pkl)
 
 
 def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
