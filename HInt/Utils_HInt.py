@@ -482,7 +482,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     device_count = pynvml.nvmlDeviceGetCount()
     for i in range(len(GPU)):
         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+        name = pynvml.nvmlDeviceGetName(handle)
         mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         vram = (mem_info.total / 1024**2) * 0.001 # in MiB
     pynvml.nvmlShutdown()
