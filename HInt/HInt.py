@@ -43,7 +43,7 @@ if __name__ == "__main__":
     HInt_object.create_fasta_file(need_msa, need_pkl)
     run_deeploc(HInt_object, Informations_dict["Organism"])
     if Informations_dict["DeepLoc"] != "None" :
-        filter_deeploc(HInt_object, Informations_dict["DeepLoc"])
+        need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict["DeepLoc"], need_msa, need_pkl)
     if len(need_msa) > 0 :
         remove_SP(HInt_object,Informations_dict, need_msa)
     filter_signalP(HInt_object,Informations_dict)

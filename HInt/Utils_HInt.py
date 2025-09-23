@@ -56,7 +56,7 @@ def Define_informations() :
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Homo-oligomer" :
-                Informations_dict[informations_key] = 1
+                Informations_dict[informations_key] = "1"
             elif informations_key == "DeepLoc" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Organism" :
@@ -80,6 +80,8 @@ def Define_informations() :
         if informations_key == "Homo-oligomer" :
             if int(Informations_dict[informations_key]) == False :
                 raise ValueError(f"Homo-oligomer is not an integer")
+            if Informations_dict[informations_key] == "0" :
+                Informations_dict[informations_key] = "1"
         if informations_key == "DeepLoc" :
             if Informations_dict["Organism"] == "euk" : #euk
                 for value in Informations_dict[informations_key].split(",") :
@@ -411,17 +413,21 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     file.set_result_dict(result_dict)
 
 
-def filter_deeploc(file, localisation) :
+def filter_deeploc(file, localisation, need_msa, need_pkl) :
     """
-    Filter proteins based on cellular localisation.
+    Filter proteins based on cellular localisation and set new prey list and new need_msa/need_pkl list.
 
     Parameters:
     ----------
     file : object of class File_proteins
     localisation : string
+    need_msa : list
+    need_pkl : list
 
     Returns:
     ----------
+    need_msa : list
+    need_pkl : list
     """
     localisation = localisation.split(",")
     new_possible_prey = list()
@@ -434,7 +440,14 @@ def filter_deeploc(file, localisation) :
                 break #stop the loop if one localisation is correct
         if protein not in new_possible_prey :
             result_dict[protein]["Reason_for_filtering"] = "Cellular localisation : DeepLoc"
+    for prot_msa in need_msa :
+        if prot_msa not in new_possible_prey :
+            need_msa.remove(prot_msa)
+    for prot_pkl in need_pkl :
+        if prot_pkl not in new_possible_prey :
+            need_pkl.remove(prot_msa)
     file.set_possible_prey(new_possible_prey)
+    return(need_msa, need_pkl)
 
 
 def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
@@ -946,11 +959,11 @@ def Class_output_RF2_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
             if float(score_dict[key]) >= 0.24 :
                 possible_prey.append(key)
             if key not in possible_prey :
-                result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer : RF2-PPI"
-    if Interaction == "RF2_PPI_int" :
-        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
-        for prot_score in sorted_list :
-            possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
+                result_dict[key]["Reason_for_filtering"] = "Bad homo-oligomer : RF2-PPI"
+#    if Interaction == "RF2_PPI_int" :
+#        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
+#        for prot_score in sorted_list :
+#            possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
     file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
@@ -1069,7 +1082,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
 
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
-                        result_dict[protein]["hiQ_score"] = "0"
+                        result_dict[protein]["hiQ_score"] = 0
                         result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
 
             with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
@@ -1124,7 +1137,7 @@ def Resume_file(file, Informations_dict) :
     proteins = file.get_proteins()
     informations = ["DeepLoc","Signal_peptide","iQ_score"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide,iQ_score\n"
-    small_csv_lines = "Name,Reason_for_filtering"
+    small_csv_lines = "Name, Reason_for_filtering\n"
 
     if Informations_dict["Homo-oligomer"] != 1 :
         informations = ["DeepLoc","Signal_peptide","RF2_homo_int","iQ_score","hiQ_score"]
@@ -1142,12 +1155,12 @@ def Resume_file(file, Informations_dict) :
             else :
                 big_csv_lines += ","
         if "Reason_for_filtering" in result_dict[prot].keys() :
-            small_csv_lines += "," + str(result_dict[prot]["Reason_for_filtering"])
+            small_csv_lines += ", " + str(result_dict[prot]["Reason_for_filtering"])
         else :
             small_csv_lines += "," + str("possible hit")
         big_csv_lines += "\n"
         small_csv_lines += "\n"
-    with open("All_Final_result.txt", "w") as All_result_file :
+    with open("All_Final_result.csv", "w") as All_result_file :
         All_result_file.write(big_csv_lines)
-    with open("Summary_result.txt", "w") as summary :
+    with open("Summary_result.csv", "w") as summary :
         summary.write(small_csv_lines)
