@@ -413,28 +413,27 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     file.set_result_dict(result_dict)
 
 
-def filter_deeploc(file, localisation, need_msa, need_pkl, Informations_dict) :
+def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on cellular localisation and set new prey list and new need_msa/need_pkl list.
 
     Parameters:
     ----------
     file : object of class File_proteins
-    localisation : string
+    Informations_dict : dict
     need_msa : list
     need_pkl : list
-    Informations_dict : dict
 
     Returns:
     ----------
     need_msa : list
     need_pkl : list
     """
-    localisation = localisation.split(",")
-    new_possible_prey = list()
-    possible_prey = file.get_possible_prey()
+    localisation = Informations_dict["DeepLoc"].split(",")
     possible_baits = Informations_dict["Interact_with"]
+    possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
+    new_possible_prey = list()
     new_need_msa = list()
     new_need_pkl = list()
     for protein in possible_prey :
@@ -613,7 +612,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU,
     device_count = pynvml.nvmlDeviceGetCount()
     for i in range(len(GPU)):
         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+        name = pynvml.nvmlDeviceGetName(handle)
         mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         vram = (mem_info.total / 1024**2) * 0.001 # in MiB
     pynvml.nvmlShutdown()
