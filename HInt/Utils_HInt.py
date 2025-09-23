@@ -1101,7 +1101,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
 
 def Split_to_GPU(file, save_lenght_line, GPU) :
     """
-    Split interactions in function of their lenght in different GPU.
+    Split interactions in function of their lenght on the least loaded GPU.
 
     Parameters:
     ----------
@@ -1114,16 +1114,16 @@ def Split_to_GPU(file, save_lenght_line, GPU) :
     dict_split_GPU : dictionnary
     """
     sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
-    index_GPU = 0
     dict_split_GPU = dict()
+    gpu_loads = dict()
     for nbr_GPU in GPU :
         dict_split_GPU[f"GPU_{nbr_GPU}"] = ""
+        gpu_loads[f"GPU_{nbr_GPU}"] = 0
     for interactions in sorted_list :
-        dict_split_GPU[f"GPU_{GPU[index_GPU]}"] += interactions[1][1]
-        index_GPU += 1
-        if index_GPU > len(GPU)-1 :
-            index_GPU = 0
-    return (dict_split_GPU)
+        target_gpu = min(gpu_loads, key=gpu_loads.get)
+        dict_split_GPU[f"GPU_{GPU[target_gpu]}"] += interactions[1][1]
+        gpu_loads[f"GPU_{GPU[target_gpu]}"] += interactions[1][0]
+    return dict_split_GPU
 
 def Resume_file(file, Informations_dict) :
     """
