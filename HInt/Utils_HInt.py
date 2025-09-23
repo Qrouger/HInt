@@ -341,9 +341,9 @@ def filter_signalP(file, Informations_dict) :
             result_dict[protein]["Signal_peptide"] = "Yes"
         if SignalP == "None" :
             new_possible_prey.append(protein)
-        if SignalP == result_dict[protein]["Signal_peptide"] :
+        elif SignalP == result_dict[protein]["Signal_peptide"] :
             new_possible_prey.append(protein)
-        else :
+        elif SignalP != result_dict[protein]["Signal_peptide"] :
             result_dict[protein]["Reason_for_filtering"] = "Signal peptide : SignalP"
 
     file.set_possible_prey(new_possible_prey)
@@ -1148,7 +1148,12 @@ def Resume_file(file, Informations_dict) :
         informations = ["DeepLoc","Signal_peptide","RF2_homo_int","iQ_score","hiQ_score"]
         big_csv_lines = "Name,DeepLoc,Signal_peptide,RF2_homo_int,iQ_score,hiQ_score\n"
 
+
+
     sorted_proteins = sorted(result_dict.items(),key=lambda x: (len(x[1]), x[1].get("iQ_score", 0)), reverse=True)
+    if Informations_dict["interact_with"] == [""] : #if no PPI interactions try filtred on hiQ_score
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (len(x[1]), x[1].get("hiQ_score", 0)), reverse=True)
+
     sorted_dict = dict(sorted_proteins)
 
     for prot in sorted_dict.keys() :
