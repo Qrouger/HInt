@@ -8,7 +8,7 @@ It allows you to find homologous proteins with similar interactions.
 ```bash
 conda create -n HInt -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer
 conda activate HInt
-pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric matplotlib pynvml && \
+pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric matplotlib nvidia-ml-py && \
 pip install -U "jax[cuda12]"==0.5.3 && \
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
 ```
