@@ -52,8 +52,8 @@ colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br
 
 ### Install deeplocpro
 
-git clone https://github.com/Jaimomar99/deeplocpro
-cd deeplocpro
+git clone https://github.com/Jaimomar99/deeplocpro <br>
+cd deeplocpro <br>
 pip install .
 
 # Usage Informations
