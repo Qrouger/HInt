@@ -25,7 +25,8 @@ setup(
         'pydantic',
         'packaging',
         'opt_einsum',
-        'torch-geometric'
+        'torch-geometric',
+        'DeepLocPro',
     ],
     entry_points={'console_scripts': ['PPIFold=PPIFold.PPIFold:main',],}
 )
