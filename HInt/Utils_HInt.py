@@ -1151,7 +1151,7 @@ def Resume_file(file, Informations_dict) :
 
     sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("iQ_score", 0), len(x[1])), reverse=True)
     if Informations_dict["Interact_with"] == [""] : #if no PPI interactions try filtred on hiQ_score
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: (len(x[1]), x[1].get("hiQ_score", 0)), reverse=True)
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
 
     sorted_dict = dict(sorted_proteins)
 
