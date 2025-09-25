@@ -337,7 +337,7 @@ class File_proteins() :
                         if new_sequence != "" :
                             break
                     sequences_no_SP[proteins] = new_sequence
-                    print(f"Sequence for {proteins} found in msa file")
+                    print(f"Clean sequence for {proteins} found in msa file")
             else : #proteins is in sequence but don't have msa
                 need_msa.append(proteins)
             if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #proteins with msa without pkl file
