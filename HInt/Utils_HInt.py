@@ -485,7 +485,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
         mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         vram = (mem_info.total / 1024**2) * 0.001 # in MiB
     pynvml.nvmlShutdown()
-    max_aa = int(vram * 83) #83 aa per Go of vram
+    max_aa = int(vram * 91) #91 aa per Go of vram
 
     if Interaction_file == "PPI_int" :
         for bait in possible_baits :
@@ -500,7 +500,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
                         save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
                         nbr_prey += 1
                     else : #if interaction is too large
-                        OOM_int = OOM_int + bait + ";" + prey + "\n"
+                        OOM_int += OOM_int + bait + ";" + prey + "\n"
                         result_dict[prey]["iQ_score"] = "Too big interactions : AF OOM"
                 else :
                     nbr_prey += 1
@@ -517,8 +517,8 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
                     save_lenght_line[f"{prey}_homer_{nbr_oligo}er"] = [int_lenght, f"{prey}:{nbr_oligo}\n"]
                     nbr_prey += 1
                 else : #if interaction is too large
-                    OOM_int = prey + ":" + nbr_oligo + "\n"
-                    result_dict[prey]["hiQ_score"] = "Homo-oligomer too large for your GPU"
+                    OOM_int += prey + ":" + nbr_oligo + "\n"
+                    result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
             else :
                 nbr_prey += 1
                 pass
