@@ -1166,7 +1166,7 @@ def Resume_file(file, Informations_dict) :
         if "Reason_for_filtering" in result_dict[prot].keys() :
             small_csv_lines += ", " + str(result_dict[prot]["Reason_for_filtering"])
         else :
-            small_csv_lines += "," + str("possible hit")
+            small_csv_lines += ", " + str("possible hit")
         big_csv_lines += "\n"
         small_csv_lines += "\n"
     with open("All_Final_result.csv", "w") as All_result_file :
