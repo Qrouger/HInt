@@ -851,9 +851,9 @@ def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_index)
         cmd = ["python",
-        f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/predict_list_PPI.py",
+        f"{path_RF2_PPI}/src/predict_list_PPI.py",
         "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt",
-        "-model_file", f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
+        "-model_file", "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
         "-number_seqs", "5000"]
         print(f"[GPU {gpu_index}] Launch interaction : {interaction}")
         subprocess.run(cmd, env=env)
@@ -885,7 +885,7 @@ def Class_output_RF2_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
     for GPU_index in GPU :
         with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{GPU_index}.txt.log", "r") as log_file :
             for line in log_file :
-                if line.strip("\n") != "done" :
+                if line.strip("\n") != "done" and "_and_" in line :
                     name = line.split("\t")[0].split("_and_")[1].split(".")[0]
                     score = line.split("\t")[1]
                     if name not in score_dict.keys() :
