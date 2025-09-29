@@ -11,3 +11,4 @@ Path_AlphaFold_Data : /data/alphadata_v2
 Path_Pickle_Feature : ./feature_mmseq
 Path_Singularity_Image : /data/alpha-analysis_jax_0.4.sif
 Path_MMseqs2_Data : /data/mmseq_database
+Path_RF2_PPI :
