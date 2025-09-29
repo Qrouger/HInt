@@ -13,9 +13,6 @@ pip install -U "jax[cuda12]"==0.5.3
 
 
 
-pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
-
-
 RF2_PPI :
 
 pip install torch==1.12.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html
