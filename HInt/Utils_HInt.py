@@ -28,7 +28,7 @@ def Define_informations() :
     """
     logging.basicConfig(level=logging.INFO,format="%(asctime)s - %(levelname)s - %(message)s",stream=sys.stdout)
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data", "Path_RF2_PPI"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -38,9 +38,9 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image"] :
+            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_RF2_PPI"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","DeepLoc"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","DeepLoc","Path_RF2_PPI"] :
                 Informations_dict[info] = ""
     for informations_key in Informations_dict.keys() : #verify all informations and set default value
         if len(Informations_dict[informations_key]) == 0 :
@@ -265,7 +265,6 @@ def create_feature (file, Informations_dict, GPU) :
         process.stdout.close()
         process.wait()
     if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl for proteins without pkl file
-        print("yes")
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
         f"--data_dir={Path_AlphaFold_Data}",
@@ -658,71 +657,6 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU,
     file.set_result_dict(result_dict)
     return total_int
 
-def Prepare_RF2_Lite(file, Path_Pickle_Feature, possible_baits, GPU, regions) :
-    """
-    Prepare script for RF2-Lite.
-
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    Path_Pickle_Feature : string
-    Interaction : string
-    GPU : list
-    regions : dict
-
-    Returns:
-    ----------
-    """
-    total_int = 0
-    save_lenght_line = dict()
-    possible_prey = file.get_possible_prey()
-    new_possible_prey = list()
-    lenght_prot = file.get_lenght_prot()
-    result_dict = file.get_result_dict()
-    index_file = 0
-    pynvml.nvmlInit()
-    for i in range(len(GPU)):
-        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        vram = (mem_info.total / 1024**2) * 0.001 # en MiB
-    pynvml.nvmlShutdown()
-    max_lenght_int = int(vram * 47) #need to bench RF2-Lite on data
-    if os.path.exists(f"{Path_Pickle_Feature}/RF2_PPI_int.txt") :
-        os.remove(f"{Path_Pickle_Feature}/RF2_PPI_int.txt")
-    for bait in possible_baits :
-        if regions[bait] != "0-0" :
-            lenght_bait = int(regions[bait].split("-")[1]) - int(regions[bait].split("-")[0])
-            name_bait = f"{bait}_{str(regions[bait].split('-')[0])}_{str(regions[bait].split('-')[1])}"
-        else :
-            lenght_bait = lenght_prot[bait]
-            name_bait = bait
-        for prey in possible_prey :
-            total_lenght = lenght_bait + lenght_prot[prey]
-            if total_lenght > max_lenght_int :#remove interactions with a too big length
-                result_dict[prey] = result_dict[prey] + "Too big interactions : RF2-Lite OOM"
-            else :
-                total_int += 1
-                if os.path.exists(f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m") == False : #if paired MSA doesn't exist
-                    new_total_int = fusioned_MSA(name_bait+".a3m",prey+".a3m", Path_Pickle_Feature, "Lite", total_int)
-                    if new_total_int != total_int-1 :#if fusionned MSA have sequence to merge
-                        save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{name_bait}_and_{prey}\n"]
-                        new_possible_prey.append(prey) #add all preys to the new possible prey list
-                    else :
-                        total_int = new_total_int #set new number of prey
-                        result_dict[prey] = result_dict[prey] + "No MSA to merge with bait" 
-                else : #if paired MSA exist
-                    save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [total_lenght, f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait} {lenght_prot[prey]} {Path_Pickle_Feature}/result_RF2_Lite_PPI/{name_bait}_and_{prey}\n"]
-                    new_possible_prey.append(prey) #add all preys to the new possible prey list
-    print(str(datetime.now()) + " End of MSA fusion")
-    dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
-    for GPU_i in dict_split_GPU.keys() :
-        with open(f"{Path_Pickle_Feature}/RF2_PPI_int_{GPU_i}.txt",'w') as file_int :
-            file_int.write(dict_split_GPU[GPU_i])
-    print("Total interactions : " + str(total_int))
-    file.set_possible_prey(new_possible_prey)
-    file.set_result_dict(result_dict)
-
 
 
 def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
@@ -858,7 +792,7 @@ def Uni_to_idx(ids):
     table_idx = np.sum(arr * coef, axis=-1)
     return table_idx
 
-def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list) :
+def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list, path_RF2_PPI) :
     """
     Launch RoseTTAFold2-PPI.
 
@@ -867,6 +801,7 @@ def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list) :
     Path_Pickle_Feature : string
     Interaction : string
     GPU_list : list
+    path_RF2_PPI : string
 
     Returns:
     ----------
@@ -883,7 +818,7 @@ def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list) :
     start_time = datetime.now()
     processes = []
     for GPU in GPU_list:
-        p = multiprocessing.Process(target=run_parallel_jobs_RF2_PPI, args=(Path_Pickle_Feature, Interaction, GPU, gpu_queues[GPU]))
+        p = multiprocessing.Process(target=run_parallel_jobs_RF2_PPI, args=(Path_Pickle_Feature, Interaction, GPU, gpu_queues[GPU], path_RF2_PPI))
         p.start()
         processes.append(p)
     for p in processes:
@@ -892,7 +827,7 @@ def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list) :
     duration = end_time - start_time
     print("Duration RoseTTAFold2-PPI :", duration)
 
-def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue) :
+def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue, path_RF2_PPI) :
     """
     Run parallel jobs one by one for RoseTTAFold2-PPI to avoid OOM errors. Rewrite all scores in one file. 
 
@@ -902,6 +837,7 @@ def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue
     Interaction : string
     gpu_index : integer
     queue : multiprocessing.Queue
+    path_RF2_PPI : string
 
     Returns:
     ----------
@@ -915,7 +851,7 @@ def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_index)
         cmd = ["python",
-        "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/predict_list_PPI.py",
+        f"{path_RF2_PPI}/src/predict_list_PPI.py",
         "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt",
         "-model_file", "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
         "-number_seqs", "5000"]
@@ -972,7 +908,7 @@ def Class_output_RF2_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
     file.set_result_dict(result_dict)
 
 
-def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
+def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
     """
     Main of RoseTTAFold2-PPI.
 
@@ -987,7 +923,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
     ----------
     """
     print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
-    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU, regions)
+    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU, Informations_dict["Regions"])
     nbr_line_result = 0
     for GPU_index in GPU :
         if os.path.exists(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log") == True :
@@ -997,7 +933,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU, regions) :
     nbr_line_result = nbr_line_result // 2
     if total_int != nbr_line_result : #check if all interactions have been done
         print(str(datetime.now()) + " Launch RoseTTAFold2-PPI")
-        Launch_RF2_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
+        Launch_RF2_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU, Informations_dict["Path_RF2_PPI"])
         print(str(datetime.now()) + " Scoring RoseTTAFold2-PPI")
         Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
     else :

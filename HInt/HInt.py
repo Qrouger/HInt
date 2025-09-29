@@ -54,7 +54,7 @@ if __name__ == "__main__":
     print(str(datetime.now()) + " Remove baits from prey list")
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
-        Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU, Informations_dict["Regions"]) #set better interactions all_vs_bait #Maybe remove
+        Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != [""] :
         Generate_scripts(HInt_object, Informations_dict, "PPI_int", GPU) #generate bait_vs_prey with new preys
         Generate_3D_model(Informations_dict, "PPI_int", GPU)

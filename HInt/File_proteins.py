@@ -407,7 +407,6 @@ class File_proteins() :
         if len(need_pkl) != 0 :
             for protein in need_pkl :
                 line_pkl += ">" + protein + "\n" + sequences_no_SP[protein] + "\n"
-            print(sequences_no_SP[protein])
             with open(f"log_file/{file_pkl}","w") as f_pkl :
                 f_pkl.write(line_pkl)
 
