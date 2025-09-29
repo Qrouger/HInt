@@ -851,9 +851,9 @@ def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_index)
         cmd = ["python",
-        f"{path_RF2_PPI}/src/predict_list_PPI.py",
+        f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/predict_list_PPI.py",
         "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt",
-        "-model_file", "/data/Rosetta-PPI/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
+        "-model_file", f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
         "-number_seqs", "5000"]
         print(f"[GPU {gpu_index}] Launch interaction : {interaction}")
         subprocess.run(cmd, env=env)
