@@ -11,6 +11,13 @@ conda activate HInt
 pip install HInt torchdata==0.9.0 pandas pydantic packaging opt_einsum torch-geometric matplotlib nvidia-ml-py && \
 pip install -U "jax[cuda12]"==0.5.3 && \
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.1/cu121/repo.html
+
+
+RF2_PPI :
+pip install numpy==1.21.2
+pip install torch==1.12.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+pip install scipy==1.7.1
+pip install einops
 ```
 # MSA generations
 MSA generation is mandatory for using this tool.
