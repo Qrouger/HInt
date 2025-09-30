@@ -449,7 +449,6 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
         if prot_pkl in new_possible_prey and prot_msa in possible_baits :
             new_need_pkl.append(prot_msa)
     file.set_possible_prey(new_possible_prey)
-    print(new_need_msa, new_need_pkl)
     return(new_need_msa, new_need_pkl)
 
 
@@ -651,7 +650,6 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU,
         all_lines += interactions[1][1]
     with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
         file_int.write(all_lines)
-        print(all_lines)
     print("Total interactions : " + str(total_int))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
@@ -981,6 +979,8 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                         result_dict[job.split("_and_")[1]]["iQ_score"] = iQ_score
                         new_possible_prey.append(job.split("_and_")[1])
                         all_lines = all_lines + line
+
+                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{job}_ranked_0.pdb") #rename pdb file
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
                         result_dict[protein]["iQ_score"] = 0 #if prey don't have interaction, set iQ_score to 0
@@ -1019,7 +1019,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                         all_lines += line
                     new_possible_prey.append(prot_name)
                     result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
-
+                    os.system(f"cp result_{Interaction}/{key}/ranked_0.pdb result_{Interaction}/{key}/{key}_ranked_0.pdb") #rename pdb file
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
                         result_dict[protein]["hiQ_score"] = 0
