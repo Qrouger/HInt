@@ -496,12 +496,12 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
                 if os.path.exists(f"./result_PPI_int/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait}/ranked_0.pdb") == False : #if model don't exist
                     if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
                         save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
-                        nbr_prey += 1
+                        #nbr_prey += 1
                     else : #if interaction is too large
                         OOM_int += OOM_int + bait + ";" + prey + "\n"
                         result_dict[prey]["iQ_score"] = "Too big interactions : AF OOM"
                 else :
-                    nbr_prey += 1
+                    #nbr_prey += 1
                     pass
     if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict["Homo-oligomer"]
