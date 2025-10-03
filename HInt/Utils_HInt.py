@@ -96,7 +96,7 @@ def Define_informations() :
         exit()
     return(Informations_dict)
 
-def run_deeploc(file, org) :
+def run_deeploc(file, org) : #preice GPU
     """
     Launch DeepLoc on sequence with Signal peptide and class protein in function.
 
