@@ -483,7 +483,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
         mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         vram = (mem_info.total / 1024**2) * 0.001 # in MiB
     pynvml.nvmlShutdown()
-    max_aa = int(vram * 91) #91 aa per Go of vram
+    max_aa = int(vram * 120) #120 aa per Go of vram
 
     if Interaction_file == "PPI_int" :
         for bait in possible_baits :
