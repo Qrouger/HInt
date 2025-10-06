@@ -124,9 +124,9 @@ def run_deeploc(file, org) : #preice GPU
     DeepLoc_file = os.listdir(f"log_file/result_deeploc")
     with open(f"log_file/result_deeploc/{DeepLoc_file[0]}", "r") as DL_file :
         reader = csv.reader(DL_file, delimiter=',')
-        for line in reader :
+        for index, line in enumerate(reader) :
             compartment = str()
-            if line[0] == "" :
+            if index == 0 :
                 first_line = line #save title name
             else :
                 protein = line[1]
@@ -176,7 +176,7 @@ def remove_SP (file, Informations_dict, need_prot) :
                 new_fasta_dict[save_key] = line2.strip("\n")
             if int(SP_signal) > 0 :
                 new_line2 = line2[int(SP_signal)-1:len(line2)]
-                new_fasta_dict[save_key] = line2[int(SP_signal)+1:len(line2)].strip("\n")
+                new_fasta_dict[save_key] = line2[int(SP_signal)-1:len(line2)].strip("\n")
                 SP_signal = 0
             if line2[0] == ">" :
                 save_key = line2[1:len(line2)-1]
@@ -1067,6 +1067,7 @@ def Resume_file(file, Informations_dict) :
     Parameters:
     ----------
     file : object of class File_proteins
+    Informations_dict : dictionary
 
     Returns:
     ----------
@@ -1074,6 +1075,7 @@ def Resume_file(file, Informations_dict) :
     iQ_score_dict = dict()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
+    possible_baits = Informations_dict["Interact_with"]
     proteins = file.get_proteins()
     informations = ["DeepLoc","Signal_peptide","iQ_score"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide,iQ_score\n"
@@ -1082,7 +1084,8 @@ def Resume_file(file, Informations_dict) :
     if Informations_dict["Homo-oligomer"] != 1 :
         informations = ["DeepLoc","Signal_peptide","RF2_homo_int","iQ_score","hiQ_score"]
         big_csv_lines = "Name,DeepLoc,Signal_peptide,RF2_homo_int,iQ_score,hiQ_score\n"
-
+    for bait in possible_baits : #remove bait from result dict
+        del result_dict[bait]
 
 
     sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("iQ_score", 0), len(x[1])), reverse=True)
