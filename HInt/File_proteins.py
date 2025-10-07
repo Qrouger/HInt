@@ -129,6 +129,19 @@ class File_proteins() :
         """
         self.possible_prey = possible_prey
 
+    def set_deeploc (self, deeploc) :
+        """
+        Sets a dict of all DeepLoc results.
+        
+        Parameters:
+        ----------
+        deeploc : dictionary
+        
+        Returns:
+        ----------
+        """
+        self.deeploc = deeploc
+
     def get_proteins_sequence_SP (self) :
         """
         Return the new amino acid sequence dictionary with SP.
@@ -233,6 +246,19 @@ class File_proteins() :
         """
         return self.possible_prey
     
+    def get_deeploc (self) :
+        """
+        Return the DeepLoc result dict.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        deeploc : dictionary
+        """
+        return self.deeploc
+
 ### Generating of features and pre-file to run multimer
 
     def set_all_att (self, path_txt) :
@@ -273,82 +299,106 @@ class File_proteins() :
         self.set_proteins_sequence_SP(sequence_SP)
         self.set_result_dict(result_dict)
     
-    def find_proteins_sequence (self, Path_Pickle_Feature) :
+    def check_save_dict (self, Path_Pickle_Feature) :
         """
-        Search for the amino acid sequence on the UniProt website and clean it. If the a3m file exist, take the sequence from it and return a list of proteins that do not have a MSA. Set if the sequence have Peptide signal or not.
-        Generate a reference fasta file for all proteins with SP.
+        Check in a save dictionary which step for which protein have already been done. Take the sequence from it and return a list of proteins that do not have a MSA.
 
-        Parameters:
-        ----------
-
-        Returns:
-        ----------
-        need_msa : list
-        need_pkl : list
         """
         need_msa = list()
         need_pkl = list()
-        line_fasta = str()
-        sequences_SP = self.get_proteins_sequence_SP()
-        sequences_no_SP = dict()
-        #names = dict()
+        need_DeepLoc = list()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
-        #pattern2 = r"GN   Name=([\w]*)"
         del_car = ["\n"," ","//"]
-        file_name = self.get_file_name()
-        file_fasta = file_name.replace(".txt",".fasta")
-        for proteins in self.get_proteins() :
-            if proteins not in sequences_SP.keys() :
-                exist = False
-                if os.path.isfile(f"log_file/{file_fasta}") == True : #if reference fasta file exist
-                    with open(f"log_file/{file_fasta}","r") as f_fasta :
-                        op_file = f_fasta.read()
-                    pattern_fasta = re.compile(rf">(.*{proteins}.*)\n([A-Z\n]+)")
-                    match = pattern_fasta.search(op_file)
-                    if match :
-                        raw_seq = match.group(2)
-                        sequence = raw_seq.strip("\n").strip()
-                        sequences_SP[proteins] = sequence
-                        exist = True
-
-                if exist == False : # don't find in reference fasta file
-                    print("Search sequence for " + proteins)
-                    urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+proteins+".txt","log_file/temp_file.txt")
+        protein_sequence_no_SP = dict()
+        deeploc_prot = dict()
+        sequences_SP = self.get_proteins_sequence_SP()
+        proteins = self.get_proteins()
+        if os.path.isfile('log_file/save_dict.pkl') == True :
+            with open('log_file/save_dict.pkl', 'rb') as save_dict:
+                all_info = pickle.load(save_dict)
+            print(all_info)
+            deeploc_prot = copy.deepcopy(all_info["deeploc"])
+            protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
+            for protein in proteins :
+                if protein in all_info["sequence_SP"].keys() : #if protein in sequence_SP of save dict
+                    if protein in sequences_SP.keys() : #check if two sequence match
+                        if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
+                            cmd = f"rm -f {Path_Pickle_Feature}/*{protein}*"
+                            os.system(cmd)
+                            need_msa.append(protein)
+                            need_DeepLoc.append(protein)
+                        else : #sequences match, set all arguments
+                            sequences_SP[protein] = all_info["sequence_SP"][protein]
+                            if protein not in all_info["sequence_no_SP"].keys() or protein not in all_info["deeploc"].keys() :
+                                need_msa.append(protein)
+                                need_DeepLoc.append(protein)
+                    else : #protein not in fasta format, so UniprotID is good
+                        if protein in all_info["sequence_SP"].keys() :
+                            sequences_SP[protein] = all_info["sequence_SP"][protein]
+                        if protein not in all_info["sequence_no_SP"].keys() or protein not in all_info["deeploc"].keys() :
+                            need_msa.append(protein)
+                            need_DeepLoc.append(protein)
+                    if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
+                        need_pkl.append(protein)
+                else : #No save of the protein, so start at zero
+                    if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
+                        print("Search sequence for " + protein)
+                        urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
+                        if os.path.getsize("log_file/temp_file.txt") == 0 :
+                            print(f"{protein} is not a compliant UniprotID")
+                        with open("log_file/temp_file.txt","r") as in_file:
+                            for seq in re.finditer(pattern, in_file.read()):
+                                sequences_SP[protein] = seq.group(1)
+                        #  with open("temp_file.txt","r") as in_file:
+                        #      for name in re.finditer(pattern2, in_file.read()) :
+                        #          names[protein] = name.group(1)
+                        for car in del_car :
+                            sequences_SP[protein] = sequences_SP[protein].replace(car,"")
+                        os.remove("log_file/temp_file.txt")
+                        need_msa.append(protein)
+                        need_DeepLoc.append(protein)
+        else : #no save dict, so check if protein have MSA or pkl
+            for protein in proteins :
+                if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
+                    print("Search sequence for " + protein)
+                    urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                     if os.path.getsize("log_file/temp_file.txt") == 0 :
-                        print(f"{proteins} is not a compliant UniprotID")
+                        print(f"{protein} is not a compliant UniprotID")
                     with open("log_file/temp_file.txt","r") as in_file:
                         for seq in re.finditer(pattern, in_file.read()):
-                            sequences_SP[proteins] = seq.group(1)
-                  #  with open("temp_file.txt","r") as in_file:
-                  #      for name in re.finditer(pattern2, in_file.read()) :
-                  #          names[proteins] = name.group(1)
+                            sequences_SP[protein] = seq.group(1)
+                    #  with open("temp_file.txt","r") as in_file:
+                    #      for name in re.finditer(pattern2, in_file.read()) :
+                    #          names[protein] = name.group(1)
                     for car in del_car :
-                        sequences_SP[proteins] = sequences_SP[proteins].replace(car,"")
+                        sequences_SP[protein] = sequences_SP[protein].replace(car,"")
                     os.remove("log_file/temp_file.txt")
-            line_fasta += ">"+proteins+"\n"+sequences_SP[proteins]+"\n"
-        
-        
-            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #priority to the sequence no SP in the msa
-                with open(f"{Path_Pickle_Feature}/{proteins}.a3m","r") as file :
-                    new_sequence = str()
-                    for line in file :
-                        if line[0] != "#" and line[0] != ">" :
-                            new_sequence = line.strip("\n")
-                        if new_sequence != "" :
-                            break
-                    sequences_no_SP[proteins] = new_sequence
-                    print(f"Clean sequence for {proteins} found in msa file")
-            else : #proteins is in sequence but don't have msa
-                need_msa.append(proteins)
-            if os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{proteins}.a3m") == True : #proteins with msa without pkl file
-                need_pkl.append(proteins)
+                    need_msa.append(protein)
+                    need_DeepLoc.append(protein)
+                elif os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") != True :
+                    need_msa.append(protein)
+                    need_DeepLoc.append(protein)
+                elif os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") != True and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True :
+                    need_pkl.append(protein)
 
-        #self.set_names(names)
-        with open(f"log_file/{file_fasta}","w") as f_fasta :
-            f_fasta.write(line_fasta)
+        self.set_deeploc(deeploc_prot)
+        self.set_proteins_sequence_no_SP(protein_sequence_no_SP)
         self.set_proteins_sequence_SP(sequences_SP)
-        self.set_proteins_sequence_no_SP(sequences_no_SP)
-        return need_msa, need_pkl
+        return need_msa, need_pkl, need_DeepLoc
+
+
+    def Make_save_dict (self) :
+        """
+        Save all important information in a pickle file to avoid to redo some step.
+        """
+        pkl_dict = dict()
+        pkl_dict["sequence_SP"] = self.get_proteins_sequence_SP()
+        pkl_dict["sequence_no_SP"] = self.get_proteins_sequence_no_SP()
+        pkl_dict["deeploc"] = self.get_deeploc()
+        with open('log_file/save_dict.pkl', 'wb') as out_file:
+            pickle.dump(pkl_dict, out_file)
+
+
 
 
     def find_prot_lenght (self, prot_dict = None) :
@@ -405,8 +455,10 @@ class File_proteins() :
         sequences_no_SP = self.get_proteins_sequence_no_SP()
         line_pkl = str()
         if len(need_pkl) != 0 :
+            print(need_pkl)
             for protein in need_pkl :
                 line_pkl += ">" + protein + "\n" + sequences_no_SP[protein] + "\n"
             with open(f"log_file/{file_pkl}","w") as f_pkl :
                 f_pkl.write(line_pkl)
+
 

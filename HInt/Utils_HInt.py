@@ -96,20 +96,31 @@ def Define_informations() :
         exit()
     return(Informations_dict)
 
-def run_deeploc(file, org) : #preice GPU
+def run_deeploc(file, org, need_DeepLoc, GPU) :
     """
     Launch DeepLoc on sequence with Signal peptide and class protein in function.
 
     Parameters :
     ----------
     org : string
+    need_DeepLoc : list
+    GPU : list
 
     Returns:
     ----------
     """
     result_dict = file.get_result_dict()
+    #file_name = file.get_file_name()
+    #fasta_file = file_name.replace(".txt",f".fasta")
+    prot_seq = file.get_proteins_sequence_SP()
+    deeploc = file.get_deeploc()
+    GPU_str = ""
+    for nbr_GPU in GPU :
+        GPU_str += nbr_GPU + ","
+    GPU_str = GPU_str.strip(",")
     file_name = file.get_file_name()
-    fasta_file = file_name.replace(".txt",f".fasta")
+    fasta_file = file_name.replace(".txt","_msa.fasta")
+
     if org == "euk" :
         print(str(datetime.now())+" Start DeepLoc eucaryote")
         software = "deeploc2"
@@ -117,11 +128,25 @@ def run_deeploc(file, org) : #preice GPU
         print(str(datetime.now())+" Start DeepLocPro")
         software = "deeplocpro"
 
+    dp_lines = str()
+    for protein in need_DeepLoc :
+        dp_lines += ">"+protein+"\n"+prot_seq[protein]+"\n"
+    with open(f"log_file/{fasta_file}", "w") as dp_file :
+        dp_file.write(dp_lines)
+
     if os.path.exists("log_file/result_deeploc") == True :
         os.system("rm -r log_file/result_deeploc")
-    cmd = f"{software} -f log_file/{fasta_file} -o log_file/result_deeploc -d cuda"
+    cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} {software} -f log_file/{fasta_file} -o log_file/result_deeploc -d cuda"
     os.system(cmd)
     DeepLoc_file = os.listdir(f"log_file/result_deeploc")
+    if software == "deeplocpro" :
+        min_index = 3
+        min_score = 0.1
+        index_name = 1
+    else :
+        min_index = 4
+        min_score = 0.4
+        index_name = 0
     with open(f"log_file/result_deeploc/{DeepLoc_file[0]}", "r") as DL_file :
         reader = csv.reader(DL_file, delimiter=',')
         for index, line in enumerate(reader) :
@@ -129,13 +154,15 @@ def run_deeploc(file, org) : #preice GPU
             if index == 0 :
                 first_line = line #save title name
             else :
-                protein = line[1]
+                protein = line[index_name]
                 for index, score in enumerate(line) :
-                    if index >= 3 and float(score) > 0.1 :
+                    if index >= min_index and float(score) > min_score :
                         compartment += first_line[index] + "|"
                 compartment = compartment.strip("|")
-                result_dict[protein]["DeepLoc"] = compartment
-        file.set_result_dict(result_dict)
+                
+                deeploc[protein] = compartment
+        file.set_deeploc(deeploc)
+
 
 
 def remove_SP (file, Informations_dict, need_prot) :
@@ -231,7 +258,7 @@ def create_feature (file, Informations_dict, GPU) :
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
-    print(GPU_str)
+    print(f"GPU use : {GPU_str}")
     nb_line_msa = 0
     if os.path.isfile(f"log_file/{msa_name}") :
         with open(f"log_file/{msa_name}", 'r') as msa_file :
@@ -429,6 +456,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     need_pkl : list
     """
     localisation = Informations_dict["DeepLoc"].split(",")
+    deeploc = file.get_deeploc()
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
@@ -436,7 +464,8 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     new_need_msa = list()
     new_need_pkl = list()
     for protein in possible_prey :
-        for loc in result_dict[protein]["DeepLoc"].split("|") :
+        result_dict[protein]["DeepLoc"] = deeploc[protein]
+        for loc in deeploc[protein].split("|") :
             if loc in localisation :
                 new_possible_prey.append(protein)
                 break #stop the loop if one localisation is correct
@@ -446,9 +475,10 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
         if prot_msa in new_possible_prey or prot_msa in possible_baits :
             new_need_msa.append(prot_msa)
     for prot_pkl in need_pkl :
-        if prot_pkl in new_possible_prey and prot_msa in possible_baits :
-            new_need_pkl.append(prot_msa)
+        if prot_pkl in new_possible_prey or prot_pkl in possible_baits :
+            new_need_pkl.append(prot_pkl)
     file.set_possible_prey(new_possible_prey)
+    file.set_result_dict(result_dict)
     return(new_need_msa, new_need_pkl)
 
 
@@ -1080,8 +1110,7 @@ def Resume_file(file, Informations_dict) :
     informations = ["DeepLoc","Signal_peptide","iQ_score"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide,iQ_score\n"
     small_csv_lines = "Name, Reason_for_filtering\n"
-
-    if Informations_dict["Homo-oligomer"] != 1 :
+    if Informations_dict["Homo-oligomer"] != "1" :
         informations = ["DeepLoc","Signal_peptide","RF2_homo_int","iQ_score","hiQ_score"]
         big_csv_lines = "Name,DeepLoc,Signal_peptide,RF2_homo_int,iQ_score,hiQ_score\n"
     for bait in possible_baits : #remove bait from result dict
@@ -1093,7 +1122,6 @@ def Resume_file(file, Informations_dict) :
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
 
     sorted_dict = dict(sorted_proteins)
-
     for prot in sorted_dict.keys() :
         small_csv_lines += prot
         big_csv_lines += prot
