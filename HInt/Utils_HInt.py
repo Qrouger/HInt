@@ -265,7 +265,7 @@ def create_feature (file, Informations_dict, GPU) :
             for line in msa_file:
                 nb_line_msa += 1
             print(f"Number of sequences in {msa_name} : {int(nb_line_msa/2)}")
-    if nb_line_msa > 50 : #if more than 25 sequences, use local colabfold_search GPU
+    if nb_line_msa > 100 : #if more than 50 sequences, use local colabfold_search GPU
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
         os.system(cmd)
 #       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
@@ -602,7 +602,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     ----------
     """
     env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'

@@ -40,7 +40,6 @@ if __name__ == "__main__" :
 
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
     need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
-
     if len(need_DeepLoc) > 0 :
         run_deeploc(HInt_object, Informations_dict["Organism"],need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
     need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
@@ -52,6 +51,7 @@ if __name__ == "__main__" :
     if len(need_msa) > 0 or len(need_pkl) > 0 :
         create_feature(HInt_object,Informations_dict,GPU)
     HInt_object.Make_save_dict()
+
     print(str(datetime.now())+" Generation of MSA depth figures")
     Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
     print(str(datetime.now()) + " Remove baits from prey list")
