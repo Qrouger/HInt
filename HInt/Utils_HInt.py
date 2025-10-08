@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from numpy import load
 from queue import Queue
+import signal
 
 
 def Define_informations() :
@@ -601,6 +602,14 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     Returns:
     ----------
     """
+    #for H100, cluster ?
+    # JAX-specific optimizations
+    #export JAX_ENABLE_X64=0  # Use float32 to save memory
+    #export JAX_DEFAULT_MATMUL_PRECISION="high"
+    #export JAX_TRACEBACK_FILTERING=off  # Better debugging
+    #export TF_FORCE_UNIFIED_MEMORY=1
+    #export XLA_PYTHON_CLIENT_PREALLOCATE=false
+    #export XLA_CLIENT_MEM_FRACTION=4.0  # Allow oversubscription
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
@@ -609,7 +618,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
     cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
     log_file = f"log_file/log_GPU_{gpu_id}.txt"
-    subprocess.run(cmd, shell=True, env=env)
+    run_cmd(cmd, env=env)
 
 
 def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU, regions) :
@@ -1140,3 +1149,23 @@ def Resume_file(file, Informations_dict) :
         All_result_file.write(big_csv_lines)
     with open("Summary_result.csv", "w") as summary :
         summary.write(small_csv_lines)
+
+@staticsmethod
+def run_cmd(cmd, env=None):
+    """
+    Run a shell command and handle KeyboardInterrupt to terminate the process group.
+
+    Parameters:
+    ----------
+    cmd : string
+
+    Returns:
+    ----------
+    """
+    p = subprocess.Popen(cmd, shell=True, env=env, preexec_fn=os.setsid)
+    try:
+        p.wait()
+    except KeyboardInterrupt:
+        print("Interrupt detected, subprocess stopped…")
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        p.wait()
