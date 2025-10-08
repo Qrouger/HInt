@@ -1150,7 +1150,7 @@ def Resume_file(file, Informations_dict) :
     with open("Summary_result.csv", "w") as summary :
         summary.write(small_csv_lines)
 
-@staticsmethod
+@staticmethod
 def run_cmd(cmd, env=None):
     """
     Run a shell command and handle KeyboardInterrupt to terminate the process group.

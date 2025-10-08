@@ -279,7 +279,7 @@ class File_proteins() :
         save_prot = ""
         with open(path_txt,"r") as in_file :
             for line in in_file :
-                if "," in str(line) or (line[0] != ">" and save_prot == "") :
+                if "," in str(line) or (line[0] != ">" and save_prot == "" and line.strip() != "") :
                     save_prot = ""
                     new_line = (line.strip().split(","))
                     for prot in new_line :
