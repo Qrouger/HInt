@@ -47,12 +47,15 @@ if __name__ == "__main__" :
     if Informations_dict["DeepLoc"].split(",") != ["None"] :
         need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
     HInt_object.Make_save_dict()
-    HInt_object.create_fasta_file(need_msa, need_pkl)
+
+    
     if len(need_msa) > 0 :
-        remove_SP(HInt_object,Informations_dict, need_msa) #run SignalP for new proteins and set in dict
-    filter_signalP(HInt_object,Informations_dict)
+        run_SP(HInt_object,Informations_dict, need_msa) #run SignalP for new proteins and set in dict
+    if Informations_dict["Signal_peptide"] != "None" :
+        need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP
+
     if len(need_msa) > 0 or len(need_pkl) > 0 :
-        create_feature(HInt_object,Informations_dict,GPU)
+        create_feature(HInt_object,Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
     HInt_object.Make_save_dict()
 
     print(str(datetime.now())+" Generation of MSA depth figures")
@@ -62,8 +65,8 @@ if __name__ == "__main__" :
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
 
     #Predict PPI and score interactions
-    if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
-        Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
+   # if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
+        #Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != [""] :
         Generate_scripts(HInt_object, Informations_dict, "PPI_int", GPU) #generate bait_vs_prey with new preys
         Generate_3D_model(Informations_dict, "PPI_int", GPU)

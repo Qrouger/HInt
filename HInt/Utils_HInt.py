@@ -166,7 +166,7 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
 
 
 
-def remove_SP (file, Informations_dict, need_prot) :
+def run_SP (file, Informations_dict, need_prot) :
     """
     Create a new FASTA file without the signal peptide using SignalP and filtred signal peptide.
 
@@ -183,10 +183,20 @@ def remove_SP (file, Informations_dict, need_prot) :
     SP_signal = 0
     prot_SP = dict()
     Prot_Signal_string = str()
+    prot_seq = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
     fasta_file = file_name.replace(".txt","_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
     SignalP = Informations_dict["Signal_peptide"]
+
+
+
+    sp_lines = str()
+    for protein in need_prot :
+        sp_lines += ">"+protein+"\n"+prot_seq[protein]+"\n"
+    with open(f"log_file/{fasta_file}", "w") as sp_file :
+        sp_file.write(sp_lines)
+
     cmd1 = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
     os.system(cmd1)
     file_signalp = fasta_file.replace(".fasta","_summary.signalp5")
@@ -211,30 +221,11 @@ def remove_SP (file, Informations_dict, need_prot) :
                 if str(line2[1:len(line2)-1]) in prot_SP.keys() :
                     SP_signal = prot_SP[line2[1:len(line2)-1]]
             final_file = final_file + new_line2
-    fasta_lines = str()
-    for proteins in new_fasta_dict.keys() :
-        if SignalP == "Yes" and proteins in prot_SP.keys() and proteins in need_prot:
-            fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
-        else :
-            pass
-        if SignalP == "No" and proteins not in prot_SP.keys() and proteins in need_prot :
-            fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
-        else :
-            pass
-        if SignalP == "None" and proteins in need_prot :
-            fasta_lines += ">"+proteins+"\n"+new_fasta_dict[proteins]+"\n"
-    baits = Informations_dict["Interact_with"]
-    for bait in baits :
-        if SignalP == "Yes" and bait not in prot_SP.keys() and bait in need_prot :
-            fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
-        if SignalP == "No" and bait in prot_SP.keys() and bait in need_prot :
-            fasta_lines += ">"+bait+"\n"+new_fasta_dict[bait]+"\n" #add baits to the new fasta file
-    with open(f"log_file/{fasta_file}", "w") as new_file2 :
-        new_file2.write(fasta_lines)
+
     
     file.set_proteins_sequence_no_SP(new_fasta_dict)
 
-def create_feature (file, Informations_dict, GPU) :
+def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     """
     Launch command to generate features.
 
@@ -260,13 +251,27 @@ def create_feature (file, Informations_dict, GPU) :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
     print(f"GPU use : {GPU_str}")
-    nb_line_msa = 0
-    if os.path.isfile(f"log_file/{msa_name}") :
-        with open(f"log_file/{msa_name}", 'r') as msa_file :
-            for line in msa_file:
-                nb_line_msa += 1
-            print(f"Number of sequences in {msa_name} : {int(nb_line_msa/2)}")
-    if nb_line_msa > 100 : #if more than 50 sequences, use local colabfold_search GPU
+    
+    print(f"{len(need_msa)} proteins need msa")
+    print(f"{len(need_pkl)} proteins need pkl files")
+    generated_msa = copy.deepcopy(need_msa)
+    if os.path.exists(Path_Pickle_Feature) == False :
+        os.system(f"mkdir {Path_Pickle_Feature}")
+    for protein in generated_msa : #check if prot have an MSA in alphafold database
+        url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
+        name_file = Path_Pickle_Feature + "/" + protein +".a3m"
+        outfile = os.path.basename(url)
+        check = subprocess.run(["wget", "--spider", "-q", url])
+        if check.returncode == 0:
+            subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
+            need_msa.remove(protein) #msa found
+            need_pkl.append(protein) #but need pkl
+
+
+
+    file.create_fasta_file(need_msa, need_pkl)
+    
+    if len(need_msa) > 100 : #if more than 50 sequences, use local colabfold_search GPU
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
         os.system(cmd)
 #       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
@@ -275,7 +280,7 @@ def create_feature (file, Informations_dict, GPU) :
    #    process.stdout.close()
     #   process.wait()
 
-    if nb_line_msa < 1 : #create pkl for proteins without msa
+    if len(need_msa) < 1 : #create pkl for proteins without msa
         logging.info("All MSAs have already been generated")
     if os.path.isfile(f"log_file/{msa_name}") == True :
         cmd = ["create_individual_features.py", #create pkl for proteins without msa
@@ -292,7 +297,13 @@ def create_feature (file, Informations_dict, GPU) :
             print(line, end="")
         process.stdout.close()
         process.wait()
-    if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl for proteins without pkl file
+    print("cut here")
+    for protein in generated_msa :
+        SeqIO.write((rec[:].seq[25:] for rec in SeqIO.parse("proteins.fasta", "fasta")), #pas écrit correctement mais prendre les x premiers aa et les couper
+        "proteins_trimmed.fasta",
+        "fasta")
+    #couper en fonction du signal peptide
+    if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl files for proteins without pkl file
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
         f"--data_dir={Path_AlphaFold_Data}",
@@ -344,7 +355,7 @@ def create_feature (file, Informations_dict, GPU) :
             cmd3 = f"rm {Path_Pickle_Feature}/{bait_name_file}.aln"
             os.system(cmd3)
             
-def filter_signalP(file, Informations_dict) :
+def filter_signalP(file, Informations_dict,need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
 
@@ -352,6 +363,8 @@ def filter_signalP(file, Informations_dict) :
     ----------
     file : object of class File_proteins
     Informations_dict : dictionnary
+    need_msa : list
+    need_pkl : list
 
     Returns:
     ----------
@@ -372,9 +385,13 @@ def filter_signalP(file, Informations_dict) :
             new_possible_prey.append(protein)
         elif SignalP != result_dict[protein]["Signal_peptide"] :
             result_dict[protein]["Reason_for_filtering"] = "Signal peptide : SignalP"
-
+            if protein in need_msa :
+                need_msa.remove(protein)
+            if protein in need_pkl :
+                need_pkl.remove(protein)
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
+    return need_msa, need_pkl
 
 def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     """
