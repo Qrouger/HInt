@@ -316,12 +316,15 @@ class File_proteins() :
         need_msa = list()
         need_pkl = list()
         need_DeepLoc = list()
-        pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
-        del_car = ["\n"," ","//"]
         protein_sequence_no_SP = dict()
         deeploc_prot = dict()
+
+        pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
+        del_car = ["\n"," ","//"]
+
         sequences_SP = self.get_proteins_sequence_SP()
         proteins = self.get_proteins()
+
         if os.path.isfile('log_file/save_dict.pkl') == True :
             with open('log_file/save_dict.pkl', 'rb') as save_dict:
                 all_info = pickle.load(save_dict)
@@ -333,6 +336,8 @@ class File_proteins() :
                         if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
                             cmd = f"rm -f {Path_Pickle_Feature}/*{protein}*"
                             os.system(cmd)
+                            need_msa.append(protein)
+                            need_DeepLoc.append(protein)
                         else : #sequences match, set all arguments
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
                             if protein not in all_info["sequence_no_SP"].keys() :
@@ -361,6 +366,8 @@ class File_proteins() :
                         for car in del_car :
                             sequences_SP[protein] = sequences_SP[protein].replace(car,"")
                         os.remove("log_file/temp_file.txt")
+                        need_DeepLoc.append(protein) #add of new protein in txt file
+                        need_msa.append(protein)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False and protein not in need_msa : #proteins without msa
                     need_msa.append(protein)
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files

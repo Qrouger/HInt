@@ -38,11 +38,14 @@ if __name__ == "__main__" :
     GPU =[gpu for gpu in args.gpu.split(",")]
     Informations_dict = Define_informations()
 
+    #Create objects and filtre proteins
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
     need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
+    HInt_object.Make_save_dict()
     if len(need_DeepLoc) > 0 :
         run_deeploc(HInt_object, Informations_dict["Organism"],need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
-    need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
+    if Informations_dict["DeepLoc"].split(",") != ["None"] :
+        need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
     HInt_object.Make_save_dict()
     HInt_object.create_fasta_file(need_msa, need_pkl)
     if len(need_msa) > 0 :
@@ -54,8 +57,11 @@ if __name__ == "__main__" :
 
     print(str(datetime.now())+" Generation of MSA depth figures")
     Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    
     print(str(datetime.now()) + " Remove baits from prey list")
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
+
+    #Predict PPI and score interactions
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != [""] :
