@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from numpy import load
 from queue import Queue
+from Bio import SeqIO
 import signal
 
 
@@ -243,6 +244,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     baits = Informations_dict["Interact_with"]
     regions = Informations_dict["Regions"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
+    prot_no_SP = file.get_proteins_sequence_no_SP()
+    prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
     msa_name = file_name.replace(".txt","_msa.fasta")
     pkl_name = file_name.replace(".txt","_pkl.fasta")
@@ -254,9 +257,10 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     
     print(f"{len(need_msa)} proteins need msa")
     print(f"{len(need_pkl)} proteins need pkl files")
-    generated_msa = copy.deepcopy(need_msa)
+    
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
+    generated_msa = copy.deepcopy(need_msa)
     for protein in generated_msa : #check if prot have an MSA in alphafold database
         url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
         name_file = Path_Pickle_Feature + "/" + protein +".a3m"
@@ -264,6 +268,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         check = subprocess.run(["wget", "--spider", "-q", url])
         if check.returncode == 0:
             subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
+            print(f"MSA for {protein} in AF database")
             need_msa.remove(protein) #msa found
             need_pkl.append(protein) #but need pkl
 
@@ -280,7 +285,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
    #    process.stdout.close()
     #   process.wait()
 
-    if len(need_msa) < 1 : #create pkl for proteins without msa
+    if len(need_msa) < 1 :
         logging.info("All MSAs have already been generated")
     if os.path.isfile(f"log_file/{msa_name}") == True :
         cmd = ["create_individual_features.py", #create pkl for proteins without msa
@@ -298,10 +303,34 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         process.stdout.close()
         process.wait()
     print("cut here")
+
+
+    #Cut SP for all MSA
     for protein in generated_msa :
-        SeqIO.write((rec[:].seq[25:] for rec in SeqIO.parse("proteins.fasta", "fasta")), #pas écrit correctement mais prendre les x premiers aa et les couper
-        "proteins_trimmed.fasta",
-        "fasta")
+        msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
+        msa_out = f"{Path_Pickle_Feature}/{protein}_trimmed.a3m"
+        SP = len(prot_SP[protein])-len(prot_no_SP[protein])
+        if SP > 0 : #if no SP don't work on the MSA
+            if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == True :
+                os.remove(f"{Path_Pickle_Feature}/{protein}.pkl")
+                if protein not in need_pkl : #if generated with colabfold pipeline
+                    need_pkl.append(protein)
+            trimmed_records = []
+            for rec in SeqIO.parse(msa_in, "fasta"):
+                new_seq = rec.seq[SP:]  #cut SP from MSA
+                if any(c.isupper() for c in str(new_seq)): #remove empty sequence
+                    new_rec = rec[:]
+                    new_rec.seq = new_seq
+                    trimmed_records.append(new_rec)
+            if trimmed_records : #if objects is not empty
+                with open(msa_in, "w") as msa_file : #overwrites the old msa
+                    for rec in trimmed_records:
+                        msa_file.write(f">{rec.description}\n{rec.seq}\n")
+            os.system(f"mafft --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
+            os.system(f"reformat.pl fas a3m {Path_Pickle_Feature}/{protein}.aln {Path_Pickle_Feature}/{protein}.a3m")
+            os.system(f"rm {Path_Pickle_Feature}/{protein}.aln")
+    file.create_fasta_file(need_msa, need_pkl) #rewrite need_pkl file
+
     #couper en fonction du signal peptide
     if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl files for proteins without pkl file
         cmd2 = ["create_individual_features.py",
