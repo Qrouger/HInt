@@ -444,7 +444,7 @@ class File_proteins() :
         self.set_lenght_prot(lenght_prot)
 
 
-    def create_fasta_file (self, need_msa, need_pkl) :
+    def create_fasta_file (self, with_SP, need_msa=[], need_pkl=[]) :
         """
         Generate a FASTA file for protein who don't have MSA.
         Generate a FASTA file for protein who don't have pkl.
@@ -453,12 +453,14 @@ class File_proteins() :
         ----------
         need_msa : list
         need_pkl : list
+        with_SP : boolean
 
         Returns:
         ----------
         """
         line_msa = str()
         sequences_SP = self.get_proteins_sequence_SP()
+        sequences_no_SP = self.get_proteins_sequence_no_SP()
         proteins = self.get_proteins()
         file_name = self.get_file_name()
         file_msa = file_name.replace(".txt","_msa.fasta")
@@ -468,12 +470,15 @@ class File_proteins() :
         if os.path.isfile(f"log_file/{file_pkl}") == True :
             os.remove(f"log_file/{file_pkl}")
         if len(need_msa) != 0 :
+            if with_SP == True :
+                sequences = sequences_SP
+            if with_SP == False :
+                sequences = sequences_no_SP
             for protein in need_msa :
-                line_msa += ">" + protein + "\n" + sequences_SP[protein] + "\n"
+                line_msa += ">" + protein + "\n" + sequences[protein] + "\n"
             with open(f"log_file/{file_msa}","w") as f_msa :
                 f_msa.write(line_msa)
 
-        sequences_no_SP = self.get_proteins_sequence_no_SP()
         line_pkl = str()
         if len(need_pkl) != 0 :
             for protein in need_pkl :
