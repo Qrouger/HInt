@@ -308,7 +308,6 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     #Cut SP for all MSA
     for protein in generated_msa :
         msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
-        msa_out = f"{Path_Pickle_Feature}/{protein}_trimmed.a3m"
         SP = len(prot_SP[protein])-len(prot_no_SP[protein])
         if SP > 0 : #if no SP don't work on the MSA
             if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == True :
@@ -632,7 +631,7 @@ def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
     for p in processes:
         p.join()
     end_time = datetime.now()
-    print("Time APD:", end_time - start_time)
+    print("Time APD :", end_time - start_time,"\n")
 
 def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature):
     """
@@ -1117,7 +1116,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     else :
         print(f"result_{Interaction}/ don't exist")
     end_time = datetime.now()
-    print("Time Scoring APD:", end_time - start_time)
+    print("Time scoring interactions :", end_time - start_time,"\n")
 
 def Split_to_GPU(file, save_lenght_line, GPU) :
     """

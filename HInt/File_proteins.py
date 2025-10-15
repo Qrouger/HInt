@@ -357,6 +357,7 @@ class File_proteins() :
                         urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                         if os.path.getsize("log_file/temp_file.txt") == 0 :
                             print(f"{protein} is not a compliant UniprotID")
+                            break
                         with open("log_file/temp_file.txt","r") as in_file:
                             for seq in re.finditer(pattern, in_file.read()):
                                 sequences_SP[protein] = seq.group(1)
@@ -457,7 +458,7 @@ class File_proteins() :
         ----------
         """
         line_msa = str()
-        sequence_SP = self.get_proteins_sequence_SP()
+        sequences_SP = self.get_proteins_sequence_SP()
         proteins = self.get_proteins()
         file_name = self.get_file_name()
         file_msa = file_name.replace(".txt","_msa.fasta")
@@ -468,7 +469,7 @@ class File_proteins() :
             os.remove(f"log_file/{file_pkl}")
         if len(need_msa) != 0 :
             for protein in need_msa :
-                line_msa += ">" + protein + "\n" + sequence_SP[protein] + "\n"
+                line_msa += ">" + protein + "\n" + sequences_SP[protein] + "\n"
             with open(f"log_file/{file_msa}","w") as f_msa :
                 f_msa.write(line_msa)
 
