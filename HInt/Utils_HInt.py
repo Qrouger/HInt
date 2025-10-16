@@ -264,7 +264,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
             #Cut SP for all MSA
             msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
             SP = len(prot_SP[protein])-len(prot_no_SP[protein])
-            if SP > 0 : #if no SP don't work on the MSA
+            if SP > 0 : #if no SP don't modify the MSA
                 trimmed_records = []
                 for rec in SeqIO.parse(msa_in, "fasta"):
                     new_seq = rec.seq[SP:]  #cut SP from MSA
@@ -276,9 +276,26 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
                     with open(msa_in, "w") as msa_file : #overwrites the old msa
                         for rec in trimmed_records:
                             msa_file.write(f">{rec.description}\n{rec.seq}\n")
-                os.system(f"mafft --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
+                os.system(f"mafft --quiet --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
                 os.system(f"reformat.pl fas a3m {Path_Pickle_Feature}/{protein}.aln {Path_Pickle_Feature}/{protein}.a3m")
                 os.system(f"rm {Path_Pickle_Feature}/{protein}.aln")
+                #Delete \n
+                all_lines = str()
+                with open(f"{Path_Pickle_Feature}/{protein}.a3m","r") as in_a3m :
+                    seq = ""
+                    header = None
+                    for line in in_a3m:
+                        if line.startswith(">"):
+                            if header:
+                                all_lines += f"{header}\n{seq}\n"
+                            header = line.strip()
+                            seq = ""
+                        else:
+                            seq += line.strip()
+                    if header:
+                        all_lines += f"{header}\n{seq}\n"
+                with open(f"{Path_Pickle_Feature}/{protein}.a3m","w") as out_a3m :
+                    out_a3m.write(all_lines)
 
     file.create_fasta_file(False, need_msa, need_pkl)
 
