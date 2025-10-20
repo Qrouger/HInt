@@ -1,8 +1,8 @@
 ###Informations
-Signal_peptide :
-Homo-oligomer : 5
-Interact_with : O50333
-Organism : gram-
+Signal_peptide : #Yes, No or None.
+Homo-oligomer : 5 #Integer between 2-20
+Interact_with : O50333 #UniprotID, Protein Name #Precise a region (start-end)
+Organism : gram- #gram-, gram+, euk or arch
 DeepLoc :
 
 ###Paths
