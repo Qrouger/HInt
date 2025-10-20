@@ -258,13 +258,14 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         check = subprocess.run(["wget", "--spider", "-q", url])
         if check.returncode == 0:
             subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
-            print(f"MSA for {protein} in AF database")
+            print(f"MSA for {protein} found in AF database")
             need_msa.remove(protein) #msa found
             need_pkl.append(protein)
             #Cut SP for all MSA
             msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
             SP = len(prot_SP[protein])-len(prot_no_SP[protein])
             if SP > 0 : #if no SP don't modify the MSA
+                print(f"Remove SP from MSA")
                 trimmed_records = []
                 for rec in SeqIO.parse(msa_in, "fasta"):
                     new_seq = rec.seq[SP:]  #cut SP from MSA
