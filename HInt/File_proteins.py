@@ -89,19 +89,6 @@ class File_proteins() :
         ----------
         """
         self.lenght_prot = lenght_prot
-
-    def set_names (self, name) :
-        """
-        Sets names of all proteins.
-        
-        Parameters:
-        ----------
-        name = dictionary
-        
-        Returns:
-        ----------
-        """
-        self.name = name
     
     def set_result_dict (self, result_dict) :
         """
@@ -206,19 +193,6 @@ class File_proteins() :
         lenght_prot : dictionary
         """
         return self.lenght_prot
-    
-    def get_names (self) :
-        """
-        Return names of proteins.
-        
-        Parameters:
-        ----------
-        
-        Returns:
-        ----------
-        name : dictionary
-        """
-        return self.name
 
     def get_result_dict (self) :
         """
@@ -318,6 +292,7 @@ class File_proteins() :
         need_DeepLoc = list()
         protein_sequence_no_SP = dict()
         deeploc_prot = dict()
+        result_dict = dict()
 
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]
@@ -331,6 +306,14 @@ class File_proteins() :
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
             for protein in proteins :
+                result_dict[protein] = dict()
+                if protein in all_info["sequence_no_SP"].keys() : #if protein in sequence_no_SP of save dict
+                    if all_info["sequence_no_SP"][protein][0] != "M" :
+                        result_dict[protein]["Signal_peptide"] = "No"
+                    else :
+                        result_dict[protein]["Signal_peptide"] = "Yes"
+                if protein in deeploc_prot.keys() : #if protein in deeploc of save dict
+                    result_dict[protein]["DeepLoc"] = deeploc_prot[protein]
                 if protein in all_info["sequence_SP"].keys() : #if protein in sequence_SP of save dict
                     if protein in sequences_SP.keys() : #check if two sequence match
                         if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
@@ -398,6 +381,7 @@ class File_proteins() :
                     need_pkl.append(protein)
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
+        self.set_result_dict(result_dict)
         self.set_deeploc(deeploc_prot)
         self.set_proteins_sequence_no_SP(protein_sequence_no_SP)
         self.set_proteins_sequence_SP(sequences_SP)
@@ -432,7 +416,6 @@ class File_proteins() :
         Returns:
         ----------
         """
-        #lenght_prot = self.get_lenght_prot() #not already set
         if prot_dict == None :
             proteins = self.get_proteins()
         else :

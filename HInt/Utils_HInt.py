@@ -225,6 +225,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     file : object of class File_proteins
     informations_dict : dict
     GPU : list
+    need_msa : list
+    need_pkl : list
 
     Returns:
     ----------
@@ -327,8 +329,6 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         process.stdout.close()
         process.wait()
 
-
-    #couper en fonction du signal peptide
     if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl files for proteins without pkl file
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
@@ -345,43 +345,43 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         process.stdout.close()
         process.wait()
 
-    ### if regions in bait, cut the MSA
-    all_lines = str()
-    for bait in baits :
-        start = int(regions[bait].split("-")[0]) - 1
-        end = int(regions[bait].split("-")[1]) - 1
-        bait_name_file = f"{bait}_{str(start+1)}_{str(end+1)}"
-        if regions[bait] != "0-0" and f"{bait_name_file}.a3m" not in os.listdir(Path_Pickle_Feature) : #if MSA regions of bait not exist
-            with open(f"{Path_Pickle_Feature}/{bait}.a3m", "r") as a3m_file :
-                for line in a3m_file:
-                    if line[0] == ">" :
-                        mem_name = line.strip().split("\t")[0] + "\n"
-                    else :
-                        if not all(cara == '-' for cara in line[start:end]) :
-                            all_lines += mem_name + line[start:end] + "\n"
-            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as new_file :
-                new_file.write(all_lines)
-            cmd1 = f"mafft --anysymbol {Path_Pickle_Feature}/{bait_name_file}.a3m > {Path_Pickle_Feature}/{bait_name_file}.aln"
-            cmd2 = f"reformat.pl fas a3m {Path_Pickle_Feature}/{bait_name_file}.aln {Path_Pickle_Feature}/{bait_name_file}.a3m"
-            os.system(cmd1)
-            os.system(cmd2)
-            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "r") as a3m2_file :
-                all_lines = str()
-                all_seq = str()
-                for line in a3m2_file:
-                    if line[0] == ">" :
-                        if all_seq != "" :
-                            all_lines += mem_name + all_seq + "\n"
-                        mem_name = line.strip().split("\t")[0] + "\n"
-                        all_seq = str()
-                    else :
-                        all_seq += line.strip()
-            with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as a3m2_file :
-                a3m2_file.write(all_lines)
-            cmd3 = f"rm {Path_Pickle_Feature}/{bait_name_file}.aln"
-            os.system(cmd3)
+    ### if regions in bait, cut the MSA  No need if we made APD on a segment
+ #   all_lines = str()
+ #   for bait in baits :
+ #       start = int(regions[bait].split("-")[0]) - 1
+ #       end = int(regions[bait].split("-")[1]) - 1
+ #       bait_name_file = f"{bait}_{str(start+1)}_{str(end+1)}"
+ #       if regions[bait] != "0-0" and f"{bait_name_file}.a3m" not in os.listdir(Path_Pickle_Feature) : #if MSA regions of bait not exist
+ #           with open(f"{Path_Pickle_Feature}/{bait}.a3m", "r") as a3m_file :
+ #               for line in a3m_file:
+ #                   if line[0] == ">" :
+ #                       mem_name = line.strip().split("\t")[0] + "\n"
+ #                   else :
+ #                       if not all(cara == '-' for cara in line[start:end]) :
+ #                           all_lines += mem_name + line[start:end] + "\n"
+ #           with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as new_file :
+ #               new_file.write(all_lines)
+ #           cmd1 = f"mafft --anysymbol {Path_Pickle_Feature}/{bait_name_file}.a3m > {Path_Pickle_Feature}/{bait_name_file}.aln"
+ #           cmd2 = f"reformat.pl fas a3m {Path_Pickle_Feature}/{bait_name_file}.aln {Path_Pickle_Feature}/{bait_name_file}.a3m"
+ #           os.system(cmd1)
+ #           os.system(cmd2)
+ #           with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "r") as a3m2_file :
+ #               all_lines = str()
+ #               all_seq = str()
+ #               for line in a3m2_file:
+ #                   if line[0] == ">" :
+ #                       if all_seq != "" :
+ #                           all_lines += mem_name + all_seq + "\n"
+ #                       mem_name = line.strip().split("\t")[0] + "\n"
+ #                       all_seq = str()
+ #                   else :
+ #                       all_seq += line.strip()
+ #           with open(f"{Path_Pickle_Feature}/{bait_name_file}.a3m", "w") as a3m2_file :
+ #               a3m2_file.write(all_lines)
+ #           cmd3 = f"rm {Path_Pickle_Feature}/{bait_name_file}.aln"
+ #           os.system(cmd3)
             
-def filter_signalP(file, Informations_dict,need_msa, need_pkl) :
+def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
 
@@ -394,6 +394,8 @@ def filter_signalP(file, Informations_dict,need_msa, need_pkl) :
 
     Returns:
     ----------
+    need_msa : list
+    need_pkl : list
     """
     result_dict = file.get_result_dict()
     seq_dict = file.get_proteins_sequence_no_SP()
@@ -459,11 +461,6 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
-        #pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb')) ### maybe faster
-        #feature_dict = pre_feature_dict.feature_dict
-        #msa = feature_dict['msa']
-        #if len(msa) <= 100 :
-        #    shallow_MSA += prot + " : " + str(len(msa)) + " sequences\n"
         a3m_file = open(f'{Path_Pickle_Feature}/{prot}.a3m', 'r')
         msa = subprocess.run(['wc', '-l', f'{Path_Pickle_Feature}/{prot}.a3m'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         line_msa = int(msa.stdout.split()[0])
@@ -543,6 +540,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     all_lines = str()
     OOM_int = str()
     result_dict = file.get_result_dict()
+    regions = Informations_dict["Regions"]
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
@@ -558,18 +556,29 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
         vram = (mem_info.total / 1024**2) * 0.001 # in MiB
     pynvml.nvmlShutdown()
     max_aa = int(vram * 120) #120 aa per Go of vram
-
+    start = 0
+    end = 0
     if Interaction_file == "PPI_int" :
         for bait in possible_baits :
+            if regions[bait] != "0-0" :
+                start = int(regions[bait].split("-")[0])
+                end = int(regions[bait].split("-")[1])
+                bait_file = f"{bait}_{start}-{end}"
+                lenght = end - start + 1
+            else :
+                lenght = lenght_prot[bait]
+                bait_file = bait
             nbr_prey = 0
-            lenght = lenght_prot[bait]
             for prey in possible_prey :
                 int_lenght = lenght + lenght_prot[prey]
                 if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
                     break
-                if os.path.exists(f"./result_PPI_int/{bait}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait}/ranked_0.pdb") == False : #if model don't exist
+                if os.path.exists(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb") == False : #if model don't exist
                     if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
-                        save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
+                        if start == 0 and end == 0 :
+                            save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
+                        else :
+                            save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait},{start}-{end};{prey}\n"]
                         #nbr_prey += 1
                     else : #if interaction is too large
                         OOM_int += OOM_int + bait + ";" + prey + "\n"
@@ -739,7 +748,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU,
 
 
 
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
+def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int) :
     """
     Fusioned MSA files.
     Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
@@ -780,7 +789,7 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int):
                 pass
     return total_int
 
-def read_a3m(a3m):
+def read_a3m(a3m) :
     """
     Parse an a3m files as a dictionary {label->sequence}.
     Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
@@ -824,7 +833,7 @@ def read_a3m(a3m):
     return seq, lab
 
 
-def Uni_to_idx(ids):
+def Uni_to_idx(ids) :
     """
     Convert Uniprot ID in integer.
     Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
@@ -1174,6 +1183,7 @@ def Resume_file(file, Informations_dict) :
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
 
     sorted_dict = dict(sorted_proteins)
+    print(sorted_dict)
     for prot in sorted_dict.keys() :
         small_csv_lines += prot
         big_csv_lines += prot
@@ -1201,6 +1211,7 @@ def run_cmd(cmd, env=None):
     Parameters:
     ----------
     cmd : string
+    env : dict
 
     Returns:
     ----------
