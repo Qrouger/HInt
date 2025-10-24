@@ -1,4 +1,5 @@
 #Adapted from clean_pdb.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
+
 from Bio.PDB import *
 import sys
 import os

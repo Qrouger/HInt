@@ -29,7 +29,6 @@ parser.add_argument("-c","--csv",help="Name of the CSV files where features will
 parser.add_argument("-m","--model",help="SVM model to make new predictions",choices=['A','B','WC'], default='WC')
 parser.add_argument("-r","--results",help="Name of the file where model predictions will be written",default=None)
 
-
 def main(): 
     args = parser.parse_args()
     pdblist = []

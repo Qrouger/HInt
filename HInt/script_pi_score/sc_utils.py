@@ -14,7 +14,7 @@ def write_sc_script(pdbfile,
     assert len(chain_lst) == 2, "Input list with only two chain IDs e.g [A,B]"
     if outfle == None:
         outfle = pdbfile + '_' + '_'.join(chain_lst) + '_sc_infle.sh'
-    print outfle, 'OUTFLE for SC'
+    print (outfle, 'OUTFLE for SC')
     out = open(outfle,'w')
     out.write('sc XYZIN ' + pdbfile + ' <<eof \n')
     out.write('MOLECULE 1\nCHAIN ' + chain_lst[0] + '\n' + 'MOLECULE 2\nCHAIN ' + chain_lst[1] + '\nEND\neof')
@@ -25,11 +25,6 @@ def write_sc_script(pdbfile,
 def run_sc(scriptfile):
     cmd = './' + scriptfile + '>tmp_sc.out'
     os.system(cmd)
-
-def remove_tmp_files(t_path='/tmp/ms005'):
-    for fles in os.listdir(t_path):
-        if fles.startswith('sc'):
-            os.remove('/tmp/ms005/' + fles)
 
 def parse_sc_output(outfle):
     if os.path.isfile('dict_sc_scores.json'):

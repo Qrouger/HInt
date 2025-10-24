@@ -1,3 +1,5 @@
+#Adapted from utils.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
+
 import os
 import json
 import pandas as pd
@@ -44,9 +46,6 @@ def write_csv_with_features_wc(indir,outfle):
                     with open(sc_dict1,'rb') as handle:
                         sc_dict = json.load(handle)
 
-                #elif nw_path.endswith('conserved_interface_dict.json'):
-                 #   cons = get_conserved_interface_fraction(nw_path,fle)
-
                 elif nw_path.endswith('dict_pisa.json'):
                     with open(nw_path) as handle:
                         pisa_dict = json.load(handle)
@@ -64,13 +63,6 @@ def write_csv_with_features_wc(indir,outfle):
                                     outfle.write(str(round(dict_intf_prop[intf][feature],3)) + ',')
                                 except:
                                     outfle.write('NA' + ',')
-                        #if cons:
-                        #    try:
-                        #        outfle.write(str(round(cons[intf],3)) + ',')
-                        #    except:
-                        #        outfle.write('NA'+ ',')
-                        #else:
-                        #   outfle.write('NA'+ ',')
                         intf1 = intf.strip().split('_')[-1] + '_' + intf.strip().split('_')[0]
                         if dict_num_contacts:
                             outfle.write(str(dict_num_contacts[intf]) + ',')
@@ -118,125 +110,7 @@ def write_csv_with_features_wc(indir,outfle):
                                 outfle.write('NA,NA,NA,NA,NA')
                         outfle.write('\n')
 
-def write_csv_with_features(indir,outfle):
-    out_csv = outfle
-    lst_json_fles = []
-    lst_features = ['Num_intf_residues', 'Polar', 'Hydrophobhic', 'Charged']
-    outfle = open(out_csv,'w')
-    #writing header in csv file
-    outfle.write('pdb,interface,')
-    for features in lst_features:   
-        outfle.write(features + ',')
-    outfle.write('conserved_interface, contact_pairs')
-    outfle.write(', sc, hb, sb, int_solv_en, int_area, pvalue')
-    outfle.write('\n')
-    for fle in os.listdir(indir):
-        if os.path.isdir(os.path.join(indir,fle)):
-            intf_dict = ''
-            cons = {}
-            pisa_dict = {}
-            dict_num_contacts = {}
-            sc_dict = {} 
-            
-            for j in os.listdir(os.path.join(indir,fle)):
-                nw_path = os.path.join(os.path.join(indir,fle),j)
-                if not os.path.isfile(nw_path):
-                    continue 
-                if not nw_path.endswith('json'): 
-                    continue
-                
-                if nw_path.endswith('_interface_chain_contacts.json'):
-                    contacts_dict = nw_path
-                    dict_num_contacts = count_contacts_at_interface(contacts_dict)
-                        
-                elif nw_path.endswith('interface_properties_dict.json'):
-                    intf_dict = nw_path
-                
-                elif nw_path.endswith('sc_scores.json'):
-                    sc_dict1 = nw_path
-                    with open(sc_dict1,'rb') as handle:
-                        sc_dict = json.load(handle)
-   
-                elif nw_path.endswith('conserved_interface_dict.json'):
-                    cons = get_conserved_interface_fraction(nw_path,fle)
-                
-                elif nw_path.endswith('dict_pisa.json'):
-                    with open(nw_path) as handle:
-                        pisa_dict = json.load(handle)
-                         
-            if intf_dict:        
-                with open(intf_dict) as handle:
-                    dict_intf_prop = json.load(handle)
-                    for intf in dict_intf_prop:
-                        outfle.write(fle + ',' + intf + ',')
-                        for feature in lst_features:
-                            if feature == lst_features[0]:
-                                outfle.write(str(dict_intf_prop[intf][feature]) + ',')
-                            else:
-                                try:
-                                    outfle.write(str(round(dict_intf_prop[intf][feature],3)) + ',')
-                                except:
-                                    outfle.write('NA' + ',')
-                        if cons:
-                            try:
-                                outfle.write(str(round(cons[intf],3)) + ',')
-                            except:
-                                outfle.write('NA'+ ',')
-                        else:
-                            outfle.write('NA'+ ',') 
-                        intf1 = intf.strip().split('_')[-1] + '_' + intf.strip().split('_')[0]
-                        if dict_num_contacts:   
-                            outfle.write(str(dict_num_contacts[intf]) + ',')
-                        else:
-                            outfle.write('NA,')
-                        if sc_dict:
-                            for pdbid_sc in sc_dict.keys():
-                                if intf in sc_dict[pdbid_sc].keys():
-                                    if sc_dict[pdbid_sc][intf]:
-                                        outfle.write(str(sc_dict[pdbid_sc][intf]) + ',')
-                                    else:
-                                        outfle.write('NA,')
-                                elif intf1 in sc_dict[pdbid_sc].keys():
-                                    if sc_dict[pdbid_sc][intf1]:
-                                        outfle.write(str(sc_dict[pdbid_sc][intf1]) + ',')
-                                    else:
-                                        outfle.write('NA,')
-                                else:
-                                    outfle.write('NA,')
-                        else:
-                            outfle.write('NA,')
-                        
-                        if pisa_dict:
-                            k = ''
-                            if intf in pisa_dict.keys():
-                                k = intf
-                            elif intf1 in pisa_dict.keys():
-                                k = intf1
-                            if k:
-                                try:
-                                    outfle.write(str(pisa_dict[k]['hb']) + ',')
-                                except:
-                                    outfle.write('NA,')
-                                try:
-                                    outfle.write(str(pisa_dict[k]['sb']) + ',')
-                                except:
-                                    outfle.write('NA,')
-                                try:
-                                    outfle.write(str(pisa_dict[k]['int_solv_en']) + ',')
-                                except:
-                                    outfle.write('NA,')
-                                try:
-                                    outfle.write(str(pisa_dict[k]['int_area']) + ',')
-                                except:
-                                    outfle.write('NA,')
-                                try:
-                                    outfle.write(str(pisa_dict[k]['pvalue']))
-                                except:
-                                    outfle.write('NA')     
-                            else:
-                                outfle.write('NA,NA,NA,NA,NA')
-                        outfle.write('\n')
-                                    
+
 
 def count_contacts_at_interface(contacts_dict):
     dict_num_contacts = {}
@@ -250,31 +124,6 @@ def count_contacts_at_interface(contacts_dict):
                 ct += 1
         dict_num_contacts[intf_name] = ct
     return dict_num_contacts
-
-def get_conserved_interface_fraction(nw_path,fle):
-    with open(nw_path,'rb') as handle:
-        dict_cons = json.load(handle)
-    return dict_cons
-
-def filter_csv_wc(csvfile,outfile):
-    '''
-    updated for tolerating NA for conservation
-    Takes the CSV file as input and does a sanity check that all features are computed
-    '''
-    ct = 0
-    if os.path.isfile(outfile):
-        os.remove(outfile)
-    out = open(outfile,'w')
-    with open(csvfile,'r') as infile:
-        for lne in infile:
-            fl = lne.split(',')
-            for c in range(len(fl)):
-                e = fl[c]
-                if e == 'NA':
-                    ct += 1
-            if ct == 0:
-                out.write(lne)
-    out.close()
 
 def filter_csv(csvfile,outfile):
     '''
