@@ -14,6 +14,7 @@ from datetime import datetime
 from numpy import load
 from queue import Queue
 from Bio import SeqIO
+import get_good_inter_pae
 import signal
 
 
@@ -40,31 +41,32 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_RF2_PPI"] :
+            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_RF2_PPI"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
             elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","DeepLoc","Path_RF2_PPI"] :
                 Informations_dict[info] = ""
     for informations_key in Informations_dict.keys() : #verify all informations and set default value
+        if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
+            Informations_dict[informations_key] = Informations_dict[informations_key][:-1]
         if len(Informations_dict[informations_key]) == 0 :
             logging.info(f'Informations : {informations_key} is empty')
-            if informations_key == "Path_Uniprot_ID" or informations_key == "Path_Singularity_Image" :
-                raise ValueError(f"Missing UniprotID/sequence path file")
+            if informations_key == "Path_ccp4" :
+                logging.info("Set ccp4 path by default on ./opt/xtal/ccp4-9")
+                Informations_dict[informations_key] = "./opt/xtal/ccp4-9"
             elif informations_key == "Path_AlphaFold_Data" :
-                logging.info("set by default on ./alphadata")
+                logging.info("Set AlphaFold data by default on ./alphadata")
                 Informations_dict[informations_key] = "./alphadata"
             elif informations_key == "Path_Pickle_Feature" :
-                logging.info("set by default on ./feature")
+                logging.info("Set pickle feature path by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
+            elif informations_key == "Path_MMseqs2_Data" :
+                logging.info("/!\ local MMseqs2 GPU will not be used")
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Homo-oligomer" :
                 Informations_dict[informations_key] = "1"
             elif informations_key == "DeepLoc" :
                 Informations_dict[informations_key] = "None"
-            elif informations_key == "Organism" :
-                raise ValueError(f"Missing organism information")
-            elif informations_key == "Path_MMseqs2_Data" :
-                logging.info("/!\ local MMseqs2 GPU will not be used")
         if informations_key == "Interact_with" :
             regions_dict = dict()
             new_baits_list = list()
@@ -1048,10 +1050,9 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
-    Path_Singularity_Image = Informations_dict["Path_Singularity_Image"]
+    Path_ccp4 = Informations_dict["Path_ccp4"]
     if os.path.isdir(f"./result_{Interaction}") == True :
-        cmd = f"singularity exec --no-home --bind result_{Interaction}:/mnt {Path_Singularity_Image} run_get_good_pae.sh --output_dir=/mnt --cutoff=10"
-        os.system(cmd)
+        get_good_inter_pae.main(f"./result_{Interaction}",10,2,Path_ccp4)
         with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as file1 :
             reader = csv.DictReader(file1)
 

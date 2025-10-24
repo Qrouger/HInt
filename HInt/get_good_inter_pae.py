@@ -16,11 +16,6 @@ from calculate_mpdockq import *
 import gzip
 import shutil
 
-flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
-flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
-flags.DEFINE_integer('surface_thres',2,'surface threshold. must be integer')
-FLAGS=flags.FLAGS
-
 def examine_inter_pae(pae_mtx,seqs,cutoff):
     """A function that checks inter-pae values in multimer prediction jobs"""
     lens = [len(seq) for seq in seqs]
@@ -50,7 +45,7 @@ def obtain_mpdockq(work_dir):
         mpDockq_or_pdockq = "None"
     return mpDockq_or_pdockq
 
-def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
+def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
 
     """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
     result = subprocess.run(["conda", "env", "list", "--json"],capture_output=True,text=True,check=True)
@@ -73,7 +68,7 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
             pdb_path = os.path.join(subdir,"ranked_0.pdb")
             output_dir = os.path.join(pi_score_outputs,f"{job}")
             logging.info(f"pi_score output for {job} will be stored at {output_dir}")
-            cmd = (f"conda run -n pi_score "f"python ./script_pi_score/run_piscore_wc.py " f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10")
+            cmd = (f"source {ccp4_setup}/bin/ccp4.setup-sh && " "conda run -n pi_score python ./script_pi_score/run_piscore_wc.py " f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10")
             subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
 
             
@@ -112,19 +107,18 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
     
     
 
-def main(argv):
-    jobs = os.listdir(FLAGS.output_dir)
+def main(output_dir,cutoff,surface_thres,ccp4_setup):
+    jobs = os.listdir(output_dir)
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
     mpDockq_scores = list()
     count = 0
-    #Check if conda env pi_score exists
     for job in jobs:
         logging.info(f"now processing {job}")
-        if os.path.isfile(os.path.join(FLAGS.output_dir,job,'ranking_debug.json')):
+        if os.path.isfile(os.path.join(output_dir,job,'ranking_debug.json')):
             count=count +1
-            result_subdir = os.path.join(FLAGS.output_dir,job)
+            result_subdir = os.path.join(output_dir,job)
             best_model = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))['order'][0]
             data = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))
             if "iptm" in data.keys() or "iptm+ptm" in data.keys():
@@ -139,8 +133,8 @@ def main(argv):
                 seqs = check_dict['seqs']
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
-                check = examine_inter_pae(pae_mtx,seqs,cutoff=FLAGS.cutoff)
-                mpDockq_score = obtain_mpdockq(os.path.join(FLAGS.output_dir,job))
+                check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+                mpDockq_score = obtain_mpdockq(os.path.join(output_dir,job))
                 if check:
                     good_jobs.append(str(job))
                     iptm_ptm.append(iptm_ptm_score)
@@ -153,14 +147,14 @@ def main(argv):
         "iptm":iptm,
         "mpDockQ/pDockQ":mpDockq_scores
     })
-    pi_score_df = run_and_summarise_pi_score(FLAGS.output_dir,good_jobs,FLAGS.surface_thres)
+    pi_score_df = run_and_summarise_pi_score(output_dir,good_jobs,surface_thres,ccp4_setup)
     pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
     columns = list(pi_score_df.columns.values)
     columns.pop(columns.index('jobs'))
     pi_score_df = pi_score_df[['jobs'] + columns]
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
     
-    pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
+    pi_score_df.to_csv(os.path.join(output_dir,"predictions_with_good_interpae.csv"),index=False)
 
 
 if __name__ =='__main__':
