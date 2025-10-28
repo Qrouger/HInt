@@ -54,20 +54,20 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
     if not exists :
         subprocess.run(["conda", "create", "-y", "-n", "pi_score", "python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
     try:
-        shutil.rmtree(f"{workd_dir}/pi_score_outputs")
+        shutil.rmtree(f"{jobs[0]}/pi_score_outputs")
     except:
         pass
-    subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
-    pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
+    subprocess.run(f"mkdir {jobs[0]}/pi_score_outputs",shell=True,executable='/bin/bash')
+    pi_score_outputs = os.path.join(jobs[0],"pi_score_outputs")
     for job in jobs:
-        subdir = os.path.join(workd_dir,job)
-        if not os.path.isfile(os.path.join(subdir,"ranked_0.pdb")):
-            print(f"{job} failed. Cannot find ranked_0.pdb in {subdir}")
+        #subdir = os.path.join(workd_dir,job)
+        if not os.path.isfile(os.path.join(job,"ranked_0.pdb")):
+            print(f"{job} failed. Cannot find ranked_0.pdb in {job}")
             sys.exit()
         else:
-            pdb_path = os.path.join(subdir,"ranked_0.pdb")
-            output_dir = os.path.join(pi_score_outputs,f"{job}")
-            logging.info(f"pi_score output for {job} will be stored at {output_dir}")
+            pdb_path = os.path.join(job,"ranked_0.pdb")
+            output_dir = os.path.join(pi_score_outputs)
+            #logging.info(f"pi_score output for {job} will be stored at {output_dir}")
             cmd = (f"source {ccp4_setup}/bin/ccp4.setup-sh && " "conda run -n pi_score python ./script_pi_score/run_piscore_wc.py " f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10")
             subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
 
@@ -75,7 +75,8 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
 
     output_df = pd.DataFrame()
     for job in jobs:
-        subdir = os.path.join(pi_score_outputs,job)
+        name_job = job.split("/")[-1]
+        subdir = os.path.join(pi_score_outputs)
         csv_files = [f for f in os.listdir(subdir) if 'filter_intf_features' in f]
         pi_score_files = [f for f in os.listdir(subdir) if 'pi_score_' in f]
         filtered_df = pd.read_csv(os.path.join(subdir,csv_files[0]))
@@ -83,18 +84,18 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
         if filtered_df.shape[0]==0:
             for column in filtered_df.columns:
                 filtered_df[column] = ["None"]
-            filtered_df['jobs'] = str(job)
+            filtered_df['jobs'] = str(name_job)
             filtered_df['pi_score'] = "No interface detected"
         else:
             with open(os.path.join(subdir,pi_score_files[0]),'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
                 if len(lines)>0:
                     pi_score = pd.read_csv(os.path.join(subdir,pi_score_files[0]))
-                    pi_score['jobs']=str(job)
+                    pi_score['jobs']=str(name_job)
                 else:
                     pi_score = pd.DataFrame.from_dict({"pi_score":['SC:  mds: too many atoms']})
                 f.close()
-            filtered_df['jobs'] = str(job)
+            filtered_df['jobs'] = str(name_job)
             pi_score['interface'] = pi_score['chains']
             filtered_df=pd.merge(filtered_df,pi_score,on=['jobs','interface'])
             try:
@@ -107,54 +108,58 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
     
     
 
-def main(output_dir,cutoff,surface_thres,ccp4_setup):
-    jobs = os.listdir(output_dir)
+def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
+    #jobs = os.listdir(output_dir)
+    
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
     mpDockq_scores = list()
     count = 0
-    for job in jobs:
-        logging.info(f"now processing {job}")
-        if os.path.isfile(os.path.join(output_dir,job,'ranking_debug.json')):
-            count=count +1
-            result_subdir = os.path.join(output_dir,job)
-            best_model = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))['order'][0]
-            data = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))
-            if "iptm" in data.keys() or "iptm+ptm" in data.keys():
-                iptm_ptm_score = data['iptm+ptm'][best_model]
-                try:
-                    check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
-                except FileNotFoundError:
-                    print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
-                    check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
-                finally:
-                    print(f"finished reading result pickle for the best model.")
-                seqs = check_dict['seqs']
-                iptm_score = check_dict['iptm']
-                pae_mtx = check_dict['predicted_aligned_error']
-                check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
-                mpDockq_score = obtain_mpdockq(os.path.join(output_dir,job))
-                if check:
-                    good_jobs.append(str(job))
-                    iptm_ptm.append(iptm_ptm_score)
-                    iptm.append(iptm_score)
-                    mpDockq_scores.append(mpDockq_score)
-            logging.info(f"done for {job} {count} out of {len(jobs)} finished.")
+    #for job in jobs:
+    logging.info(f"Scoring {job}")
+    if os.path.isfile(os.path.join(job,'ranking_debug.json')):
+        count=count +1
+        result_subdir = os.path.join(job)
+        best_model = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))['order'][0]
+        data = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))
+        if "iptm" in data.keys() or "iptm+ptm" in data.keys():
+            iptm_ptm_score = data['iptm+ptm'][best_model]
+            try:
+                check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
+            except FileNotFoundError:
+                #print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
+                check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
+            finally:
+                pass
+            seqs = check_dict['seqs']
+            iptm_score = check_dict['iptm']
+            pae_mtx = check_dict['predicted_aligned_error']
+            check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+            mpDockq_score = obtain_mpdockq(os.path.join(job))
+            if check:
+                good_jobs.append(str(job))
+                iptm_ptm.append(iptm_ptm_score)
+                iptm.append(iptm_score)
+                mpDockq_scores.append(mpDockq_score)
+        #logging.info(f"done for {job}.")
     other_measurements_df=pd.DataFrame.from_dict({
-        "jobs":good_jobs,
+        "jobs":job.split("/")[-1],
         "iptm_ptm":iptm_ptm,
         "iptm":iptm,
         "mpDockQ/pDockQ":mpDockq_scores
     })
-    pi_score_df = run_and_summarise_pi_score(output_dir,good_jobs,surface_thres,ccp4_setup)
-    pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
-    columns = list(pi_score_df.columns.values)
-    columns.pop(columns.index('jobs'))
-    pi_score_df = pi_score_df[['jobs'] + columns]
-    pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
-    
-    pi_score_df.to_csv(os.path.join(output_dir,"predictions_with_good_interpae.csv"),index=False)
+    if good_jobs!=[] :
+        pi_score_df = run_and_summarise_pi_score(output_dir,good_jobs,surface_thres,ccp4_setup)
+        pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
+        columns = list(pi_score_df.columns.values)
+        columns.pop(columns.index('jobs'))
+        pi_score_df = pi_score_df[['jobs'] + columns]
+        pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
+        return pi_score_df
+    else :
+        return None
+    #pi_score_df.to_csv(os.path.join(output_dir,"predictions_with_good_interpae.csv"),index=False)
 
 
 if __name__ =='__main__':

@@ -292,7 +292,7 @@ class File_proteins() :
         need_DeepLoc = list()
         protein_sequence_no_SP = dict()
         deeploc_prot = dict()
-        result_dict = dict()
+        result_dict = self.get_result_dict()
 
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]

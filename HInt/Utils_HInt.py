@@ -16,7 +16,18 @@ from queue import Queue
 from Bio import SeqIO
 import get_good_inter_pae
 import signal
+from tqdm import tqdm
+import pandas as pd
 
+# Configure global logger
+logging.basicConfig(
+    filename="HInt.log",  # Log file name
+    level=logging.INFO,  # Log level
+    format="%(asctime)s - %(levelname)s - %(message)s"  # Log format
+)
+
+# Use the logger configuration from HInt.py
+logger = logging.getLogger()
 
 def Define_informations() :
     """
@@ -29,7 +40,7 @@ def Define_informations() :
     ----------
     Informations_dict : dict
     """
-    logging.basicConfig(level=logging.INFO,format="%(asctime)s - %(levelname)s - %(message)s",stream=sys.stdout)
+    logger.info("Defining informations")
     Informations_dict = dict()
     list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data", "Path_RF2_PPI"]
     with open("HInt.txt", "r") as file :
@@ -49,18 +60,18 @@ def Define_informations() :
         if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
             Informations_dict[informations_key] = Informations_dict[informations_key][:-1]
         if len(Informations_dict[informations_key]) == 0 :
-            logging.info(f'Informations : {informations_key} is empty')
+            logger.info(f'Informations : {informations_key} is empty')
             if informations_key == "Path_ccp4" :
-                logging.info("Set ccp4 path by default on ./opt/xtal/ccp4-9")
+                logger.info("Set ccp4 path by default on ./opt/xtal/ccp4-9")
                 Informations_dict[informations_key] = "./opt/xtal/ccp4-9"
             elif informations_key == "Path_AlphaFold_Data" :
-                logging.info("Set AlphaFold data by default on ./alphadata")
+                logger.info("Set AlphaFold data by default on ./alphadata")
                 Informations_dict[informations_key] = "./alphadata"
             elif informations_key == "Path_Pickle_Feature" :
-                logging.info("Set pickle feature path by default on ./feature")
+                logger.info("Set pickle feature path by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
             elif informations_key == "Path_MMseqs2_Data" :
-                logging.info("/!\ local MMseqs2 GPU will not be used")
+                logger.info("/!\ local MMseqs2 GPU will not be used")
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Homo-oligomer" :
@@ -71,6 +82,8 @@ def Define_informations() :
             regions_dict = dict()
             new_baits_list = list()
             list_baits = [prot for prot in Informations_dict["Interact_with"].split(",")]
+            if len(list_baits) > 3 :
+                raise ValueError("HInt don't support more than 3 protein baits")
             for prot in list_baits :
                 if "-" in prot :
                     name_prot = prot.split("(")[0]
@@ -96,7 +109,7 @@ def Define_informations() :
                     if value not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
-        logging.info("need information to discriminate the potential homologue")
+        logger.info("need information to discriminate the potential homologue")
         exit()
     return(Informations_dict)
 
@@ -106,6 +119,7 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
 
     Parameters :
     ----------
+    file : object of class File_proteins
     org : string
     need_DeepLoc : list
     GPU : list
@@ -114,8 +128,6 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
     ----------
     """
     result_dict = file.get_result_dict()
-    #file_name = file.get_file_name()
-    #fasta_file = file_name.replace(".txt",f".fasta")
     prot_seq = file.get_proteins_sequence_SP()
     deeploc = file.get_deeploc()
     GPU_str = ""
@@ -126,10 +138,10 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
     fasta_file = file_name.replace(".txt","_msa.fasta")
 
     if org == "euk" :
-        print(str(datetime.now())+" Start DeepLoc eucaryote")
+        logger.info(str(datetime.now())+" Start DeepLoc eucaryote")
         software = "deeploc2"
     else :
-        print(str(datetime.now())+" Start DeepLocPro")
+        logger.info(str(datetime.now())+" Start DeepLocPro")
         software = "deeplocpro"
 
     dp_lines = str()
@@ -247,10 +259,10 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
-    print(f"GPU use : {GPU_str}")
+    logger.info(f"GPU use : {GPU_str}")
     
-    print(f"{len(need_msa)} proteins need msa")
-    print(f"{len(need_pkl)} proteins need pkl files")
+    logger.info(f"{len(need_msa)} proteins need msa")
+    logger.info(f"{len(need_pkl)} proteins need pkl files")
     
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
@@ -262,14 +274,14 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         check = subprocess.run(["wget", "--spider", "-q", url])
         if check.returncode == 0:
             subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
-            print(f"MSA for {protein} found in AF database")
+            logger.info(f"MSA for {protein} found in AF database")
             need_msa.remove(protein) #msa found
             need_pkl.append(protein)
             #Cut SP for all MSA
             msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
             SP = len(prot_SP[protein])-len(prot_no_SP[protein])
             if SP > 0 : #if no SP don't modify the MSA
-                print(f"Remove SP from MSA")
+                logger.info(f"Remove SP from MSA")
                 trimmed_records = []
                 for rec in SeqIO.parse(msa_in, "fasta"):
                     new_seq = rec.seq[SP:]  #cut SP from MSA
@@ -307,14 +319,9 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     if len(need_msa) > 100 : #if more than 50 sequences, use local colabfold_search GPU
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
         os.system(cmd)
-#       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
- #      for line in process.stdout:
-  #        print(line, end="")
-   #    process.stdout.close()
-    #   process.wait()
 
     if len(need_msa) < 1 :
-        logging.info("All MSAs have already been generated")
+        logger.info("All MSAs have already been generated")
     if os.path.isfile(f"log_file/{msa_name}") == True :
         cmd = ["create_individual_features.py", #create pkl for proteins without msa
         f"--fasta_paths=./log_file/{msa_name}",
@@ -327,7 +334,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
-            print(line, end="")
+            logger.info(line, end="")
         process.stdout.close()
         process.wait()
 
@@ -343,7 +350,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
-            print(line, end="")
+            logger.info(line, end="")
         process.stdout.close()
         process.wait()
 
@@ -390,7 +397,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     Parameters:
     ----------
     file : object of class File_proteins
-    Informations_dict : dictionnary
+    Informations_dict : dict
     need_msa : list
     need_pkl : list
 
@@ -495,8 +502,8 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
 
     Returns:
     ----------
-    need_msa : list
-    need_pkl : list
+    new_need_msa : list
+    new_need_pkl : list
     """
     localisation = Informations_dict["DeepLoc"].split(",")
     deeploc = file.get_deeploc()
@@ -525,7 +532,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     return(new_need_msa, new_need_pkl)
 
 
-def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
+def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
     """
     Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
 
@@ -534,6 +541,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     file : object of class File_proteins
     Informations_dict : dictionnary
     Interaction_file : string
+    bait : string
     GPU : list
 
     Returns:
@@ -543,7 +551,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     OOM_int = str()
     result_dict = file.get_result_dict()
     regions = Informations_dict["Regions"]
-    possible_baits = Informations_dict["Interact_with"]
+    #possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
     save_lenght_line = dict()
@@ -561,33 +569,33 @@ def Generate_scripts (file, Informations_dict, Interaction_file, GPU) :
     start = 0
     end = 0
     if Interaction_file == "PPI_int" :
-        for bait in possible_baits :
-            if regions[bait] != "0-0" :
-                start = int(regions[bait].split("-")[0])
-                end = int(regions[bait].split("-")[1])
-                bait_file = f"{bait}_{start}-{end}"
-                lenght = end - start + 1
-            else :
-                lenght = lenght_prot[bait]
-                bait_file = bait
-            nbr_prey = 0
-            for prey in possible_prey :
-                int_lenght = lenght + lenght_prot[prey]
-                if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
-                    break
-                if os.path.exists(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb") == False : #if model don't exist
-                    if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
-                        if start == 0 and end == 0 :
-                            save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
-                        else :
-                            save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait},{start}-{end};{prey}\n"]
-                        #nbr_prey += 1
-                    else : #if interaction is too large
-                        OOM_int += OOM_int + bait + ";" + prey + "\n"
-                        result_dict[prey]["iQ_score"] = "Too big interactions : AF OOM"
-                else :
+        if regions[bait] != "0-0" :
+            start = int(regions[bait].split("-")[0])
+            end = int(regions[bait].split("-")[1])
+            bait_file = f"{bait}_{start}-{end}"
+            lenght = end - start + 1
+        else :
+            lenght = lenght_prot[bait]
+            bait_file = bait
+        #nbr_prey = 0
+        for prey in possible_prey :
+            int_lenght = lenght + lenght_prot[prey]
+            #if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
+            #    break
+            if os.path.exists(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb") == False : #if model don't exist
+                if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
+                    if start == 0 and end == 0 :
+                        save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
+                    else :
+                        save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait},{start}-{end};{prey}\n"]
                     #nbr_prey += 1
-                    pass
+                else : #if interaction is too large
+                    OOM_int += OOM_int + bait + ";" + prey + "\n"
+                    result_dict[prey]["iQ_score"] = "Too big interactions : AF OOM"
+            else :
+                #nbr_prey += 1
+                pass
+
     if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict["Homo-oligomer"]
         nbr_prey = 0
@@ -640,7 +648,7 @@ def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
     for p in processes:
         p.join()
     end_time = datetime.now()
-    print("Time APD :", end_time - start_time,"\n")
+    logger.info("Time APD : %s\n", end_time - start_time)
 
 def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature):
     """
@@ -670,7 +678,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
-    cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
+    cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=False \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
     log_file = f"log_file/log_GPU_{gpu_id}.txt"
     run_cmd(cmd, env=env)
 
@@ -743,7 +751,7 @@ def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU,
         all_lines += interactions[1][1]
     with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
         file_int.write(all_lines)
-    print("Total interactions : " + str(total_int))
+    logger.info("Total interactions : " + str(total_int))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return total_int
@@ -769,7 +777,7 @@ def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int) :
     msa1, lab1 = read_a3m(f"{Path_Pickle_Feature}/{a3m1}")
     msa2, lab2 = read_a3m(f"{Path_Pickle_Feature}/{a3m2}")
     if len(lab1[1:]) == 0 or len(lab2[1:]) == 0: #check if we have sequences in MSA
-        print(f"No sequences to merge: {a3m2}, {a3m1}")
+        logger.info(f"No sequences to merge: {a3m2}, {a3m1}")
         return total_int-1
     valid_lab1 = [id_ for id_ in lab1[1:] if len(id_) in (6, 10)] #filtred valid IDs
     valid_lab2 = [id_ for id_ in lab2[1:] if len(id_) in (6, 10)]
@@ -855,7 +863,7 @@ def Uni_to_idx(ids) :
         elif len(i) == 10:
             filtered_ids.append(i)
         else:
-            print(f"[WARN] ID ignoré : {i}")
+            logger.info(f"[WARN] ID ignoré : {i}")
     if not filtered_ids:
         raise ValueError("No valid ID")
     ids2 = [s.ljust(10, 'A') for s in filtered_ids]
@@ -916,7 +924,7 @@ def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list, path_RF2_PPI) :
         p.join()
     end_time = datetime.now()
     duration = end_time - start_time
-    print("Duration RoseTTAFold2-PPI :", duration)
+    logger.info("Duration RoseTTAFold2-PPI :", duration)
 
 def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue, path_RF2_PPI) :
     """
@@ -946,9 +954,9 @@ def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue
         "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt",
         "-model_file", f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
         "-number_seqs", "5000"]
-        print(f"[GPU {gpu_index}] Launch interaction : {interaction}")
+        logger.info(f"[GPU {gpu_index}] Launch interaction : {interaction}")
         subprocess.run(cmd, env=env)
-        print(f"[GPU {gpu_index}] Done : {interaction}")
+        logger.info(f"[GPU {gpu_index}] Done : {interaction}")
         with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt.log", "r") as result_file:
             for line in result_file:
                 all_result += str(line)
@@ -1013,7 +1021,7 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
     Returns:
     ----------
     """
-    print(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
+    logger.info(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
     total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU, Informations_dict["Regions"])
     nbr_line_result = 0
     for GPU_index in GPU :
@@ -1023,13 +1031,13 @@ def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
                     nbr_line_result += 1
     nbr_line_result = nbr_line_result // 2
     if total_int != nbr_line_result : #check if all interactions have been done
-        print(str(datetime.now()) + " Launch RoseTTAFold2-PPI")
+        logger.info(str(datetime.now()) + " Launch RoseTTAFold2-PPI")
         Launch_RF2_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU, Informations_dict["Path_RF2_PPI"])
-        print(str(datetime.now()) + " Scoring RoseTTAFold2-PPI")
+        logger.info(str(datetime.now()) + " Scoring RoseTTAFold2-PPI")
         Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
     else :
         Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
-        print(f"RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete {Interaction}.txt and relaunch.")
+        logger.info(f"RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete {Interaction}.txt and relaunch.")
 
 
 
@@ -1051,8 +1059,19 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
+    ppi_list = list()
+    N_CPU = multiprocessing.cpu_count() 
     if os.path.isdir(f"./result_{Interaction}") == True :
-        get_good_inter_pae.main(f"./result_{Interaction}",10,2,Path_ccp4)
+        #get_good_inter_pae.main(f"./result_{Interaction}",10,2,Path_ccp4)
+        for direc in os.listdir(f"./result_{Interaction}") :
+            if "_and_" in direc or "_homo_" in direc :
+                ppi_list.append(f"./result_{Interaction}/{direc}")
+        with multiprocessing.Pool(N_CPU) as pool :
+            results = tqdm(pool.starmap(run_scoring, [(ppi, f"./result_{Interaction}", Path_ccp4) for ppi in ppi_list]),total=len(ppi_list))
+            dfs = [df for df in results if df is not None and not df.empty]
+            merged_df = pd.concat(dfs, ignore_index=True)
+            merged_df.to_csv(os.path.join(f"./result_{Interaction}","predictions_with_good_interpae.csv"),index=False)
+        #Resume all score and set new possible prey
         with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as file1 :
             reader = csv.DictReader(file1)
 
@@ -1071,8 +1090,8 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                         result_dict[job.split("_and_")[1]]["iQ_score"] = iQ_score
                         new_possible_prey.append(job.split("_and_")[1])
                         all_lines = all_lines + line
-
-                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{job}_ranked_0.pdb") #rename pdb file
+                        name_int = job.split("/")[-1]
+                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
                         result_dict[protein]["iQ_score"] = 0 #if prey don't have interaction, set iQ_score to 0
@@ -1111,7 +1130,8 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                         all_lines += line
                     new_possible_prey.append(prot_name)
                     result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
-                    os.system(f"cp result_{Interaction}/{key}/ranked_0.pdb result_{Interaction}/{key}/{key}_ranked_0.pdb") #rename pdb file
+                    name_int = key.split("/")[-1]
+                    os.system(f"cp {key}/ranked_0.pdb {key}/{name_int}_ranked_0.pdb") #rename pdb file
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
                         result_dict[protein]["hiQ_score"] = 0
@@ -1122,9 +1142,14 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
-        print(f"result_{Interaction}/ don't exist")
+        logger.info(f"result_{Interaction}/ don't exist")
     end_time = datetime.now()
-    print("Time scoring interactions :", end_time - start_time,"\n")
+    logger.info("Time scoring interactions : %s\n", end_time - start_time)
+
+def run_scoring(interaction, output_dir, Path_ccp4) :
+    result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4)
+    return result
+
 
 def Split_to_GPU(file, save_lenght_line, GPU) :
     """
@@ -1151,6 +1176,8 @@ def Split_to_GPU(file, save_lenght_line, GPU) :
         dict_split_GPU[target_gpu] += interactions[1][1]
         gpu_loads[target_gpu] += interactions[1][0]
     return dict_split_GPU
+
+
 
 def Resume_file(file, Informations_dict) :
     """
@@ -1184,7 +1211,7 @@ def Resume_file(file, Informations_dict) :
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
 
     sorted_dict = dict(sorted_proteins)
-    print(sorted_dict)
+    logger.info(sorted_dict)
     for prot in sorted_dict.keys() :
         small_csv_lines += prot
         big_csv_lines += prot
@@ -1221,6 +1248,6 @@ def run_cmd(cmd, env=None):
     try:
         p.wait()
     except KeyboardInterrupt:
-        print("Interrupt detected, subprocess stopped…")
+        logger.info("Interrupt detected, subprocess stopped…")
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         p.wait()
