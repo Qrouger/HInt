@@ -1,5 +1,5 @@
 #Adapted from run_piscore_wc.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
-
+#code in python 2.7
 import argparse
 import os
 import shutil
@@ -10,7 +10,7 @@ from pisa_utils import run_pisa, parse_pisa_xml_outfle
 from pi_score_utils import write_csv_with_features_wc, make_predictions, filter_csv
 import time
 import sys
-
+import uuid 
 
 author = 'Author: Sony Malhotra '
 
@@ -34,10 +34,10 @@ def main():
     pdblist = []
     
     if args.dirc != None:
-        print ('Setting chains to all chains')
+        #print ('Setting chains to all chains')
         args.chains = None
-        
-    print ('*****Selecting model for training*****')
+
+    #print ('*****Selecting model for training*****')
     dirname, filename = os.path.split(os.path.abspath(__file__))
     if args.model == 'A':
         saved_model = os.path.join(os.path.dirname(sys.argv[0]),'svm_model/finalized_model_A.sav')
@@ -49,29 +49,31 @@ def main():
         saved_model = os.path.join(os.path.dirname(sys.argv[0]),'svm_model/finalized_model_wc.sav')
         saved_sc = os.path.join(dirname,'svm_model/scaler_model_wc.sav')
     working_path = os.getcwd()
-    
-    print ('*****Setting output directory for results*****')
-    #make output directory
+
+    #print ('*****Setting output directory for results*****')
     if not os.path.isdir(args.out):
         os.mkdir(args.out)
-    
+
+    session_id = uuid.uuid4().hex[:8]
+
     if args.csv is None:
-        current_time = time.strftime("%m.%d.%y_%H:%M", time.localtime())
-        args.csv = os.path.join(args.out,'intf_features_%s.csv' % current_time)
+        current_time = time.strftime("%m.%d.%y_%H%M", time.localtime())
+        args.csv = os.path.join(args.out, "intf_features_%s_%s.csv" % (current_time, session_id))
         
     if args.results is None:
-        args.results = os.path.join(args.out,'pi_score_%s.txt' % current_time)
+        current_time = time.strftime("%m.%d.%y_%H%M", time.localtime())
+        args.results = os.path.join(args.out,"pi_score_%s_%s_id.txt" % (current_time, session_id))
     
     if os.path.isfile(args.results):
         os.remove(args.results)
-        
+    
     out = open(args.results,'w')
     out.write('#PDB,chains,predicted_class,pi_score\n')
     out.close()
     
-    filter_csvfle = os.path.join(args.out,'filter_intf_features_%s.csv' % current_time)
-    
-    print ('*****Setting input for assessment*****')
+    filter_csvfle = os.path.join(args.out,"filter_intf_features_%s_%s.csv" % (current_time, session_id))
+
+    #print ('*****Setting input for assessment*****')
     #get a list of pdbfiles to score interfaces for
     if args.pdb:
         pdblist = [args.pdb.rsplit('/',1)[-1]]
@@ -89,7 +91,7 @@ def main():
     all_consdir = []
     ch_lst = []
 
-    print ('*****Iterating over each structure to assess*****')
+    #print ('*****Iterating over each structure to assess*****')
     for pdb in pdblist:
         chains_in = []
         os.chdir(working_path)
@@ -97,18 +99,18 @@ def main():
         #make an output directory
         if os.path.isdir(os.path.join(args.out,pd)):
             shutil.rmtree(os.path.join(args.out,pd))
-        print ('*****Making results subdirectory specific to each structure in output directory*****')
-        print (os.path.join(args.out,pd))
+        #print ('*****Making results subdirectory specific to each structure in output directory*****')
+        #print (os.path.join(args.out,pd))
         os.mkdir(os.path.join(args.out,pd))
         #copy input files
         if args.dirc:
             copy_cmd = 'cp '+ os.path.join(args.dirc,pdb) + ' ' + os.path.join(args.out,pd)
         else:
             copy_cmd = 'cp '+ os.path.join(args.pdb) + ' ' + os.path.join(args.out,pd)
-        print ('*****Doing PDB,',pdb,' *****')
+        #print ('*****Doing PDB,',pdb,' *****')
         os.system(copy_cmd)
         os.chdir(os.path.join(args.out,pd))
-        print ('*****Calculating interface*****')
+        #print ('*****Calculating interface*****')
         #Interface calculation
         dict_intf,dict_contact = interface_residues(pdb,
                                                     len_chains=args.prot_size,
@@ -122,7 +124,7 @@ def main():
             a.close()
             continue
         
-        print ('*****Calculating contacts*****')
+        #print ('*****Calculating contacts*****')
         #Writing the contact dictionary, which residue from which chains are in contact
         contact_name = intf_outfle_prefix + '_interface_chain_contacts.json'
         with open(contact_name,'w') as outfle:
@@ -138,7 +140,7 @@ def main():
         os.system('rm -f ' + clean_pdbfile)
         os.system('mv ' + atm_file + ' ' + clean_pdbfile)
         
-        print ('*****Iterating over interfaces in structure*****')
+        #print ('*****Iterating over interfaces in structure*****')
         #Iterating over all the interfaces
         for k in dict_intf:
             ch1 = k.split('_')[0]
@@ -151,7 +153,7 @@ def main():
                 else:
                     print ('No interfaces between the input chains,', args.chains)
                     continue
-            print ('*****Calculating interface features*****')
+            #print ('*****Calculating interface features*****')
             if flag or not args.chains: 
                 ch1_intf_res = dict_intf[k][0]
                 ch2_intf_res = dict_intf[k][1]
@@ -173,20 +175,20 @@ def main():
                 with open(intf_outfle_name,'w') as outfle:
                     json.dump(dict_intf_prop,outfle)     
                 
-                print ('*****Calculating shape complementarity*****')
+                #print ('*****Calculating shape complementarity*****')
                 #calculate shape complementarity
                 scriptfile = write_sc_script(chain_lst=k.split('_'),
                                             pdbfile=clean_pdbfile)
                 run_sc(scriptfile)
-                parse_sc_output('tmp_sc.out')
+                #parse_sc_output('tmp_sc.out')
                 
-        print ('*****Calculating pisa *****')
+        #print ('*****Calculating pisa *****')
         #calculate features using pisa
         outfle_name = run_pisa(clean_pdbfile)
         pisa_out = parse_pisa_xml_outfle(outfle_name)
         
     os.chdir(working_path)
-    print ('*****Writing CSV file with features *****')
+    #print ('*****Writing CSV file with features *****')
     # # Write the CSV file with interface features
     write_csv_with_features_wc(indir=args.out, 
                             outfle=args.csv)
@@ -195,12 +197,13 @@ def main():
     # #filter CSV and have only interfaces where all features were computed successfully
     filter_csv(args.csv,filter_csvfle)
 
-    print ('*****Calculating PI-score*****')
+    #print ('*****Calculating PI-score*****')
     # # #Make predictions
     make_predictions(saved_sc=saved_sc, 
                     csvfile=filter_csvfle, 
                     saved_model=saved_model,
-                    outfle=args.results)
+                    outfle=args.results,
+                    session_id=session_id)
 if __name__ == '__main__':
     main()
 

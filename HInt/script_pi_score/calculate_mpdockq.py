@@ -72,7 +72,8 @@ def get_best_plddt(work_dir):
         print("result pickle for the best model not found. Now search for zipped pickle.")
         best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
     finally:
-        print(f"finished obtainined the plddt values.")
+        pass
+        #print(f"finished obtainined the plddt values.")
     return best_plddt
 
 def read_plddt(best_plddt, chain_CA_inds):

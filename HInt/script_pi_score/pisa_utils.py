@@ -2,17 +2,24 @@
 
 import os
 import json
+import uuid
 
 def run_pisa(pdbfile=None):
     assert pdbfile is not None
-    outfle = pdbfile.rsplit('.pdb',1)[0] + '_pisa.xml'
-    cmd = 'pisa name -analyse ' + pdbfile
-    cmd1 = 'pisa name -xml interfaces >' + outfle
+    
+    session_id = uuid.uuid4().hex[:8]  # ID unique pour chaque job
+    outfle = pdbfile.rsplit('.pdb',1)[0] + '_pisa_' + session_id + '.xml'
+    
+    # lancer pisa avec session unique
+    cmd = 'pisa %s -analyse %s' % (session_id, pdbfile)
+    cmd1 = 'pisa %s -xml interfaces > %s' % (session_id, outfle)
+    cmd2 = 'pisa %s -erase' % (session_id)
     os.system(cmd)
     os.system(cmd1)
-    cmd2 = 'pisa name -erase'
     os.system(cmd2)
+    
     return outfle
+
 
 def parse_pisa_xml_outfle(xml_fle,
                          outfle_name=None):

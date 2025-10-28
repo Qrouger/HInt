@@ -138,28 +138,62 @@ def filter_csv(csvfile,outfile):
                 out.write(lne)
     out.close() 
     
-def make_predictions(saved_sc, csvfile, saved_model, outfle):
+#def make_predictions(saved_sc, csvfile, saved_model, outfle):
     #0.20.4 for sklearn models and scaler saved in this version
+#    sc = pickle.load(open(saved_sc,'rb'))
+#    out = open(outfle,'a')
+#    topredict = pd.read_csv(csvfile)
+#    if topredict.empty:
+#        print 'All features could not be calculated successfully for atleast one of the interfaces!'
+#        print 'Exiting'
+#        sys.exit(1)
+#    else:
+#        topredict_1 = topredict.drop((['pdb','interface','Num_intf_residues']),axis=1)
+#        pdb_em = topredict['pdb']
+#        pdb_em_int = topredict['interface']
+#        topredict_1 = sc.transform(topredict_1)
+        
+#        with open(saved_model, 'rb') as file:
+#            clf_m = pickle.load(file)
+#        pred_em = clf_m.predict(topredict_1)
+#        dec = clf_m.decision_function(topredict_1)
+#        for i in range(len(topredict_1)):
+#            out.write(str(pdb_em[i]) + ',' + 
+#                      str(pdb_em_int[i]) + ',' +
+#                      str(pred_em[i]) + ',' +
+#                      str(round(dec[i],2)) + '\n')
+#        out.close()
+
+def make_predictions(saved_sc, csvfile, saved_model, outfle, session_id):
+    import numpy as np
+    import pickle
+    import pandas as pd
+    import sys
+
     sc = pickle.load(open(saved_sc,'rb'))
-    out = open(outfle,'a')
+    with open(saved_model,'rb') as file:
+        clf_m = pickle.load(file)
+
     topredict = pd.read_csv(csvfile)
     if topredict.empty:
         print 'All features could not be calculated successfully for atleast one of the interfaces!'
         print 'Exiting'
         sys.exit(1)
-    else:
-        topredict_1 = topredict.drop((['pdb','interface','Num_intf_residues']),axis=1)
-        pdb_em = topredict['pdb']
-        pdb_em_int = topredict['interface']
-        topredict_1 = sc.transform(topredict_1)
-        
-        with open(saved_model, 'rb') as file:
-            clf_m = pickle.load(file)
-        pred_em = clf_m.predict(topredict_1)
-        dec = clf_m.decision_function(topredict_1)
-        for i in range(len(topredict_1)):
-            out.write(str(pdb_em[i]) + ',' + 
-                      str(pdb_em_int[i]) + ',' +
-                      str(pred_em[i]) + ',' +
-                      str(round(dec[i],2)) + '\n')
-        out.close()
+
+    topredict_1 = topredict.drop(['pdb','interface','Num_intf_residues'], axis=1)
+    topredict_1 = np.nan_to_num(sc.transform(topredict_1))
+
+    pred_em = clf_m.predict(topredict_1)
+    dec = clf_m.decision_function(topredict_1)
+
+    outfle_job = "%s.txt" % (outfle.rsplit('.',1)[0])
+    out = open(outfle_job, 'a')
+
+    pdb_em = topredict['pdb']
+    pdb_em_int = topredict['interface']
+    for i in range(len(topredict_1)):
+        out.write(str(pdb_em[i]) + ',' +
+                  str(pdb_em_int[i]) + ',' +
+                  str(pred_em[i]) + ',' +
+                  str(round(dec[i],2)) + '\n')
+    out.close()
