@@ -1,22 +1,33 @@
+# -*- coding: utf-8 -*-
 #Adapted from pisa_utils.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
 
 import os
 import json
 import uuid
+import subprocess
 
 def run_pisa(pdbfile=None):
     assert pdbfile is not None
     
-    session_id = uuid.uuid4().hex[:8]  # ID unique pour chaque job
+    session_id = uuid.uuid4().hex[:8]
     outfle = pdbfile.rsplit('.pdb',1)[0] + '_pisa_' + session_id + '.xml'
     
     # lancer pisa avec session unique
-    cmd = 'pisa %s -analyse %s' % (session_id, pdbfile)
-    cmd1 = 'pisa %s -xml interfaces > %s' % (session_id, outfle)
-    cmd2 = 'pisa %s -erase' % (session_id)
-    os.system(cmd)
-    os.system(cmd1)
-    os.system(cmd2)
+    cmds = [
+        'pisa %s -analyse %s' % (session_id, pdbfile),
+        'pisa %s -xml interfaces > %s' % (session_id, outfle),
+        'pisa %s -erase' % (session_id)
+    ]
+    #cmd = 'pisa %s -analyse %s' % (session_id, pdbfile)
+    #cmd1 = 'pisa %s -xml interfaces > %s' % (session_id, outfle)
+    #cmd2 = 'pisa %s -erase' % (session_id)
+    for i, cmd in enumerate(cmds):
+        #log_file = f'tmp_pisa_{session_id}_{i}.log'
+        #with open(log_file, 'w') as f:
+            proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT)
+            proc.wait()  # attendre que cette étape se termine avant la suivante
+
+    return outfle
     
     return outfle
 

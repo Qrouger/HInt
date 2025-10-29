@@ -169,7 +169,6 @@ def make_predictions(saved_sc, csvfile, saved_model, outfle, session_id):
     import pickle
     import pandas as pd
     import sys
-
     sc = pickle.load(open(saved_sc,'rb'))
     with open(saved_model,'rb') as file:
         clf_m = pickle.load(file)

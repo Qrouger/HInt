@@ -3,6 +3,7 @@
 import os
 import json
 import uuid
+import subprocess
 
 def write_sc_script(pdbfile,
                     chain_lst=None,
@@ -18,24 +19,48 @@ def write_sc_script(pdbfile,
         outfle = pdbfile + '_' + '_'.join(chain_lst) + '_sc_infle.sh'
     #print (outfle, 'OUTFLE for SC')
     out = open(outfle,'w')
+    out.write('#!/bin/bash\n')
     out.write('sc XYZIN ' + pdbfile + ' <<eof \n')
     out.write('MOLECULE 1\nCHAIN ' + chain_lst[0] + '\n' + 'MOLECULE 2\nCHAIN ' + chain_lst[1] + '\nEND\neof')
     out.close()
     os.system('chmod 777 ' + outfle)
     return outfle
 
+#def run_sc(scriptfile):
+#    session_id = uuid.uuid4().hex[:8]
+
+
+#    unique_script = "%s_%s.sh" % (scriptfile.rsplit('.', 1)[0], session_id)
+#    tmp_out = "tmp_sc_%s.out" % session_id
+#    os.system("cp %s %s" % (scriptfile, unique_script))
+
+#    os.system("sed -i 's/session name/session_%s/g' %s" % (session_id, unique_script))
+
+#    cmd = "./%s > tmp_sc_%s.out" % (unique_script, session_id)
+#    os.system(cmd)
+#    parse_sc_output(tmp_out)
+
 def run_sc(scriptfile):
+    # Générer un identifiant unique pour ce job
     session_id = uuid.uuid4().hex[:8]
 
-
+    # Nom unique pour le script SC
     unique_script = "%s_%s.sh" % (scriptfile.rsplit('.', 1)[0], session_id)
     tmp_out = "tmp_sc_%s.out" % session_id
-    os.system("cp %s %s" % (scriptfile, unique_script))
 
-    os.system("sed -i 's/session name/session_%s/g' %s" % (session_id, unique_script))
+    # Copier le script et remplacer le nom de session
+    subprocess.call(["cp", scriptfile, unique_script])
+    subprocess.call(["sed", "-i", "s/session name/session_%s/g" % session_id, unique_script])
 
-    cmd = "./%s > tmp_sc_%s.out" % (unique_script, session_id)
-    os.system(cmd)
+    # Lancer le script de manière asynchrone sur le CPU du job en cours
+    # stdout et stderr redirigés vers le fichier tmp_out
+
+    
+    out_fh = open(tmp_out, "w")
+    proc = subprocess.Popen(["./" + unique_script], stdout=out_fh, stderr=subprocess.STDOUT)
+    proc.wait()
+    out_fh.close()
+
     parse_sc_output(tmp_out)
 
 def parse_sc_output(outfle):
@@ -47,6 +72,7 @@ def parse_sc_output(outfle):
     ch_lst = []
     pdb = ''
     sc = ''
+    #print(outfle)
     with open(outfle,'r') as out:
         for lne in out:
             if 'Number of atoms selected in chain' in lne:
