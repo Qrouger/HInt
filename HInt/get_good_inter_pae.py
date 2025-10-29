@@ -59,6 +59,7 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
         pass
     subprocess.run(f"mkdir {jobs[0]}/pi_score_outputs",shell=True,executable='/bin/bash')
     pi_score_outputs = os.path.join(jobs[0],"pi_score_outputs")
+    proc_list = ()
     for job in jobs:
         #subdir = os.path.join(workd_dir,job)
         if not os.path.isfile(os.path.join(job,"ranked_0.pdb")):
@@ -68,9 +69,14 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
             pdb_path = os.path.join(job,"ranked_0.pdb")
             output_dir = os.path.join(pi_score_outputs)
             #logging.info(f"pi_score output for {job} will be stored at {output_dir}")
+            
             cmd = (f"source {ccp4_setup}/bin/ccp4.setup-sh && " "conda run -n pi_score python ./script_pi_score/run_piscore_wc.py " f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10")
-            subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
-
+            subprocess.run(cmd, shell=True, executable="/bin/bash")
+            #cmd = (f"source {ccp4_setup}/bin/ccp4.setup-sh && "
+            #   f"conda run -n pi_score python ./script_pi_score/run_piscore_wc.py "
+            #   f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10")
+            #proc = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
+            #proc_list.append((job, proc))
             
 
     output_df = pd.DataFrame()
@@ -110,7 +116,6 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres,ccp4_setup):
 
 def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
     #jobs = os.listdir(output_dir)
-    
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
@@ -159,8 +164,3 @@ def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
         return pi_score_df
     else :
         return None
-    #pi_score_df.to_csv(os.path.join(output_dir,"predictions_with_good_interpae.csv"),index=False)
-
-
-if __name__ =='__main__':
-    app.run(main)

@@ -334,7 +334,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
-            logger.info(line, end="")
+            logger.info(line)
         process.stdout.close()
         process.wait()
 
@@ -350,7 +350,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
-            logger.info(line, end="")
+            logger.info(line)
         process.stdout.close()
         process.wait()
 
@@ -1060,17 +1060,21 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     ppi_list = list()
-    N_CPU = multiprocessing.cpu_count() 
+    N_CPU = multiprocessing.cpu_count()
     if os.path.isdir(f"./result_{Interaction}") == True :
-        #get_good_inter_pae.main(f"./result_{Interaction}",10,2,Path_ccp4)
         for direc in os.listdir(f"./result_{Interaction}") :
             if "_and_" in direc or "_homo_" in direc :
                 ppi_list.append(f"./result_{Interaction}/{direc}")
+        results = []
         with multiprocessing.Pool(N_CPU) as pool :
-            results = tqdm(pool.starmap(run_scoring, [(ppi, f"./result_{Interaction}", Path_ccp4) for ppi in ppi_list]),total=len(ppi_list))
-            dfs = [df for df in results if df is not None and not df.empty]
-            merged_df = pd.concat(dfs, ignore_index=True)
-            merged_df.to_csv(os.path.join(f"./result_{Interaction}","predictions_with_good_interpae.csv"),index=False)
+            tasks = [(ppi, "/mnt", Path_ccp4) for ppi in ppi_list]
+            for df in tqdm(pool.imap_unordered(run_scoring, tasks),total=len(ppi_list), desc="Scoring interactions"):
+                if df is not None and not df.empty:
+                    results.append(df)
+        if results:
+            merged_df = pd.concat(results, ignore_index=True)
+            merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
+
         #Resume all score and set new possible prey
         with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as file1 :
             reader = csv.DictReader(file1)
@@ -1146,10 +1150,21 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     end_time = datetime.now()
     logger.info("Time scoring interactions : %s\n", end_time - start_time)
 
-def run_scoring(interaction, output_dir, Path_ccp4) :
+def run_scoring(args) :
+    """
+    Run get_good_inter_pae script
+
+    Parameters:
+    ----------
+    args : set
+
+    Returns:
+    ----------
+    result : string
+    """
+    interaction, output_dir, Path_ccp4 = args
     result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4)
     return result
-
 
 def Split_to_GPU(file, save_lenght_line, GPU) :
     """
