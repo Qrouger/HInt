@@ -18,6 +18,7 @@ import get_good_inter_pae
 import signal
 from tqdm import tqdm
 import pandas as pd
+from contextlib import closing
 
 # Configure global logger
 logging.basicConfig(
@@ -335,8 +336,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
             logger.info(line)
-        process.stdout.close()
-        process.wait()
+        stdout, stderr = process.communicate()
+        
 
     if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl files for proteins without pkl file
         cmd2 = ["create_individual_features.py",
@@ -351,8 +352,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         process = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout:
             logger.info(line)
-        process.stdout.close()
-        process.wait()
+        stdout, stderr = process.communicate()
 
     ### if regions in bait, cut the MSA  No need if we made APD on a segment
  #   all_lines = str()
@@ -1066,19 +1066,21 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
             if "_and_" in direc or "_homo_" in direc :
                 ppi_list.append(f"./result_{Interaction}/{direc}")
         results = []
-        with multiprocessing.Pool(N_CPU) as pool :
-            tasks = [(ppi, "/mnt", Path_ccp4) for ppi in ppi_list]
-            for df in tqdm(pool.imap_unordered(run_scoring, tasks),total=len(ppi_list), desc="Scoring interactions"):
+        with multiprocessing.Pool(N_CPU) as pool:
+            tasks = [(ppi, "./", Path_ccp4) for ppi in ppi_list]
+            results_iter = pool.imap_unordered(run_scoring, tasks)
+            for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions"):
                 if df is not None and not df.empty:
                     results.append(df)
-        if results:
+            pool.close()
+            pool.join()
+        if results :
             merged_df = pd.concat(results, ignore_index=True)
             merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
 
         #Resume all score and set new possible prey
-        with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as file1 :
-            reader = csv.DictReader(file1)
-
+        with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as result_file :
+            reader = csv.DictReader(result_file)
             if Interaction == "PPI_int" : #score PPI
                 all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                 for row in reader :
@@ -1091,14 +1093,14 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                             iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
                             line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
 
-                        result_dict[job.split("_and_")[1]]["iQ_score"] = iQ_score
+                        result_dict[job.split("_and_")[1]][f"iQ_score_vs_{job.split('_and_')[0]}"] = iQ_score
                         new_possible_prey.append(job.split("_and_")[1])
                         all_lines = all_lines + line
                         name_int = job.split("/")[-1]
                         os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
-                        result_dict[protein]["iQ_score"] = 0 #if prey don't have interaction, set iQ_score to 0
+                        result_dict[protein][f"iQ_score_vs_{job.split('_and_')[0]}"] = 0 #if prey don't have interaction, set iQ_score to 0
                         result_dict[protein]["Reason_for_filtering"] = "Bad PPI PAE : AF"
 
             if Interaction == "homo_int" : #score homo-oligomer
@@ -1152,7 +1154,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
 
 def run_scoring(args) :
     """
-    Run get_good_inter_pae script
+    Run get_good_inter_pae script.
 
     Parameters:
     ----------
@@ -1219,11 +1221,13 @@ def Resume_file(file, Informations_dict) :
         big_csv_lines = "Name,DeepLoc,Signal_peptide,RF2_homo_int,iQ_score,hiQ_score\n"
     for bait in possible_baits : #remove bait from result dict
         del result_dict[bait]
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("iQ_score", 0), len(x[1])), reverse=True)
 
-
-    sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("iQ_score", 0), len(x[1])), reverse=True)
     if Informations_dict["Interact_with"] == [""] : #if no PPI interactions try filtred on hiQ_score
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
+
+    #create two iQ_score colum in definitive result
+
 
     sorted_dict = dict(sorted_proteins)
     logger.info(sorted_dict)
@@ -1261,8 +1265,8 @@ def run_cmd(cmd, env=None):
     """
     p = subprocess.Popen(cmd, shell=True, env=env, preexec_fn=os.setsid)
     try:
-        p.wait()
+        stdout, stderr = p.communicate()
     except KeyboardInterrupt:
         logger.info("Interrupt detected, subprocess stopped…")
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-        p.wait()
+        stdout, stderr = p.communicate()
