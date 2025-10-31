@@ -51,6 +51,7 @@ if __name__ == "__main__" :
     
     if len(need_msa) > 0 :
         run_SP(HInt_object,Informations_dict, need_msa) #run SignalP for new proteins and set in dict
+    HInt_object.Make_save_dict()
     if Informations_dict["Signal_peptide"] != "None" :
         need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP
     if len(need_msa) > 0 or len(need_pkl) > 0 :
