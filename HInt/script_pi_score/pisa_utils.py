@@ -24,11 +24,9 @@ def run_pisa(pdbfile=None):
     for i, cmd in enumerate(cmds):
         #log_file = f'tmp_pisa_{session_id}_{i}.log'
         #with open(log_file, 'w') as f:
-            proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT)
-            proc.wait()  # attendre que cette étape se termine avant la suivante
+        proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT,close_fds=True)
+        proc.wait() 
 
-    return outfle
-    
     return outfle
 
 

@@ -58,6 +58,7 @@ def main():
 
     if args.csv is None:
         current_time = time.strftime("%m.%d.%y_%H%M", time.localtime())
+        obj = session_id
         args.csv = os.path.join(args.out, "intf_features_%s_%s.csv" % (current_time, session_id))
         
     if args.results is None:
@@ -179,14 +180,15 @@ def main():
                 #calculate shape complementarity
                 scriptfile = write_sc_script(chain_lst=k.split('_'),
                                             pdbfile=clean_pdbfile)
-                run_sc(scriptfile)
+                sc_dir = args.out+"/ranked_0/"+scriptfile
+                run_sc(sc_dir)
                 #parse_sc_output('tmp_sc.out')
                 
         #print ('*****Calculating pisa *****')
         #calculate features using pisa
         outfle_name = run_pisa(clean_pdbfile)
         pisa_out = parse_pisa_xml_outfle(outfle_name)
-        
+    
     os.chdir(working_path)
     #print ('*****Writing CSV file with features *****')
     # # Write the CSV file with interface features

@@ -109,7 +109,7 @@ def write_csv_with_features_wc(indir,outfle):
                             else:
                                 outfle.write('NA,NA,NA,NA,NA')
                         outfle.write('\n')
-
+    outfle.close()
 
 
 def count_contacts_at_interface(contacts_dict):
@@ -169,7 +169,6 @@ def make_predictions(saved_sc, csvfile, saved_model, outfle, session_id):
     import pickle
     import pandas as pd
     import sys
-    sc = pickle.load(open(saved_sc,'rb'))
     with open(saved_model,'rb') as file:
         clf_m = pickle.load(file)
 
@@ -180,7 +179,9 @@ def make_predictions(saved_sc, csvfile, saved_model, outfle, session_id):
         sys.exit(1)
 
     topredict_1 = topredict.drop(['pdb','interface','Num_intf_residues'], axis=1)
-    topredict_1 = np.nan_to_num(sc.transform(topredict_1))
+    with open(saved_sc, 'rb') as file:
+        sc = pickle.load(file)
+        topredict_1 = np.nan_to_num(sc.transform(topredict_1))
 
     pred_em = clf_m.predict(topredict_1)
     dec = clf_m.decision_function(topredict_1)

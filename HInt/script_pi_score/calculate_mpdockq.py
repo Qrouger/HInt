@@ -63,19 +63,6 @@ def read_pdb(pdbfile):
 
     return pdb_chains, chain_coords, chain_CA_inds, chain_CB_inds
 
-def get_best_plddt(work_dir):
-    json_path = os.path.join(work_dir,'ranking_debug.json')
-    best_model = json.load(open(json_path,'r'))['order'][0]
-    try:
-        best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
-    except FileNotFoundError:
-        print("result pickle for the best model not found. Now search for zipped pickle.")
-        best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
-    finally:
-        pass
-        #print(f"finished obtainined the plddt values.")
-    return best_plddt
-
 def read_plddt(best_plddt, chain_CA_inds):
     '''Get the plDDT for each chain
     '''

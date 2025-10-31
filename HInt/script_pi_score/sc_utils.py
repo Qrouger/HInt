@@ -41,34 +41,29 @@ def write_sc_script(pdbfile,
 #    parse_sc_output(tmp_out)
 
 def run_sc(scriptfile):
-    # Générer un identifiant unique pour ce job
     session_id = uuid.uuid4().hex[:8]
-
-    # Nom unique pour le script SC
     unique_script = "%s_%s.sh" % (scriptfile.rsplit('.', 1)[0], session_id)
-    tmp_out = "tmp_sc_%s.out" % session_id
+    tmp_out = "%s_tmp_sc_%s.out" % (scriptfile.rsplit('.', 1)[0], session_id)
 
-    # Copier le script et remplacer le nom de session
     subprocess.call(["cp", scriptfile, unique_script])
     subprocess.call(["sed", "-i", "s/session name/session_%s/g" % session_id, unique_script])
 
-    # Lancer le script de manière asynchrone sur le CPU du job en cours
-    # stdout et stderr redirigés vers le fichier tmp_out
 
-    
-    out_fh = open(tmp_out, "w")
-    proc = subprocess.Popen(["./" + unique_script], stdout=out_fh, stderr=subprocess.STDOUT)
-    proc.wait()
-    out_fh.close()
 
+    with open(tmp_out, "w") as out_fh:
+        proc = subprocess.Popen([unique_script], stdout=out_fh, stderr=subprocess.STDOUT, close_fds=True)
+        proc.wait()
+
+    os.remove(unique_script)
     parse_sc_output(tmp_out)
 
 def parse_sc_output(outfle):
-    if os.path.isfile('dict_sc_scores.json'):
-        with open('dict_sc_scores.json') as json_file:
+    new_name = outfle.rsplit('_tmp_sc.out',1)[0] + '_dict_sc_scores.json'
+    if os.path.isfile(new_name):
+        with open(new_name) as json_file:
             dict_out = json.load(json_file)
-    else:
-        dict_out = {}
+    #else:
+    dict_out = {}
     ch_lst = []
     pdb = ''
     sc = ''
@@ -90,5 +85,6 @@ def parse_sc_output(outfle):
                 dict_out[pdb] = {'_'.join(ch_lst):sc}
         except:
             pass
-        with open('dict_sc_scores.json','w') as outfle:
-            json.dump(dict_out,outfle)
+        with open(new_name,'w') as sec_outfle:
+            json.dump(dict_out,sec_outfle)
+    

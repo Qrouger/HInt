@@ -60,4 +60,5 @@ def write_sel_pdb(pdbfile):
                 + '_clean'
                 + '.pdb')
     writer.save(outfle, select=SelectResidues())
+
     return outfle
