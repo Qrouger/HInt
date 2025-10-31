@@ -9,15 +9,16 @@ import multiprocessing
 import pynvml
 import copy
 import sys
+import get_good_inter_pae
+import signal
+import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from numpy import load
 from queue import Queue
 from Bio import SeqIO
-import get_good_inter_pae
-import signal
 from tqdm import tqdm
-import pandas as pd
+
 from contextlib import closing
 
 # Configure global logger
@@ -273,7 +274,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         name_file = Path_Pickle_Feature + "/" + protein +".a3m"
         outfile = os.path.basename(url)
         check = subprocess.run(["wget", "--spider", "-q", url])
-        if check.returncode == 0:
+        if check.returncode == 0 :
             subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
             logger.info(f"MSA for {protein} found in AF database")
             need_msa.remove(protein) #msa found
@@ -284,7 +285,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
             if SP > 0 : #if no SP don't modify the MSA
                 logger.info(f"Remove SP from MSA")
                 trimmed_records = []
-                for rec in SeqIO.parse(msa_in, "fasta"):
+                for rec in SeqIO.parse(msa_in, "fasta") :
                     new_seq = rec.seq[SP:]  #cut SP from MSA
                     if any(c.isupper() for c in str(new_seq)): #remove empty sequence
                         new_rec = rec[:]
@@ -294,7 +295,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
                     with open(msa_in, "w") as msa_file : #overwrites the old msa
                         for rec in trimmed_records:
                             msa_file.write(f">{rec.description}\n{rec.seq}\n")
-                os.system(f"mafft --quiet --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
+                num_cpus_os = os.cpu_count()
+                os.system(f"mafft --quiet --thread {num_cpus_os} --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
                 os.system(f"reformat.pl fas a3m {Path_Pickle_Feature}/{protein}.aln {Path_Pickle_Feature}/{protein}.a3m")
                 os.system(f"rm {Path_Pickle_Feature}/{protein}.aln")
                 #Delete \n
@@ -303,14 +305,14 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
                     seq = ""
                     header = None
                     for line in in_a3m:
-                        if line.startswith(">"):
+                        if line.startswith(">") :
                             if header:
                                 all_lines += f"{header}\n{seq}\n"
                             header = line.strip()
                             seq = ""
                         else:
                             seq += line.strip()
-                    if header:
+                    if header :
                         all_lines += f"{header}\n{seq}\n"
                 with open(f"{Path_Pickle_Feature}/{protein}.a3m","w") as out_a3m :
                     out_a3m.write(all_lines)
@@ -318,7 +320,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     file.create_fasta_file(False, need_msa, need_pkl)
 
     if len(need_msa) > 100 : #if more than 50 sequences, use local colabfold_search GPU
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search {msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search /log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
         os.system(cmd)
 
     if len(need_msa) < 1 :

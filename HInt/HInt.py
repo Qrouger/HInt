@@ -43,7 +43,7 @@ if __name__ == "__main__" :
     need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
     HInt_object.Make_save_dict()
     if len(need_DeepLoc) > 0 :
-        run_deeploc(HInt_object, Informations_dict["Organism"],need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
+        run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
     if Informations_dict["DeepLoc"].split(",") != ["None"] :
         need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
     HInt_object.Make_save_dict()
@@ -55,11 +55,11 @@ if __name__ == "__main__" :
     if Informations_dict["Signal_peptide"] != "None" :
         need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP
     if len(need_msa) > 0 or len(need_pkl) > 0 :
-        create_feature(HInt_object,Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
+        create_feature(HInt_object, Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
     HInt_object.Make_save_dict()
 
     print(str(datetime.now())+" Generation of MSA depth figures")
-    Make_all_MSA_coverage(HInt_object,Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
+    Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
     
     print(str(datetime.now()) + " Remove baits from prey list")
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
@@ -69,14 +69,14 @@ if __name__ == "__main__" :
         #Use_RF2_PPI(HInt_object, Informations_dict, "RF2_homo_int", GPU) #set better interactions all_vs_bait #Maybe remove
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Interact_with"] :
-            Generate_scripts(HInt_object, Informations_dict, "PPI_int",bait, GPU) #generate bait_vs_prey with new preys
+            Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
             Generate_3D_model(Informations_dict, "PPI_int", GPU)
             Score_interaction_APD(HInt_object, Informations_dict, "PPI_int")
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Generate_scripts(HInt_object, Informations_dict, "homo_int","", GPU)
         Generate_3D_model(Informations_dict, "homo_int", GPU)
         Score_interaction_APD(HInt_object, Informations_dict, "homo_int")
-    Resume_file(HInt_object,Informations_dict)
+    Resume_file(HInt_object, Informations_dict)
 
     #figures generations
     
