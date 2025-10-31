@@ -31,7 +31,6 @@ tar xvzf mmseqs-linux-gpu.tar.gz
 export PATH=$(pwd)/mmseqs/bin/:$PATH
 wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
 bash install_colabbatch_linux.sh
-nano ~/.bashrc
 export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH
 source ~/.bashrc
 activate HInt
