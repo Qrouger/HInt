@@ -1,14 +1,14 @@
-###Informations
+###Informations  #All arguments are optional except Organism
 Signal_peptide : #Yes, No or None.
 Homo-oligomer : 5 #Integer between 2-20
-Interact_with : O50333 #UniprotID, Protein Name #Precise a region (start-end)
+Interact_with : O50333 #UniprotID/Protein Name #Precise a region (start-end)
 Organism : gram- #gram-, gram+, euk or arch
 DeepLoc :
 
-###Paths
+###Paths #All paths are mandatory except Path_MMseqs2_Data
 Path_Uniprot_ID : sequence.txt
 Path_AlphaFold_Data : /data/alphadata_v2
 Path_Pickle_Feature : ./feature_mmseq
-Path_Singularity_Image : /data/alpha-analysis_jax_0.4.sif
+Path_ccp4 : /opt/xtal/ccp4-9
 Path_MMseqs2_Data : /data/mmseq_database
-Path_RF2_PPI :
+
