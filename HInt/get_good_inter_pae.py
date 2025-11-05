@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 #Adapted from get_good_inter_pae.py (https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/analysis_pipeline/alpha_analysis_jax0.4.def)
 
-
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "script_pi_score"))
 from datetime import datetime
-from math import pi
-from operator import index
-import os 
-import pickle
 from absl import flags,app,logging
+from calculate_mpdockq import *
+import pickle
 import json
 import numpy as np
 import pandas as pd
 import subprocess
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "script_pi_score"))
-from calculate_mpdockq import *
 import gzip
 import shutil
 
@@ -136,7 +133,7 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
 
         output_df = pd.concat([output_df, filtered_df])
 
-    subprocess.run(f"rm -rf /tmp/{direc}", shell=True, executable='/bin/bash')
+    subprocess.run(f"rm -rf {tmp_dir}", shell=True, executable='/bin/bash')
 
 
 

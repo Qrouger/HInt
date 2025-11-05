@@ -15,7 +15,6 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from numpy import load
-from queue import Queue
 from Bio import SeqIO
 from tqdm import tqdm
 
@@ -44,7 +43,7 @@ def Define_informations() :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data", "Path_RF2_PPI"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -54,9 +53,9 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_RF2_PPI"] :
+            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","DeepLoc","Path_RF2_PPI"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","DeepLoc"] :
                 Informations_dict[info] = ""
     for informations_key in Informations_dict.keys() : #verify all informations and set default value
         if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
@@ -179,13 +178,16 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
                 compartment = compartment.strip("|")
                 
                 deeploc[protein] = compartment
-        file.set_deeploc(deeploc)
+                result_dict[protein]["DeepLoc"] = deeploc[protein]
+    file.set_result_dict(result_dict)
+    file.set_deeploc(deeploc)
 
 
 
 def run_SP (file, Informations_dict, need_prot) :
     """
     Create a new FASTA file without the signal peptide using SignalP and filtred signal peptide.
+    If protein have already msa but no sequence without SP don't return it.
 
     Parameters:
     ----------
@@ -195,6 +197,7 @@ def run_SP (file, Informations_dict, need_prot) :
 
     Returns:
     ----------
+    need_msa : list
     """
     final_file = str()
     SP_signal = 0
@@ -228,9 +231,12 @@ def run_SP (file, Informations_dict, need_prot) :
                 if str(line2[1:len(line2)-1]) in prot_SP.keys() :
                     SP_signal = prot_SP[line2[1:len(line2)-1]]
             final_file = final_file + new_line2
-
-    
+    need_msa = list()
+    for prot in need_prot : 
+        if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == False :
+            need_msa.append(prot)
     file.set_proteins_sequence_no_SP(new_fasta_dict)
+    return need_msa
 
 def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     """
@@ -268,6 +274,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
+
+    #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
     for protein in generated_msa : #check if prot have an MSA in alphafold database
         url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
@@ -292,11 +300,11 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
                         new_rec.seq = new_seq
                         trimmed_records.append(new_rec)
                 if trimmed_records : #if objects is not empty
-                    with open(msa_in, "w") as msa_file : #overwrites the old msa
+                    with open(msa_in, "w") as msa_file : #overwrites the old MSA
                         for rec in trimmed_records:
                             msa_file.write(f">{rec.description}\n{rec.seq}\n")
                 num_cpus_os = os.cpu_count()
-                os.system(f"mafft --quiet --thread {num_cpus_os} --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
+                os.system(f"mafft --quiet --anysymbol --thread {num_cpus_os} --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
                 os.system(f"reformat.pl fas a3m {Path_Pickle_Feature}/{protein}.aln {Path_Pickle_Feature}/{protein}.a3m")
                 os.system(f"rm {Path_Pickle_Feature}/{protein}.aln")
                 #Delete \n
@@ -319,14 +327,17 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
 
     file.create_fasta_file(False, need_msa, need_pkl)
 
+    #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
     if len(need_msa) > 100 : #if more than 50 sequences, use local colabfold_search GPU
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search /log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
         os.system(cmd)
 
     if len(need_msa) < 1 :
         logger.info("All MSAs have already been generated")
+
+    #Create MSA files with ColabFold mmseq2 classic pipeline for proteins without MSA
     if os.path.isfile(f"log_file/{msa_name}") == True :
-        cmd = ["create_individual_features.py", #create pkl for proteins without msa
+        cmd = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{msa_name}",
         f"--data_dir={Path_AlphaFold_Data}",
         "--save_msa_files=False",
@@ -340,8 +351,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
             logger.info(line)
         stdout, stderr = process.communicate()
         
-
-    if os.path.isfile(f"log_file/{pkl_name}") == True : #just create pkl files for proteins without pkl file
+    #Create pkl files for proteins without pkl file
+    if os.path.isfile(f"log_file/{pkl_name}") == True :
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
         f"--data_dir={Path_AlphaFold_Data}",
@@ -516,7 +527,6 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     new_need_msa = list()
     new_need_pkl = list()
     for protein in possible_prey :
-        result_dict[protein]["DeepLoc"] = deeploc[protein]
         for loc in deeploc[protein].split("|") :
             if loc in localisation :
                 new_possible_prey.append(protein)
@@ -553,7 +563,6 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
     OOM_int = str()
     result_dict = file.get_result_dict()
     regions = Informations_dict["Regions"]
-    #possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
     save_lenght_line = dict()
@@ -593,7 +602,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
                     #nbr_prey += 1
                 else : #if interaction is too large
                     OOM_int += OOM_int + bait + ";" + prey + "\n"
-                    result_dict[prey]["iQ_score"] = "Too big interactions : AF OOM"
+                    result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions : AF OOM"
             else :
                 #nbr_prey += 1
                 pass
@@ -684,366 +693,7 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     log_file = f"log_file/log_GPU_{gpu_id}.txt"
     run_cmd(cmd, env=env)
 
-
-def Prepare_RF2_PPI(file, Path_Pickle_Feature, possible_baits, Interaction, GPU, regions) :
-    """
-    Prepare script for RoseTTAFold2-PPI.
-
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    Path_Pickle_Feature : string
-    possible_baits : list
-    Interaction : string
-    GPU : list
-    regions : dict
-
-    Returns:
-    ----------
-    total_int : integer
-    """
-    total_int = 0
-    save_lenght_line = dict()
-    possible_prey = file.get_possible_prey()
-    new_possible_prey = list()
-    lenght_prot = file.get_lenght_prot()
-    result_dict = file.get_result_dict()
-    index_file = 0
-    pynvml.nvmlInit()
-    device_count = pynvml.nvmlDeviceGetCount()
-    for i in range(len(GPU)):
-        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        name = pynvml.nvmlDeviceGetName(handle)
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        vram = (mem_info.total / 1024**2) * 0.001 # in MiB
-    pynvml.nvmlShutdown()
-    max_lenght_int = int((vram + 14.2) / 0.0223) #bench on data
-    if os.path.exists(f"{Path_Pickle_Feature}/{Interaction}.txt") :
-       os.remove(f"{Path_Pickle_Feature}/{Interaction}.txt")
-    if Interaction == "RF2_homo_int" :
-        for prey in possible_prey :
-            lenght_first_prot = lenght_prot[prey]
-            save_lenght_line[f"{prey}_and_{prey}.a3m"] = [lenght_prot[prey] + lenght_prot[prey],f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m {lenght_first_prot}\n"] #save lenght of interactions and line to write in the final
-            total_int += 1
-            if os.path.exists(f"{Path_Pickle_Feature}/{prey}_and_{prey}.a3m") == False :
-                fusioned_MSA(prey+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int)
-    if Interaction == "RF2_PPI_int" :
-        for bait in possible_baits :
-            if regions[bait] != "0-0" :
-                start = regions[bait].split("-")[0]
-                end = regions[bait].split("-")[1]
-                lenght_bait = int(end) - int(start)
-                name_bait = f"{bait}_{start}_{end}"
-            else :
-                lenght_bait = lenght_prot[bait]
-                name_bait = bait
-            for prey in possible_prey :
-                lenght_int = lenght_bait + lenght_prot[prey]
-                if lenght_int > max_lenght_int :#remove interactions with a too big length
-                    result_dict[prey] = result_dict[prey] + "Too big interactions : RF2-PPI OOM"
-                else :
-                    total_int += 1
-                    if os.path.exists(f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m") == False :
-                        total_int = fusioned_MSA(name_bait+".a3m",prey+".a3m", Path_Pickle_Feature, "PPI", total_int)
-                    save_lenght_line[f"{name_bait}_and_{prey}.a3m"] = [lenght_bait + lenght_prot[prey], f"{Path_Pickle_Feature}/{name_bait}_and_{prey}.a3m {lenght_bait}\n"]
-                    new_possible_prey.append(prey)
-    sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
-    all_lines = str()
-    for interactions in sorted_list :
-        all_lines += interactions[1][1]
-    with open(f"{Path_Pickle_Feature}/{Interaction}.txt",'w') as file_int :
-        file_int.write(all_lines)
-    logger.info("Total interactions : " + str(total_int))
-    file.set_possible_prey(new_possible_prey)
-    file.set_result_dict(result_dict)
-    return total_int
-
-
-
-def fusioned_MSA(a3m1, a3m2, Path_Pickle_Feature, RF2, total_int) :
-    """
-    Fusioned MSA files.
-    Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
-
-    Parameters:
-    ----------
-    a3m1 : string
-    a3m2 : string
-    Path_Pickle_Feature : string
-    total_int : integer
-
-    Returns:
-    total_int : integer
-    ----------
-    """
-    msa1, lab1 = read_a3m(f"{Path_Pickle_Feature}/{a3m1}")
-    msa2, lab2 = read_a3m(f"{Path_Pickle_Feature}/{a3m2}")
-    if len(lab1[1:]) == 0 or len(lab2[1:]) == 0: #check if we have sequences in MSA
-        logger.info(f"No sequences to merge: {a3m2}, {a3m1}")
-        return total_int-1
-    valid_lab1 = [id_ for id_ in lab1[1:] if len(id_) in (6, 10)] #filtred valid IDs
-    valid_lab2 = [id_ for id_ in lab2[1:] if len(id_) in (6, 10)]
-    msa1_valid = [msa1[i+1] for i, id_ in enumerate(lab1[1:]) if len(id_) in (6, 10)]
-    msa2_valid = [msa2[i+1] for i, id_ in enumerate(lab2[1:]) if len(id_) in (6, 10)]
-    hash1 = Uni_to_idx(valid_lab1) #hash in fucntion of UniprotID
-    hash2 = Uni_to_idx(valid_lab2)
-    idx1, idx2 = np.where(np.abs(hash1[:, None] - hash2[None, :]) < 10) #found close pairs (hash deviation of 10)
-    if RF2=="Lite" and len(idx1) >= 4095:
-        idx1 = idx1[:4095]
-        idx2 = idx2[:4095]
-    name = str(a3m1).split(".")[0] + "_and_" + str(a3m2).split(".")[0]
-    with open(f'{Path_Pickle_Feature}/{name}.a3m', 'wt') as f: #write fusion file
-        f.write('>query\n%s%s\n' % (msa1[0], msa2[0])) #add first query sequence
-        for i, j in zip(idx1, idx2): #add found pairs
-            if not all(cara == '-' for cara in msa1_valid[i]) :
-                f.write(">%s_%s\n%s%s\n" % (valid_lab1[i], valid_lab2[j],msa1_valid[i], msa2_valid[j]))
-            else :
-                pass
-    return total_int
-
-def read_a3m(a3m) :
-    """
-    Parse an a3m files as a dictionary {label->sequence}.
-    Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
-    Parameters:
-    ----------
-    a3m : string
-
-    Returns:
-    ----------
-    seq : list
-    lab : list
-    """
-    seq = []
-    lab = []
-    is_first = True
-    is_incl = False
-    for line in open(a3m, "r"):
-        if line[0] == '>':
-            label = line.strip()[1:]
-            is_incl = True
-            if is_first: #include first sequence (query)
-                is_first = False
-                lab.append(label)
-                continue
-            if "UniRef" in label:
-                code = label.split()[0].split('_')[-1]
-                if code.startswith("UPI"): #UniParc identifier -- exclude
-                    is_incl = False
-                    continue
-            elif label.startswith("tr|"):
-                code = label.split('|')[1]
-            else:
-                is_incl = False
-                continue
-            lab.append(code)
-        else:
-            if is_incl:
-                seq.append(line.rstrip())
-            else:
-                continue
-    return seq, lab
-
-
-def Uni_to_idx(ids) :
-    """
-    Convert Uniprot ID in integer.
-    Adapted from https://github.com/uw-ipd/RoseTTAFold2/blob/main/input_prep/make_paired_MSA_simple.py
-
-    Parameters:
-    ----------
-    ids : string
-
-    Returns:
-    ----------
-    table_idx : numpy table
-    """
-    filtered_ids = []
-    for i in ids:
-        if len(i) == 6:
-            filtered_ids.append(i + 'AAA0')
-        elif len(i) == 10:
-            filtered_ids.append(i)
-        else:
-            logger.info(f"[WARN] ID ignoré : {i}")
-    if not filtered_ids:
-        raise ValueError("No valid ID")
-    ids2 = [s.ljust(10, 'A') for s in filtered_ids]
-    assert all(len(i) == 10 for i in ids2)
-    arr = np.array([list(s) for s in ids2], dtype='|S1').view(np.uint8)
-    for i in [1, 5, 9]:
-        arr[:, i] -= ord('0')
-    arr[arr >= ord('A')] -= ord('A')
-    arr[arr >= ord('0')] -= ord('0') - 26
-    arr[:, 0][arr[:, 0] > ord('Q') - ord('A')] -= 3
-
-    arr = arr.astype(np.int64)
-
-    coef = np.array([23, 10, 26, 36, 36, 10, 26, 36, 36, 1], dtype=np.int64)
-    coef = np.tile(coef[None, :], [len(ids2), 1])
-
-    c1 = [i for i, id_ in enumerate(filtered_ids) if id_[0] in 'OPQ' and len(id_) == 10]
-    c2 = [i for i, id_ in enumerate(filtered_ids) if id_[0] not in 'OPQ' and len(id_) == 10]
-
-    coef[c1] = np.array([3, 10, 36, 36, 36, 1, 1, 1, 1, 1])
-    coef[c2] = np.array([23, 10, 26, 36, 36, 1, 1, 1, 1, 1])
-
-    for i in range(1, 10):
-        coef[:, -i - 1] *= coef[:, -i]
-    table_idx = np.sum(arr * coef, axis=-1)
-    return table_idx
-
-def Launch_RF2_PPI(Path_Pickle_Feature, Interaction, GPU_list, path_RF2_PPI) :
-    """
-    Launch RoseTTAFold2-PPI.
-
-    Parameters:
-    ----------
-    Path_Pickle_Feature : string
-    Interaction : string
-    GPU_list : list
-    path_RF2_PPI : string
-
-    Returns:
-    ----------
-    """
-    start_time = datetime.now()
-    processes = []
-    GPU_index = 0
-    with open(f"{Path_Pickle_Feature}/{Interaction}.txt", "r") as all_cmd :
-        interactions = [line.strip() for line in all_cmd if line.strip()]
-    gpu_queues = {GPU: Queue() for GPU in GPU_list}
-    for idx, interaction in enumerate(interactions):
-        GPU = GPU_list[idx % len(GPU_list)]
-        gpu_queues[GPU].put(interaction)
-    start_time = datetime.now()
-    processes = []
-    for GPU in GPU_list:
-        p = multiprocessing.Process(target=run_parallel_jobs_RF2_PPI, args=(Path_Pickle_Feature, Interaction, GPU, gpu_queues[GPU], path_RF2_PPI))
-        p.start()
-        processes.append(p)
-    for p in processes:
-        p.join()
-    end_time = datetime.now()
-    duration = end_time - start_time
-    logger.info("Duration RoseTTAFold2-PPI :", duration)
-
-def run_parallel_jobs_RF2_PPI(Path_Pickle_Feature, Interaction, gpu_index, queue, path_RF2_PPI) :
-    """
-    Run parallel jobs one by one for RoseTTAFold2-PPI to avoid OOM errors. Rewrite all scores in one file. 
-
-    Parameters:
-    ----------
-    Path_Pickle_Feature : string
-    Interaction : string
-    gpu_index : integer
-    queue : multiprocessing.Queue
-    path_RF2_PPI : string
-
-    Returns:
-    ----------
-    """
-    all_result = str()
-    while not queue.empty():
-        interaction = queue.get()
-        tmp_file = f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt"
-        with open(tmp_file, "w") as f:
-            f.write(interaction)
-        env = os.environ.copy()
-        env["CUDA_VISIBLE_DEVICES"] = str(gpu_index)
-        cmd = ["python",
-        f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/predict_list_PPI.py",
-        "-list_fn", f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt",
-        "-model_file", f"{path_RF2_PPI}/RoseTTAFold2-PPI/src/models/RF2-PPI.pt",
-        "-number_seqs", "5000"]
-        logger.info(f"[GPU {gpu_index}] Launch interaction : {interaction}")
-        subprocess.run(cmd, env=env)
-        logger.info(f"[GPU {gpu_index}] Done : {interaction}")
-        with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt.log", "r") as result_file:
-            for line in result_file:
-                all_result += str(line)
-    with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{gpu_index}.txt.log", "w") as new_result_file:
-        new_result_file.write(all_result)
-
-
-def Class_output_RF2_PPI(file, Path_Pickle_Feature, Interaction, GPU) :
-    """
-    Classified PPIs and set new possible prey classed in function of scores.
-
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    Path_Pickle_Feature : string
-    Interaction : string
-    GPU : list
-
-    Returns:
-    ----------
-    """
-    result_dict = file.get_result_dict()
-    score_dict = dict()
-    possible_prey = list()
-    for GPU_index in GPU :
-        with open(f"{Path_Pickle_Feature}/{Interaction}_GPU_{GPU_index}.txt.log", "r") as log_file :
-            for line in log_file :
-                if line.strip("\n") != "done" and "_and_" in line :
-                    name = line.split("\t")[0].split("_and_")[1].split(".")[0]
-                    score = line.split("\t")[1]
-                    if name not in score_dict.keys() :
-                        score_dict[name] = score
-                    else :
-                        if score_dict[name] < score :
-                            score_dict[name] = score
-    if Interaction == "RF2_homo_int" :
-        for key in score_dict.keys() :
-            result_dict[key]["RF2_homo_int"] = score_dict[key]
-            if float(score_dict[key]) >= 0.24 :
-                possible_prey.append(key)
-            if key not in possible_prey :
-                result_dict[key]["Reason_for_filtering"] = "Bad homo-oligomer : RF2-PPI"
-#    if Interaction == "RF2_PPI_int" :
-#        sorted_list = list(sorted(score_dict.items(), key=lambda item: item[1], reverse = True))
-#        for prot_score in sorted_list :
-#            possible_prey.append(prot_score[0]) #set a sorted list with better interactions in first
-    file.set_possible_prey(possible_prey)
-    file.set_result_dict(result_dict)
-
-
-def Use_RF2_PPI(file, Informations_dict, Interaction, GPU) :
-    """
-    Main of RoseTTAFold2-PPI.
-
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    Informations_dict : dictionary
-    Interaction : string
-    GPU : list
-
-    Returns:
-    ----------
-    """
-    logger.info(str(datetime.now()) + " Prepare RoseTTAFold2-PPI")
-    total_int = Prepare_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], Interaction, GPU, Informations_dict["Regions"])
-    nbr_line_result = 0
-    for GPU_index in GPU :
-        if os.path.exists(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log") == True :
-            with open(f"{Informations_dict['Path_Pickle_Feature']}/{Interaction}_GPU_{GPU_index}.txt.log", "r") as result_file :
-                for line in result_file:
-                    nbr_line_result += 1
-    nbr_line_result = nbr_line_result // 2
-    if total_int != nbr_line_result : #check if all interactions have been done
-        logger.info(str(datetime.now()) + " Launch RoseTTAFold2-PPI")
-        Launch_RF2_PPI(Informations_dict["Path_Pickle_Feature"], Interaction, GPU, Informations_dict["Path_RF2_PPI"])
-        logger.info(str(datetime.now()) + " Scoring RoseTTAFold2-PPI")
-        Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
-    else :
-        Class_output_RF2_PPI(file, Informations_dict["Path_Pickle_Feature"], Interaction, GPU)
-        logger.info(f"RoseTTAFold2-PPI script already exist, skip this step. If error occur, delete {Interaction}.txt and relaunch.")
-
-
-
-def Score_interaction_APD (file, Informations_dict, Interaction) :
+def Score_interaction_APD (file, Informations_dict, Interaction, bait=None) :
     """
     Generate scores for all interactions and set a list of possible prey based on the scores.
 
@@ -1059,19 +709,33 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
     start_time = datetime.now()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
+    int_score = file.get_int_score()
+    print(int_score)
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     ppi_list = list()
+
+    #Multiprocessing to score all interactions
     N_CPU = multiprocessing.cpu_count()
     if os.path.isdir(f"./result_{Interaction}") == True :
-        for direc in os.listdir(f"./result_{Interaction}") :
-            if "_and_" in direc or "_homo_" in direc :
-                ppi_list.append(f"./result_{Interaction}/{direc}")
+        if bait is None : #for homo-oligomer
+            for direc in os.listdir(f"./result_{Interaction}") :
+                if "_homo_" in direc :
+                    ppi_list.append(f"./result_{Interaction}/{direc}") #Found a solution for score only homo-oligomer without score
+        else : #for one vs all
+            for protein in possible_prey :
+                if f"iQ_score_vs_{bait}" not in int_score[protein].keys() :
+                    ppi_list.append(f"./result_{Interaction}/{bait}_and_{protein}")
+                else :
+                    result_dict[protein][f"iQ_score_vs_{bait}"] = int_score[protein][f"iQ_score_vs_{bait}"]
+                    if int_score[protein][f"iQ_score_vs_{bait}"] > 0 :
+                        new_possible_prey.append(protein)
+
         results = []
-        with multiprocessing.Pool(N_CPU) as pool:
+        with multiprocessing.Pool(N_CPU) as pool :
             tasks = [(ppi, "./", Path_ccp4) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
-            for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions"):
+            for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
                 if df is not None and not df.empty:
                     results.append(df)
             pool.close()
@@ -1083,11 +747,13 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
         #Resume all score and set new possible prey
         with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as result_file :
             reader = csv.DictReader(result_file)
-            if Interaction == "PPI_int" : #score PPI
+
+            #For one vs all
+            if Interaction == "PPI_int" :
                 all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                 for row in reader :
                     job = row['jobs']
-                    if '_and_' in job and job.split("_and_")[1] in possible_prey : #check if interaction is a PPI and if prey is in possible prey list
+                    if '_and_' in job and job.split("_and_")[1] in possible_prey and bait in job : #check if interaction is a PPI and if prey is in possible prey list
                         if row['pi_score'] == 'No interface detected' :
                             iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
                             line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
@@ -1095,16 +761,19 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
                             iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
                             line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
 
-                        result_dict[job.split("_and_")[1]][f"iQ_score_vs_{job.split('_and_')[0]}"] = iQ_score
+                        int_score[job.split("_and_")[1]][f"iQ_score_vs_{bait}"] = iQ_score
+                        result_dict[job.split("_and_")[1]][f"iQ_score_vs_{bait}"] = iQ_score
                         new_possible_prey.append(job.split("_and_")[1])
                         all_lines = all_lines + line
                         name_int = job.split("/")[-1]
-                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file
+                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
-                        result_dict[protein][f"iQ_score_vs_{job.split('_and_')[0]}"] = 0 #if prey don't have interaction, set iQ_score to 0
-                        result_dict[protein]["Reason_for_filtering"] = "Bad PPI PAE : AF"
+                        int_score[protein][f"iQ_score_vs_{bait}"] = 0
+                        result_dict[protein][f"iQ_score_vs_{bait}"] = 0 #if prey don't have interaction, set iQ_score to 0
+                        result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait} : PAE < 10"
 
+            #For homo-oligomer
             if Interaction == "homo_int" : #score homo-oligomer
                 all_homo = dict()
                 save_pi_score = dict()
@@ -1153,6 +822,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction) :
         logger.info(f"result_{Interaction}/ don't exist")
     end_time = datetime.now()
     logger.info("Time scoring interactions : %s\n", end_time - start_time)
+    file.set_int_score(int_score)
 
 def run_scoring(args) :
     """
@@ -1196,8 +866,6 @@ def Split_to_GPU(file, save_lenght_line, GPU) :
         gpu_loads[target_gpu] += interactions[1][0]
     return dict_split_GPU
 
-
-
 def Resume_file(file, Informations_dict) :
     """
     Create a resume file with all interactions, their scores and their status.
@@ -1215,21 +883,25 @@ def Resume_file(file, Informations_dict) :
     possible_prey = file.get_possible_prey()
     possible_baits = Informations_dict["Interact_with"]
     proteins = file.get_proteins()
-    informations = ["DeepLoc","Signal_peptide","iQ_score"]
-    big_csv_lines = "Name,DeepLoc,Signal_peptide,iQ_score\n"
+    informations = ["DeepLoc","Signal_peptide"]
+    big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
     small_csv_lines = "Name, Reason_for_filtering\n"
+
+    if Informations_dict["Interact_with"] != [""] : #sorted in function of all baits
+        for bait in possible_baits : #remove bait from result dict
+            del result_dict[bait]
+            informations.append(f"iQ_score_vs_{bait}")
+            if len(possible_baits) == 1 :
+                big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
+            else :
+                big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait}\n"
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in Informations_dict["Interact_with"]), reverse=True) #sorted in function of all baits
+
     if Informations_dict["Homo-oligomer"] != "1" :
-        informations = ["DeepLoc","Signal_peptide","RF2_homo_int","iQ_score","hiQ_score"]
-        big_csv_lines = "Name,DeepLoc,Signal_peptide,RF2_homo_int,iQ_score,hiQ_score\n"
-    for bait in possible_baits : #remove bait from result dict
-        del result_dict[bait]
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("iQ_score", 0), len(x[1])), reverse=True)
-
-    if Informations_dict["Interact_with"] == [""] : #if no PPI interactions try filtred on hiQ_score
+        informations.append("hiQ_score")
+        big_csv_lines = big_csv_lines.strip("\n") + "hiQ_score\n"
+    if Informations_dict["Interact_with"] == [""] and Informations_dict["Homo-oligomer"] != "1" : #if no PPI interactions filter on hiQ_score
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
-
-    #create two iQ_score colum in definitive result
-
 
     sorted_dict = dict(sorted_proteins)
     logger.info(sorted_dict)

@@ -129,6 +129,19 @@ class File_proteins() :
         """
         self.deeploc = deeploc
 
+    def set_int_score (self, int_score) :
+        """
+        Sets a dict of interaction score.
+        
+        Parameters:
+        ----------
+        int_score : dictionary
+        
+        Returns:
+        ----------
+        """
+        self.int_score = int_score
+
     def get_proteins_sequence_SP (self) :
         """
         Return the new amino acid sequence dictionary with SP.
@@ -232,6 +245,20 @@ class File_proteins() :
         deeploc : dictionary
         """
         return self.deeploc
+    
+    def get_int_score (self) :
+        """
+        Return the interaction result dict.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        int_score : dictionary
+        """
+        return self.int_score
+
 
 ### Generating of features and pre-file to run multimer
 
@@ -250,6 +277,7 @@ class File_proteins() :
         sequence_SP = dict()
         result_dict = dict()
         already_fasta = dict()
+        int_score = dict()
         save_prot = ""
         with open(path_txt,"r") as in_file :
             for line in in_file :
@@ -259,18 +287,22 @@ class File_proteins() :
                     for prot in new_line :
                         new_proteins.append(prot.upper().strip())
                         result_dict[prot.upper().strip()] = dict()
+                        int_score[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
                     new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
                     sequence_SP[save_prot] = ""
                     result_dict[save_prot] = dict()
+                    int_score[save_prot] = dict()
                 elif len(line) > 2 and save_prot != "" :
                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n")
+        print(int_score)
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)
         self.set_proteins_sequence_SP(sequence_SP)
+        self.set_int_score(int_score)
         self.set_result_dict(result_dict)
     
     def check_save_dict (self, Path_Pickle_Feature) :
@@ -292,6 +324,7 @@ class File_proteins() :
         need_DeepLoc = list()
         protein_sequence_no_SP = dict()
         deeploc_prot = dict()
+        int_score = self.get_int_score()
         result_dict = self.get_result_dict()
 
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
@@ -305,6 +338,7 @@ class File_proteins() :
                 all_info = pickle.load(save_dict)
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
+            int_score = copy.deepcopy(all_info["int_score"])
             for protein in proteins :
                 result_dict[protein] = dict()
                 if protein in all_info["sequence_no_SP"].keys() : #if protein in sequence_no_SP of save dict
@@ -318,9 +352,14 @@ class File_proteins() :
                     if protein in sequences_SP.keys() : #check if two sequence match
                         if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
                             cmd = f"rm -f {Path_Pickle_Feature}/*{protein}*"
+                            cmd2 = f"rm -f ./result_PPI_int/*{protein}*"
+                            cmd3 = f"rm -f ./result_homo_int/*{protein}*"
                             os.system(cmd)
+                            os.system(cmd2)
+                            os.system(cmd3)
                             need_msa.append(protein)
                             need_DeepLoc.append(protein)
+                            int_score[protein] = dict() #remove int score
                         else : #sequences match, set all arguments
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
                             if protein not in all_info["sequence_no_SP"].keys() :
@@ -356,8 +395,15 @@ class File_proteins() :
                     need_msa.append(protein)
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files
                     os.system(cmd)
+                    int_score[protein] = dict() #remove int score
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
+            #Check is save score interaction are still valid
+            for protein in all_info["int_score"].keys() :
+                for key in all_info["int_score"][protein].keys() :
+                    bait = key.split("iQ_score_vs_")[1]
+                    if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
+                        del int_score[protein][f"iQ_score_vs_{bait}"]
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
                 if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
@@ -385,6 +431,8 @@ class File_proteins() :
         self.set_deeploc(deeploc_prot)
         self.set_proteins_sequence_no_SP(protein_sequence_no_SP)
         self.set_proteins_sequence_SP(sequences_SP)
+        self.set_int_score(int_score)
+        self.Make_save_dict() #Save modification of the save dict
         return need_msa, need_pkl, need_DeepLoc
 
 
@@ -401,9 +449,9 @@ class File_proteins() :
         pkl_dict["sequence_SP"] = self.get_proteins_sequence_SP()
         pkl_dict["sequence_no_SP"] = self.get_proteins_sequence_no_SP()
         pkl_dict["deeploc"] = self.get_deeploc()
+        pkl_dict["int_score"] = self.get_int_score()
         with open('log_file/save_dict.pkl', 'wb') as out_file:
             pickle.dump(pkl_dict, out_file)
-
 
     def find_prot_lenght (self, prot_dict = None) :
         """
@@ -434,9 +482,9 @@ class File_proteins() :
 
         Parameters:
         ----------
+        with_SP : boolean
         need_msa : list
         need_pkl : list
-        with_SP : boolean
 
         Returns:
         ----------
