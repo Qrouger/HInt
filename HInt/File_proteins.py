@@ -297,7 +297,6 @@ class File_proteins() :
                     int_score[save_prot] = dict()
                 elif len(line) > 2 and save_prot != "" :
                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n")
-        print(int_score)
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)
@@ -375,11 +374,11 @@ class File_proteins() :
                             need_DeepLoc.append(protein)
                 if protein not in all_info["sequence_SP"].keys() :
                     if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
-                        print("Search sequence for " + protein)
-                        urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
-                        if os.path.getsize("log_file/temp_file.txt") == 0 :
-                            print(f"{protein} is not a compliant UniprotID")
-                            break
+                        logger.info("Search sequence for " + protein)
+                        try:
+                            urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
+                        except Exception as e :
+                            raise Exception(f"{protein} is not a compliant UniprotID")  # ou break selon ton contexte
                         with open("log_file/temp_file.txt","r") as in_file:
                             for seq in re.finditer(pattern, in_file.read()):
                                 sequences_SP[protein] = seq.group(1)

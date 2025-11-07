@@ -11,13 +11,14 @@ import copy
 import sys
 import get_good_inter_pae
 import signal
+import glob
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from numpy import load
 from Bio import SeqIO
 from tqdm import tqdm
-
+from Bio.PDB import MMCIFParser, PDBIO
 from contextlib import closing
 
 # Configure global logger
@@ -346,9 +347,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--skip_existing=True",
         "--use_mmseqs2=True",
         "--use_precomputed_msas=True"]
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-        for line in process.stdout:
-            logger.info(line)
+        process = subprocess.Popen(cmd, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
         
     #Create pkl files for proteins without pkl file
@@ -490,6 +489,7 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
             if line_msa/2 <= 2 :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "No MSA"
+               result_dict[prot]["Reason_for_filtering"] = "No MSA"
             else :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "Shallow MSA"
@@ -593,7 +593,9 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
             int_lenght = lenght + lenght_prot[prey]
             #if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
             #    break
-            if os.path.exists(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb") == False and os.path.exists(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb") == False : #if model don't exist
+            path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0*")
+            path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0*")
+            if len(path1) == 0 and len(path2) == 0 : #if model don't exist
                 if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
                     if start == 0 and end == 0 :
                         save_lenght_line[f"{bait}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
@@ -614,7 +616,8 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
             if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
                 break
-            if os.path.exists(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb") == False : #if model don't exist
+            path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
+            if len(path) == 0 : #if model don't exist
                 if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
                     save_lenght_line[f"{prey}_homer_{nbr_oligo}er"] = [int_lenght, f"{prey}:{nbr_oligo}\n"]
                     nbr_prey += 1
@@ -710,10 +713,16 @@ def Score_interaction_APD (file, Informations_dict, Interaction, bait=None) :
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
     int_score = file.get_int_score()
-    print(int_score)
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
+    regions = Informations_dict["Regions"]
     ppi_list = list()
+
+    if bait is not None : #setup bait name
+        if regions[bait] != "0-0" :
+            start = int(regions[bait].split("-")[0])
+            end = int(regions[bait].split("-")[1])
+            bait = f"{bait}_{start}-{end}"
 
     #Multiprocessing to score all interactions
     N_CPU = multiprocessing.cpu_count()
@@ -723,7 +732,13 @@ def Score_interaction_APD (file, Informations_dict, Interaction, bait=None) :
                 if "_homo_" in direc :
                     ppi_list.append(f"./result_{Interaction}/{direc}") #Found a solution for score only homo-oligomer without score
         else : #for one vs all
-            for protein in possible_prey :
+            for protein in possible_prey : #create pdb for AF3
+                if os.path.isfile(f"./result_{Interaction}/{bait}_and_{protein}/ranked_0.pdb") == False :
+                    parser = MMCIFParser(QUIET=True)
+                    structure = parser.get_structure("model", f"./result_{Interaction}/{bait}_and_{protein}/ranked_0_model.cif")
+                    io = PDBIO()
+                    io.set_structure(structure)
+                    io.save(f"./result_{Interaction}/{bait}_and_{protein}/ranked_0.pdb")
                 if f"iQ_score_vs_{bait}" not in int_score[protein].keys() :
                     ppi_list.append(f"./result_{Interaction}/{bait}_and_{protein}")
                 else :
@@ -736,7 +751,7 @@ def Score_interaction_APD (file, Informations_dict, Interaction, bait=None) :
             tasks = [(ppi, "./", Path_ccp4) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
-                if df is not None and not df.empty:
+                if df is not None and not df.empty :
                     results.append(df)
             pool.close()
             pool.join()
@@ -814,8 +829,9 @@ def Score_interaction_APD (file, Informations_dict, Interaction, bait=None) :
                         result_dict[protein]["hiQ_score"] = 0
                         result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
 
-            with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
-                file2.write(all_lines)
+            if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
+                with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
+                    file2.write(all_lines)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
@@ -879,23 +895,29 @@ def Resume_file(file, Informations_dict) :
     ----------
     """
     iQ_score_dict = dict()
+    list_name_baits = list()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
     possible_baits = Informations_dict["Interact_with"]
+    regions = Informations_dict["Regions"]
     proteins = file.get_proteins()
     informations = ["DeepLoc","Signal_peptide"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
     small_csv_lines = "Name, Reason_for_filtering\n"
-
     if Informations_dict["Interact_with"] != [""] : #sorted in function of all baits
         for bait in possible_baits : #remove bait from result dict
             del result_dict[bait]
+            if regions[bait] != "0-0" :
+                start = int(regions[bait].split("-")[0])
+                end = int(regions[bait].split("-")[1])
+                bait = f"{bait}_{start}-{end}"
             informations.append(f"iQ_score_vs_{bait}")
+            list_name_baits.append(bait)
             if len(possible_baits) == 1 :
                 big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
             else :
                 big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait}\n"
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in Informations_dict["Interact_with"]), reverse=True) #sorted in function of all baits
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits), reverse=True) #sorted in function of all baits
 
     if Informations_dict["Homo-oligomer"] != "1" :
         informations.append("hiQ_score")

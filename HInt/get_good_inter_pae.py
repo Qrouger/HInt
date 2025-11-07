@@ -143,17 +143,45 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     
 
 def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
-    #jobs = os.listdir(output_dir)
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
     mpDockq_scores = list()
-    count = 0
-    #for job in jobs:
     logging.info(f"Scoring {job}")
+    fold_backend = ""
+    if fold_backend == "alphafold3" :
+        if os.path.isfile(os.path.join(job,'ranked_0_summary_confidences.json')):
+            with open(os.path.join(result_subdir,'ranked_0_summary_confidences.json'),'rb') as json_f :
+                data = json.load(json_f)
+            if "iptm" in data.keys() and "ptm" in data.keys():
+                iptm_score = data['iptm']
+                ptm_score = data['ptm']
+                #calcul score iptm+ptm
+                if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
+                    pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl")
+                elif os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl.gz")) :
+                    print("result pickle for the best model not found. Now search for zipped pickle.")
+                    pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl.gz")
+                else :
+                    logging.info(f"Cannot find result pickle for {job}, skipping.")
+
+                with open(pkl_path, 'rb') as pkl:
+                    check_dict = pickle.load(pkl)
+                seqs = check_dict['seqs']
+                iptm_score = check_dict['iptm']
+                pae_mtx = check_dict['predicted_aligned_error']
+                chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
+                check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+                mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
+                if check:
+                    good_jobs.append(str(job))
+                    iptm_ptm.append(iptm_ptm_score)
+                    iptm.append(iptm_score)
+                    mpDockq_scores.append(mpDockq_score)
+                
+
 
     if os.path.isfile(os.path.join(job,'ranking_debug.json')):
-        count=count +1
         result_subdir = os.path.join(job)
         with open(os.path.join(result_subdir,'ranking_debug.json'),'rb') as json_f :
             data = json.load(json_f)
