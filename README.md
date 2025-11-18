@@ -97,8 +97,10 @@ And you can mixed up all of theses examples !
 **Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
 
 **DeepLoc** : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
-\t Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. <br>
-\t Procaryote:
+```
+Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. <br>
+Procaryote:
+```
 DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
 
 
