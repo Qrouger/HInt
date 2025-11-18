@@ -76,22 +76,22 @@ One bait :
 ```
 Interact_with : UniprotID1
 ```
-<br>
+
 Part of a bait :
 ```
 Interact_with : UniprotID1(20-200)
 ```
-<br>
+
 Multiple baits : # First has to be the principal. For now you can put a maximum of 3 differents bait
 ```
 Interact_with : UniprotID1, UniprotID2 
 ```
-<br>
+
 Multimer bait : # Create a unique bait with multiple proteins
 ```
 Interact_with : [Uniprot1,Uniprot2]
 ```
-<br>
+
 And you can mixed up all of theses examples !
 </details>
 
