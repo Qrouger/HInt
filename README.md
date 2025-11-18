@@ -71,23 +71,24 @@ pip install .
 **Interact_with** : Proteins names expected to be interacting with (Uniprot name or fasta name)
 <details>
 <summary>Advanced uses and examples </summary>
+
 One bait :
-```yaml
+```
 Interact_with : UniprotID1
 ```
-
+<br>
 Part of a bait :
-```yaml
+```
 Interact_with : UniprotID1(20-200)
 ```
-
+<br>
 Multiple baits : # First has to be the principal. For now you can put a maximum of 3 differents bait
-```yaml
+```
 Interact_with : UniprotID1, UniprotID2 
 ```
-
+<br>
 Multimer bait : # Create a unique bait with multiple proteins
-```yaml
+```
 Interact_with : [Uniprot1,Uniprot2]
 ```
 <br>
