@@ -67,8 +67,9 @@ pip install .
 Signal_peptide : No, Yes or None. <br>
 Homo-oligomer : Oligomerization (integer : 1-20). <br>
 
-Interact_with : Proteins names expected to be interacting with (Uniprot name or fasta name), separate by "," for multiple targets. <br>
-</Details>
+Interact_with : Proteins names expected to be interacting with (Uniprot name or fasta name)<br>
+<details>
+<summary>Advanced uses and examples </summary>
 One bait :
 ```yaml
 Interact_with : UniprotID1
@@ -90,10 +91,13 @@ Interact_with : [Uniprot1,Uniprot2]
 ```
 <br>
 And you can mixed up all of theses examples !
+</details>
 
 Organism : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
-</Details>
-DeepLoc : Cellular localisation of your research, only for euk. Possible localisation : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. It's possible to select multiple localisation with coma.
+DeepLoc : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
+**Eucaryote**: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. <br>
+**Procaryote**:
 DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
+
 
 # 4.Results
