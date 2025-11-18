@@ -65,9 +65,10 @@ pip install .
 
 # 3.All parameters
 **Signal_peptide** : No, Yes or None. <br>
+
 **Homo-oligomer** : Oligomerization (integer : 1-20). <br>
 
-**Interact_with** : Proteins names expected to be interacting with (Uniprot name or fasta name)<br>
+**Interact_with** : Proteins names expected to be interacting with (Uniprot name or fasta name)
 <details>
 <summary>Advanced uses and examples </summary>
 One bait :
@@ -94,6 +95,7 @@ And you can mixed up all of theses examples !
 </details>
 
 **Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
+
 **DeepLoc** : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
 \t Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. <br>
 \t Procaryote:
