@@ -59,6 +59,20 @@ git clone https://github.com/Jaimomar99/deeplocpro <br>
 cd deeplocpro <br>
 pip install .
 
+# Good uses
+
+One bait :
+Interact_with : UniprotID1
+
+Part of a bait :
+Interact_with : UniprotID1(20-200)
+
+Multiple baits : # First has to be the principal. For now you can put a maximum of 3 differents bait
+Interact_with : UniprotID1, UniprotID2 
+
+Multimer bait :
+Interact_with : [Uniprot1,Uniprot2]
+
 # Usage Informations
 Signal_peptide : No, Yes or None. <br>
 Homo-oligomer : Oligomerization (integer : 1-20). <br>
