@@ -62,16 +62,26 @@ pip install .
 # Good uses
 
 One bait :
+```bash
 Interact_with : UniprotID1
+```
 
 Part of a bait :
+```bash
 Interact_with : UniprotID1(20-200)
+```
 
 Multiple baits : # First has to be the principal. For now you can put a maximum of 3 differents bait
+```bash
 Interact_with : UniprotID1, UniprotID2 
+```
 
-Multimer bait :
+Multimer bait : # Create a unique bait with multiple proteins
+```bash
 Interact_with : [Uniprot1,Uniprot2]
+```
+<br>
+And you can mixed up all of theses examples !
 
 # Usage Informations
 Signal_peptide : No, Yes or None. <br>
