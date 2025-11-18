@@ -4,7 +4,7 @@
 
 HInt allows you to find homologous proteins with significant differences in sequence and structure.
 It allows you to find homologous proteins with similar interactions.
-# Instalations
+# 1.Instalations
 ```bash
 conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft
 pip install alphapulldown nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
@@ -58,9 +58,17 @@ colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br
 git clone https://github.com/Jaimomar99/deeplocpro <br>
 cd deeplocpro <br>
 pip install .
+# 2.Example 
+## Folder structure
+## Setup HInt.txt
+## Run HInt
 
-# Good uses
+# 3.All parameters
+Signal_peptide : No, Yes or None. <br>
+Homo-oligomer : Oligomerization (integer : 1-20). <br>
 
+Interact_with : Proteins names expected to be interacting with (Uniprot name or fasta name), separate by "," for multiple targets. <br>
+</Details>
 One bait :
 ```yaml
 Interact_with : UniprotID1
@@ -83,10 +91,9 @@ Interact_with : [Uniprot1,Uniprot2]
 <br>
 And you can mixed up all of theses examples !
 
-# Usage Informations
-Signal_peptide : No, Yes or None. <br>
-Homo-oligomer : Oligomerization (integer : 1-20). <br>
-Interact_with : Proteins names expected to be interacting with (Uniprot name or fasta name), separate by "," for multiple targets. <br>
 Organism : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
+</Details>
 DeepLoc : Cellular localisation of your research, only for euk. Possible localisation : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome. It's possible to select multiple localisation with coma.
 DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
+
+# 4.Results
