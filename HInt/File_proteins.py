@@ -397,7 +397,7 @@ class File_proteins() :
                     int_score[protein] = dict() #remove int score
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
-            #Check is save score interaction are still valid
+            #Check is save score interaction are still valid or delete it
             for protein in all_info["int_score"].keys() :
                 for key in all_info["int_score"][protein].keys() :
                     bait = key.split("iQ_score_vs_")[1]

@@ -5,6 +5,7 @@
 
 from Utils_HInt import *
 from File_proteins import *
+from Scoring_HInt import Score_interaction, Resume_file
 
 import sys
 import logging
@@ -37,6 +38,7 @@ if __name__ == "__main__" :
     args = parser.parse_args()
     GPU =[gpu for gpu in args.gpu.split(",")]
     Informations_dict = Define_informations()
+    logger.info("GPU set to : "+str(GPU))
 
     #Create objects and filtre proteins
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
@@ -65,14 +67,16 @@ if __name__ == "__main__" :
 
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Interact_with"] :
-            Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
+            skip = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
+            if skip :
+                break
             Generate_3D_model(Informations_dict, "PPI_int", GPU)
-            Score_interaction_APD(HInt_object, Informations_dict, "PPI_int", bait)
-            HInt_object.Make_save_dict() #Save scores
+            Score_interaction(HInt_object, Informations_dict, "PPI_int", bait)
+            HInt_object.Make_save_dict() #Save scores #Maybe make it for each prot score
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
         Generate_scripts(HInt_object, Informations_dict, "homo_int","", GPU)
         Generate_3D_model(Informations_dict, "homo_int", GPU)
-        Score_interaction_APD(HInt_object, Informations_dict, "homo_int")
+        Score_interaction(HInt_object, Informations_dict, "homo_int")
     Resume_file(HInt_object, Informations_dict)
 
     #figures generations

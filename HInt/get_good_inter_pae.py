@@ -13,7 +13,9 @@ import numpy as np
 import pandas as pd
 import subprocess
 import gzip
+from Bio.PDB import MMCIFParser, PDBIO
 import shutil
+import gzip
 
 def examine_inter_pae(pae_mtx,seqs,cutoff) :
     """A function that checks inter-pae values in multimer prediction jobs"""
@@ -28,11 +30,14 @@ def examine_inter_pae(pae_mtx,seqs,cutoff) :
     return check
 
 
-def obtain_mpdockq(work_dir,pkl_dict) :
+def obtain_mpdockq(work_dir,pkl_dict=None) :
     """Returns chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path"""
     pdb_path = os.path.join(work_dir,'ranked_0.pdb')
     pdb_chains, chain_coords, chain_CA_inds, chain_CB_inds = read_pdb(pdb_path)
-    best_plddt = pkl_dict['plddt'] 
+    if pkl_dict ==  None :
+        best_plddt = extract_plddt_from_pdb(pdb_path)
+    else :
+        best_plddt = pkl_dict['plddt'] 
     plddt_per_chain = read_plddt(best_plddt,chain_CA_inds)
     return chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path
 
@@ -47,6 +52,22 @@ def obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_pa
     else:
         mpDockq_or_pdockq = "None"
     return mpDockq_or_pdockq
+
+
+def extract_plddt_from_pdb(pdb_file):
+    """
+    Extract plddt from b-factor in pdb
+    """
+    plddt_values = []
+    with open(pdb_file, "r") as f:
+        for line in f:
+            if line.startswith("ATOM") and line[12:16].strip() == "CA":
+                try:
+                    b_factor = float(line[60:66].strip())
+                    plddt_values.append(b_factor)
+                except ValueError:
+                    pass
+    return np.array(plddt_values, dtype=float)
 
 def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     """
@@ -65,13 +86,14 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
 
     direc = jobs[0].split("/")[2]
     if os.path.isdir("/scratch") :
-        tmp_dir = f"/scratch/{direc}"
+        tmp_dir = f"/scratch/tmp/{direc}"
     else :
         tmp_dir = f"/tmp/{direc}"
     try:
         shutil.rmtree(f"{tmp_dir}/pi_score_outputs")
     except:
         pass
+    Print (f"Creating temporary directory {tmp_dir} for pi_score outputs")
     subprocess.run(f"mkdir -p {tmp_dir}/pi_score_outputs",
                    shell=True, executable='/bin/bash')
     pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
@@ -91,8 +113,6 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
 
         proc = subprocess.Popen(cmd, shell=True, executable="/bin/bash", close_fds=True)
         proc.wait()
-
-
     output_df = pd.DataFrame()
     for job in jobs:
         name_job = job.split("/")[-1]
@@ -134,55 +154,51 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
         output_df = pd.concat([output_df, filtered_df])
 
     subprocess.run(f"rm -rf {tmp_dir}", shell=True, executable='/bin/bash')
-
-
-
-
     return output_df
     
     
 
-def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
+def main(job,output_dir,cutoff,surface_thres,ccp4_setup,seq_no_SP,AF_version) :
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
     mpDockq_scores = list()
     logging.info(f"Scoring {job}")
-    fold_backend = ""
-    if fold_backend == "alphafold3" :
+    result_subdir = os.path.join(job)
+    if AF_version == "3" : #for alphafold3
+        interaction = job.split("/")[-1]
+        bait = interaction.split("_and_")[0]
+        protein = interaction.split("_and_")[1]
+        if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
+            parser = MMCIFParser(QUIET=True)
+            structure = parser.get_structure('model', os.path.join(result_subdir,'ranked_0_model.cif'))
+            io = PDBIO()
+            io.set_structure(structure)
+            io.save(os.path.join(result_subdir,'ranked_0.pdb'))
         if os.path.isfile(os.path.join(job,'ranked_0_summary_confidences.json')):
-            with open(os.path.join(result_subdir,'ranked_0_summary_confidences.json'),'rb') as json_f :
-                data = json.load(json_f)
-            if "iptm" in data.keys() and "ptm" in data.keys():
-                iptm_score = data['iptm']
-                ptm_score = data['ptm']
-                #calcul score iptm+ptm
-                if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
-                    pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl")
-                elif os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl.gz")) :
-                    print("result pickle for the best model not found. Now search for zipped pickle.")
-                    pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl.gz")
-                else :
-                    logging.info(f"Cannot find result pickle for {job}, skipping.")
-
-                with open(pkl_path, 'rb') as pkl:
-                    check_dict = pickle.load(pkl)
-                seqs = check_dict['seqs']
-                iptm_score = check_dict['iptm']
-                pae_mtx = check_dict['predicted_aligned_error']
-                chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
-                check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
-                mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
-                if check:
-                    good_jobs.append(str(job))
-                    iptm_ptm.append(iptm_ptm_score)
-                    iptm.append(iptm_score)
-                    mpDockq_scores.append(mpDockq_score)
+            with open(os.path.join(result_subdir,'ranked_0_summary_confidences.json'),'rb') as json_sum_f :
+                json_sum = json.load(json_sum_f)
+            if "iptm" in json_sum.keys() and "ptm" in json_sum.keys():
+                iptm_score = json_sum['iptm']
+                ptm_score = json_sum['ptm']
+                iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
+            with open(os.path.join(result_subdir, 'ranked_0_confidences.json'),'rb') as json_f :
+                json_data = json.load(json_f)
+            pae_list = json_data['pae']
+            pae_mtx = np.array(pae_list)
+            seqs = [seq_no_SP[bait],seq_no_SP[protein]]
+            chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job))
+            check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+            mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
+            if check:
+                good_jobs.append(str(job))
+                iptm_ptm.append(iptm_ptm_score)
+                iptm.append(iptm_score)
+                mpDockq_scores.append(mpDockq_score)
                 
 
 
-    if os.path.isfile(os.path.join(job,'ranking_debug.json')):
-        result_subdir = os.path.join(job)
+    if os.path.isfile(os.path.join(job,'ranking_debug.json')): #for alphafold2
         with open(os.path.join(result_subdir,'ranking_debug.json'),'rb') as json_f :
             data = json.load(json_f)
         best_model = data['order'][0]
@@ -190,14 +206,15 @@ def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
             iptm_ptm_score = data['iptm+ptm'][best_model]
             if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
                 pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl")
+                with open(pkl_path, 'rb') as pkl :
+                    check_dict = pickle.load(pkl)
             elif os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl.gz")) :
                 print("result pickle for the best model not found. Now search for zipped pickle.")
                 pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl.gz")
+                with gzip.open(pkl_path, 'rb') as pkl :
+                    check_dict = pickle.load(pkl)
             else :
                 logging.info(f"Cannot find result pickle for {job}, skipping.")
-
-            with open(pkl_path, 'rb') as pkl:
-                check_dict = pickle.load(pkl)
             seqs = check_dict['seqs']
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
@@ -209,14 +226,13 @@ def main(job,output_dir,cutoff,surface_thres,ccp4_setup):
                 iptm_ptm.append(iptm_ptm_score)
                 iptm.append(iptm_score)
                 mpDockq_scores.append(mpDockq_score)
-                
-        #logging.info(f"done for {job}.")
     other_measurements_df=pd.DataFrame.from_dict({
         "jobs":job.split("/")[-1],
         "iptm_ptm":iptm_ptm,
         "iptm":iptm,
-        "mpDockQ/pDockQ":mpDockq_scores
-    })
+        "mpDockQ/pDockQ":mpDockq_scores})
+
+        
     if good_jobs!=[] :
         pi_score_df = run_and_summarise_pi_score(output_dir,good_jobs,surface_thres,ccp4_setup)
         pi_score_df = pd.merge(pi_score_df,other_measurements_df,on="jobs")
