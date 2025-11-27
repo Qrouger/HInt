@@ -92,7 +92,7 @@ Multimer bait : # Create a unique bait with multiple proteins
 Interact_with : [Uniprot1,Uniprot2]
 ```
 
-And you can mixed up all of theses examples !
+And you can mixed up all of theses examples ! <br>
 /!\ HInt don't support multiple regions for baits proteins
 </details>
 
