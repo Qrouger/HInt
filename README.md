@@ -93,6 +93,7 @@ Interact_with : [Uniprot1,Uniprot2]
 ```
 
 And you can mixed up all of theses examples !
+/!\ HInt don't support multiple regions for baits proteins
 </details>
 
 **Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
