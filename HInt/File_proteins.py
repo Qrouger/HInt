@@ -304,13 +304,14 @@ class File_proteins() :
         self.set_int_score(int_score)
         self.set_result_dict(result_dict)
     
-    def check_save_dict (self, Path_Pickle_Feature) :
+    def check_save_dict (self, Path_Pickle_Feature, regions_dict) :
         """
         Check in a save dictionary which step for which protein have already been done. Take the sequence from it and return a list of proteins that do not have a MSA, pkl file or DeepLoc informations.
 
         Parameters:
         ----------
         Path_Pickle_Feature : string
+        regions_dict : dictionary
 
         Returns:
         ----------
@@ -325,7 +326,6 @@ class File_proteins() :
         deeploc_prot = dict()
         int_score = self.get_int_score()
         result_dict = self.get_result_dict()
-
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]
 
@@ -387,6 +387,8 @@ class File_proteins() :
                         #          names[protein] = name.group(1)
                         for car in del_car :
                             sequences_SP[protein] = sequences_SP[protein].replace(car,"")
+                        if regions_dict[protein] != "0-0" :
+                            sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
                         os.remove("log_file/temp_file.txt")
                         need_DeepLoc.append(protein) #add of new protein in txt file
                         need_msa.append(protein)
@@ -418,6 +420,8 @@ class File_proteins() :
                     #          names[protein] = name.group(1)
                     for car in del_car :
                         sequences_SP[protein] = sequences_SP[protein].replace(car,"")
+                    if protein in regions_dict.keys() and regions_dict[protein] != "0-0" :
+                        sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
                     os.remove("log_file/temp_file.txt")
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False : #proteins without msa
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files

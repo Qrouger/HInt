@@ -5,7 +5,7 @@
 
 from Utils_HInt import *
 from File_proteins import *
-from Scoring_HInt import Score_interaction, Resume_file
+from Scoring_HInt import Score_interaction, Resume_file, Create_figures
 
 import sys
 import logging
@@ -42,7 +42,7 @@ if __name__ == "__main__" :
 
     #Create objects and filtre proteins
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
+    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["Regions"])
     if len(need_DeepLoc) > 0 :
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
     if Informations_dict["DeepLoc"].split(",") != ["None"] :
@@ -78,6 +78,6 @@ if __name__ == "__main__" :
         Generate_3D_model(Informations_dict, "homo_int", GPU)
         Score_interaction(HInt_object, Informations_dict, "homo_int")
     Resume_file(HInt_object, Informations_dict)
-
+    Create_figures(HInt_object, Informations_dict)
     #figures generations
     

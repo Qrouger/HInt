@@ -9,7 +9,16 @@ import multiprocessing
 from tqdm import tqdm
 from datetime import datetime
 import get_good_inter_pae
-
+import gc
+import pandas as pd
+import json
+import pickle
+import gzip
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.special import softmax
+from Bio import PDB
+import copy
 
 # Configure global logger
 logging.basicConfig(
@@ -241,3 +250,326 @@ def Resume_file(file, Informations_dict) :
         All_result_file.write(big_csv_lines)
     with open("Summary_result.csv", "w") as summary :
         summary.write(small_csv_lines)
+
+
+#Generate figures
+def Create_figures (file,Informations_dict) :
+    """
+    Create figures for all validate preys.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+
+    Returns:
+    ----------
+    """
+    interface_dict = dict()
+    regions = Informations_dict["Regions"]
+    possible_prey = file.get_possible_prey()
+    result_dict = file.get_result_dict()
+    for bait in Informations_dict["Multimer_bait"] :
+        if len(bait.split(",")) > 1 :
+            pass
+        else :
+            if regions[bait] != "0-0" :
+                start = int(regions[bait].split("-")[0])
+                end = int(regions[bait].split("-")[1])
+                bait_file = f"{bait}_{start}-{end}"
+            else :
+                bait_file = bait
+            for prey in possible_prey :
+                if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
+                    plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
+                    residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, regions[bait])
+                    if residues_at_interface is not None :
+                        interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict) #update interaction interface
+                        color_int_residues(path_int,color_res,proteins) #color residue in interaction on the pdb
+        
+
+def plot_Distogram (job) :
+    """
+    Generate distogram, only for best models.
+
+    Parameters:
+    ----------
+    job : string
+    
+    Returns:
+    ----------
+    """
+    ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
+    best_model = ranking_results["order"][0]
+    if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
+       path_file = f'{job}/result_{best_model}.pkl.gz'
+    if os.path.isfile(f'{job}/result_{best_model}.pkl') :
+       path_file = f'{job}/result_{best_model}.pkl'
+    if path_file.endswith(".gz") :
+        with gzip.open(path_file, "rb") as f :
+            results = pickle.load(f)
+    else :
+        with open(path_file, "rb") as f :
+            results = pickle.load(f)
+    if "distogram" in results.keys() : #avoid error from APD release 
+        bin_edges = results["distogram"]["bin_edges"]
+        bin_edges = np.insert(bin_edges, 0, 0)
+        distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
+        dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2)
+        np.savetxt(f"{job}/result_{best_model}.pkl.dmap", dist)
+        lenght_list = []
+        for seq in results["seqs"] :
+           lenght_list.append(len(seq))
+        print(f"Generate {job.split('/')[2]} Distogram")
+        initial_lenght = 0
+        fig, ax = plt.subplots()
+        d = ax.imshow(dist)
+        plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
+        ax.title.set_text("Distance map")
+        for index in range(len(lenght_list)-1) :
+           initial_lenght += lenght_list[index]
+           ax.axhline(initial_lenght, color="black", linewidth=1.5)
+           ax.axvline(initial_lenght, color="black", linewidth=1.5)
+        plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
+        plt.close()
+        del dist
+        del results
+        del distogram_softmax
+        del bin_edges
+        del d
+        gc.collect()
+
+def make_table_res_int (file, path_int, bait, regions) :
+    """
+    Generate a table of residues in interactions.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    path_int : string
+    bait : string
+    
+    Returns:
+    ----------
+    """
+    ranking_results = json.load(open(os.path.join(f'{path_int}/ranking_debug.json')))
+    best_model = ranking_results["order"][0]
+    parser = PDB.PDBParser(QUIET=True)
+    names_int = path_int.split('/')[2]
+    structure = parser.get_structure('protein', path_int + f"/{names_int}_ranked_0.pdb")
+    dict_int = dict()
+    int_already_know = dict()
+    proteins = [bait]
+    proteins.append(names_int.split('_and_')[1])
+
+    color_res = dict()
+    color_res[proteins[0]] = set()
+    color_res[proteins[1]] = set()
+    atom_possible_contact = ["C","CA","CB"] #["O","OH","NH2","NH1","OG","NE2","ND2","NZ","NE","N","OE1","OE2","OD2","OG1"] #hydrogen bond
+    if os.path.isfile(f'{path_int}/result_{best_model}.pkl.gz') :
+        path_file = f'{path_int}/result_{best_model}.pkl.gz'
+    if os.path.isfile(f'{path_int}/result_{best_model}.pkl') :
+        path_file = f'{path_int}/result_{best_model}.pkl'
+    with open(os.path.join(path_file), 'rb') as inf_file :
+        if ".gz" in path_file :
+            pickle_dict = pickle.load(gzip.open(inf_file))
+        else :
+            pickle_dict = pickle.load(inf_file)
+    lenght_prot = file.get_lenght_prot()
+    seq_prot = file.get_proteins_sequence_no_SP()
+    dict_int = dict()
+    color_res = dict()
+    color_res[proteins[0]] = set()
+    color_res[proteins[1]] = set()
+    pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
+    bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
+    bin_edges = np.insert(bin_edges, 0, 0)
+    distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
+    dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of the residue
+    dict_int[names_int] = [[proteins[0]," "+proteins[1]," Distance Ä"," PAE score"]]
+    for line in range(lenght_prot[proteins[0]],lenght_prot[proteins[0]]+lenght_prot[proteins[1]]) :
+        hori_index = -1
+        for distance in dist[line] :
+            hori_index += 1
+            if hori_index < lenght_prot[proteins[0]] :
+                if distance <= 10 :  #center of the residue
+                    if pae_mtx[line][hori_index] < 7 :
+                        residue1 = seq_prot[proteins[0]][hori_index]
+                        residue2 = seq_prot[proteins[1]][line-lenght_prot[proteins[0]]]
+                        dict_int[names_int].append([residue1+":"+str(hori_index+1)," "+residue2+":"+str(line-lenght_prot[proteins[0]]+1)," "+str(distance), " "+str(pae_mtx[line][hori_index])])
+                        color_res[proteins[0]].add(str(hori_index+1))
+                        color_res[proteins[1]].add(str(line-lenght_prot[proteins[0]]+1))  
+    residues_at_interface = dict()
+    residues_at_interface[names_int] = []
+    for chains in dict_int.keys() :
+        fileout = chains+"_res_int.csv"
+        np_table = np.array(dict_int[chains])
+        with open(f"{path_int}/"+fileout, "w", newline="") as csv_table :
+            mywriter = csv.writer(csv_table, delimiter=",")
+            mywriter.writerows(np_table)
+        del dict_int[chains][0] #delete title of each col
+        for interaction in dict_int[chains] :
+            if interaction not in residues_at_interface[names_int] :
+                residues_at_interface[names_int].append(interaction)
+    if residues_at_interface[names_int] != [] : #can arrive if it don't find atom with distance < 10 or PAE < 7
+        return residues_at_interface[names_int],proteins,path_int,color_res
+    else :
+        return None,None,None,None
+
+def color_int_residues(pdb_path, residues_to_color, names) :
+    """
+    Color residues in interaction in a PDB file.
+   
+    Parameters:
+    ----------
+    pdb_path : string
+    residues_to_color : dict
+    names : string
+    
+    Returns:
+    ----------
+    """
+    names_int = pdb_path.split('/')[2]
+    name_prot = names[0]
+    save_line = str()
+    chain1 = "B"
+    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', 'r') as file :
+        for line in file:
+            if line.startswith("ATOM") :
+                chain2 = line[21]
+                if chain1 != chain2 :
+                   name_prot = names[1] #use new dict to color atoms
+                res_num = line[22:26].strip()
+                if res_num in residues_to_color[name_prot] : #change B-factor in color interaction residue
+                    line = line[:60] + " 100  " + line[66:]
+                else :
+                    line = line[:60] + " 0    " + line[66:]
+                chain1 = line[21]
+            save_line += line
+    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', 'w') as writer:
+        writer.write(save_line)
+
+def define_interface (list_of_list_int, int, old_interface_dict) :
+    """
+    Create a dictionary of all interacting residues, including their UniProt IDs.
+
+    Parameters:
+    ----------
+    list_of_list_int : list
+    int : string
+    old_interface_dict : dict
+
+    Returns:
+    ----------
+    """
+    all_residues_int = copy.deepcopy(list_of_list_int)
+    protein1 = int[0]
+    protein2 = int[1]
+    list_int_protein1 = list()
+    list_int_protein2 = list()
+    if protein1 not in old_interface_dict.keys() :
+        old_interface_dict[protein1] = []
+    if protein2 not in old_interface_dict.keys() :
+        old_interface_dict[protein2] = []
+    for line in all_residues_int :
+        line[1] = line[1].strip() #remove readability spaces
+        if line[0] != int[0] and "chain" not in line[0] :
+            if line[0].split(":")[1] not in list_int_protein1 :
+                list_int_protein1.append(line[0].split(":")[1])
+            if line[1].split(":")[1] not in list_int_protein2 :
+                list_int_protein2.append(line[1].split(":")[1])
+    if protein1 == protein2 : #fusion of residues at interface for homo-oligomer
+        for residue in list_int_protein2 :
+            list_int_protein1.append(residue)
+        list_int_protein1 = list(set(list_int_protein1))
+        list_int_protein1.append(protein2)
+        old_interface_dict[protein1].append(list_int_protein1)
+    else :
+        list_int_protein1.append(protein2) #last values of each list is the second proteins
+        list_int_protein2.append(protein1)
+        old_interface_dict[protein1].append(list_int_protein1)
+        old_interface_dict[protein2].append(list_int_protein2)
+    return old_interface_dict
+
+def plot_sequence_interface (file) :
+    """
+    Generated figures for interface in one sequence.
+
+    Parameters:
+    ----------
+    file : object of File_proteins class
+
+    Returns:
+    ----------
+    """
+    cluster_dict = file.get_interface_dict()
+    if not os.path.exists("./interface_fig/") :
+        os.makedirs("./interface_fig/")
+    sequence_dict = file.get_proteins_sequence()
+    dict_inter = file.get_interface_dict()
+    all_color = ['red','green', 'blue', 'orange', 'purple', 'cyan', 'magenta', 'yellow', 'pink', 'brown','lime', 'indigo', 'violet', 'turquoise', 'teal', 'crimson', 'gold', 'salmon', 'plum', 'chartreuse']
+    for uniprotID_main in dict_inter.keys() :
+        sequence = sequence_dict[uniprotID_main]
+        indice_color = -1
+        interface_done = dict()
+        index_to_color = dict()
+        uniprot_id_interface = dict()
+        for interaction in dict_inter[uniprotID_main] : #list of residue + interface + UniprotID in interaction
+            if interaction[0] not in interface_done.keys() : #if it's a new interface
+                indice_color += 1
+                interface_done[interaction[0]] = all_color[indice_color]
+                uniprot_id_interface[interaction[len(interaction)-1]] = all_color[indice_color]
+                for aa_to_color in interaction :
+                    if " " in aa_to_color :
+                        if aa_to_color.split(" ")[1] not in index_to_color.keys() :
+                            index_to_color[aa_to_color.split(" ")[1]] = [all_color[indice_color]]
+                        if aa_to_color.split(" ")[1] in index_to_color.keys() and all_color[indice_color] not in index_to_color[aa_to_color.split(" ")[1]] : #add two colour if it's in two interface
+                            index_to_color[aa_to_color.split(" ")[1]].append(all_color[indice_color])
+                    else : #for seconde residue table
+                        if aa_to_color not in index_to_color.keys() :
+                            index_to_color[aa_to_color] = [all_color[indice_color]]
+                        if aa_to_color in index_to_color.keys() and all_color[indice_color] not in index_to_color[aa_to_color] : #add two colour if it's in two interface
+                            index_to_color[aa_to_color].append(all_color[indice_color])
+            else :
+                uniprot_id_interface[interaction[len(interaction)-1]] = interface_done[interaction[0]]
+                for aa_to_color in interaction :
+                    if " " in aa_to_color :
+                        if aa_to_color.split(" ")[1] not in index_to_color.keys() :
+                            index_to_color[aa_to_color.split(" ")[1]] = [all_color[indice_color]]
+                        if aa_to_color.split(" ")[1] in index_to_color.keys() and all_color[indice_color] not in index_to_color[aa_to_color.split(" ")[1]] : #add two colour if it's in two interface
+                            index_to_color[aa_to_color.split(" ")[1]].append(all_color[indice_color])
+                    else : #for seconde residue table
+                        if aa_to_color not in index_to_color.keys() :
+                            index_to_color[aa_to_color] = [interface_done[interaction[0]]]
+                        if aa_to_color in index_to_color.keys() and interface_done[interaction[0]] not in index_to_color[aa_to_color] : #add two colour if it's in two interface
+                            index_to_color[aa_to_color].append(interface_done[interaction[0]])
+        line_adjust = 150 #max aa per line
+        dict_name = file.get_names()
+        n_lines = (len(sequence) + line_adjust - 1) // line_adjust
+        fig, ax = plt.subplots(figsize=(line_adjust / 4, n_lines*1.5)) #Adjust figsize
+        for line_index in range(0, len(sequence), line_adjust) :
+            sub_sequence = sequence[line_index:line_index + line_adjust]
+            y_pos = -line_index // line_adjust * 1.5
+            for i in range(len(sub_sequence)) :
+                aa = sub_sequence[i]
+                total_index = line_index + i
+                if str(total_index + 1) in index_to_color.keys() :
+                    colors = index_to_color[str(total_index + 1)]
+                    height = 0.5 / len(colors)
+                    for color_index, color in enumerate(colors) :
+                        ax.add_patch(plt.Rectangle((i, y_pos + color_index * height), 1, height, color=color))
+                    ax.text(i + 0.5, y_pos + 0.25, aa, ha='center', va='center', color='white')
+                else :
+                    ax.add_patch(plt.Rectangle((i, y_pos), 1, 0.6, color="white"))
+                    ax.text(i + 0.5, y_pos + 0.25, aa, ha='center', va='center', color='black')
+                if (total_index+1) % 10 == 0 or i == 0:
+                    ax.text(i + 0.5, y_pos + 0.5, str(total_index + 1), ha='center', va='center', color='black', fontsize=7)
+        for index_neigh, neigh in enumerate(uniprot_id_interface) :
+            name_neigh = f"{neigh}({dict_name[neigh]})" if neigh in dict_name else neigh
+            ax.text(index_neigh * 6, - n_lines * 2, name_neigh, ha='center', va='center', color=uniprot_id_interface[neigh], fontsize=8)
+        uniprotID_main_name = f"{uniprotID_main}({dict_name[uniprotID_main]})" if uniprotID_main in dict_name else uniprotID_main
+        ax.text(-2, 0.25, uniprotID_main_name, ha='right', va='center', color='black', fontsize=10, fontweight='bold')
+        ax.set_xlim(0, line_adjust)
+        ax.set_ylim(-n_lines*2, 1)  #Adjust high
+        ax.axis('off')
+        plt.savefig("./interface_fig/"+uniprotID_main+"_interface_fig.png", dpi=300, bbox_inches='tight')
+        plt.close()

@@ -96,7 +96,6 @@ def Define_informations() :
                 list_baits = [prot.strip(",").strip() for prot in Informations_dict["Interact_with"].split(",")]
                 nbr_baits = len(list_baits)
                 Informations_dict["Multimer_bait"] = list_baits
-            print(Informations_dict["Multimer_bait"])
             if nbr_baits > 3 :
                 raise ValueError("HInt don't support more than 3 differents baits")
             for prot in list_baits :
@@ -104,7 +103,13 @@ def Define_informations() :
                     name_prot = prot.split("(")[0]
                     new_baits_list.append(name_prot.strip())
                     regions_dict[name_prot.strip()] = prot.split("(")[1].strip(")")
+                    for i,multimer in enumerate(Informations_dict["Multimer_bait"]) :
+                        if prot in multimer :
+                            new_multimer = multimer.replace(prot,name_prot.strip())
+                            Informations_dict["Multimer_bait"][i] = new_multimer
                 else :
+                    if prot.strip() in regions_dict.keys() and regions_dict[prot.strip()] != "0-0" :
+                        raise ValueError(f"HInt don't support multiple regions for protein bait : {prot.strip()}")
                     regions_dict[prot.strip()] = "0-0"
                     new_baits_list.append(prot.strip())
             Informations_dict["Regions"] = regions_dict
@@ -124,7 +129,7 @@ def Define_informations() :
                     if value not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
-        logger.info("need information to discriminate the potential homologue")
+        logger.info("Need information to discriminate the potential homolog")
         exit()
     return(Informations_dict)
 
@@ -556,7 +561,6 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
     save_lenght_line = dict()
-
     #found max amino acids for your GPU
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
@@ -570,28 +574,27 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
     start = 0
     end = 0
     complexe = False
-    for multimer in Multimer_bait :
+    for multimer in Multimer_bait : #refaire cette partie en pensant a se qu'on puisse mettre une même prot en multimer mais aussi seul (sauvegarder l'entrée brut, divisé par ) peut être déja fait avec Informations_dict["Multimer_bait"]
         if bait in multimer :
             if len(multimer.split(",")) > 1 :
                 if bait == multimer.split(",")[0] :
                     complexe = True
                     save_multimer = multimer
                 else :
-                    return True
+                    return
     if Interaction_file == "PPI_int" :
         if complexe == True :
             bait_file = save_multimer.replace(",","_and_")
             lenght = 0
             for prot in save_multimer.split(",") :
                 if regions[prot] != "0-0" :
-                    start = int(regions[prot].split("-")[0])#modif
-                    end = int(regions[prot].split("-")[1])#modif
-                    
-                    lenght = end - start + 1#modif
+                    start = int(regions[prot].split("-")[0])
+                    end = int(regions[prot].split("-")[1])
+                    lenght = end - start + 1
+                    bait_file = bait_file.replace(prot,f"{prot}_{start}-{end}")
                 else :
                     lenght += lenght_prot[prot]
             bait = save_multimer.replace(",",";")
-        print(bait_file)
         if bait in regions.keys() and complexe == False :
             if regions[bait] != "0-0" :
                 start = int(regions[bait].split("-")[0])
@@ -612,20 +615,17 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
             if AF_version == "2" :
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
+            int_script = bait_file.replace("_and_",";") 
+            int_script = int_script.replace("_",",") 
             if len(path1) == 0 and len(path2) == 0 : #if model don't exist
                 if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
-                    if start == 0 and end == 0 :
-                        save_lenght_line[f"{bait_file}_and_{prey}"] = [int_lenght, f"{bait};{prey}\n"]
-                    else :
-                        save_lenght_line[f"{bait_file}_and_{prey}"] = [int_lenght, f"{bait},{start}-{end};{prey}\n"]
-                    #nbr_prey += 1
+                    save_lenght_line[f"{bait_file}_and_{prey}"] = [int_lenght, f"{int_script};{prey}\n"]
                 else : #if interaction is too large
                     OOM_int += OOM_int + bait + ";" + prey + "\n"
                     result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions : AF OOM"
             else :
                 #nbr_prey += 1
                 pass
-            print(save_lenght_line)
     if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict["Homo-oligomer"]
         nbr_prey = 0
