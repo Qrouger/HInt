@@ -26,14 +26,11 @@ Directly add to the pipeline.
 
 ### Download MMseqs2 and localcolabfold
 ```bash
+activate HInt
 wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
 tar xvzf mmseqs-linux-gpu.tar.gz
-export PATH=$(pwd)/mmseqs/bin/:$PATH
-wget https://raw.githubusercontent.com/YoshitakaMo/localcolabfold/main/install_colabbatch_linux.sh
-bash install_colabbatch_linux.sh
-export PATH=$(pwd)/localcolabfold/colabfold-conda/bin:$PATH
-source ~/.bashrc
-activate HInt
+pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
+pip install "colabfold[alphafold]"
 ```
 
 ### Download MMseqs2 database GPU indexed
