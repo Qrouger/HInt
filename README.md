@@ -34,6 +34,7 @@ pip install "colabfold[alphafold]"
 ```
 
 ### Download MMseqs2 database GPU indexed
+To speed up all the steps, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
