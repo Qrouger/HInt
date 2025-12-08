@@ -6,7 +6,7 @@ HInt allows you to find homologous proteins with significant differences in sequ
 It allows you to find homologous proteins with similar interactions.
 # 1.Instalations
 ```bash
-conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft
+conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer
 pip install alphapulldown==2.1.6 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
 pip install -U "jax[cuda12]"==0.5.3
 
