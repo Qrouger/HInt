@@ -6,7 +6,7 @@ HInt allows you to find homologous proteins with significant differences in sequ
 It allows you to find homologous proteins with similar interactions.
 # 1.Instalations
 ```bash
-conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer
+conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install -U "jax[cuda12]"==0.5.3
@@ -25,12 +25,7 @@ Directly add to the pipeline.
 
 ## Generated MSA with MMseqs2 GPU (recommended for more than 100 proteins)
 
-### Download MMseqs2 and localcolabfold
-```bash
-activate HInt
-wget https://mmseqs.com/latest/mmseqs-linux-gpu.tar.gz
-tar xvzf mmseqs-linux-gpu.tar.gz
-```
+
 
 ### Download MMseqs2 database GPU indexed
 To speed up all the steps, it is recommended to put the databases on nvme or ssd disks.<br>
