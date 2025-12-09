@@ -365,6 +365,8 @@ class File_proteins() :
                                 need_msa.append(protein)
                             if protein not in all_info["deeploc"].keys() :
                                 need_DeepLoc.append(protein)
+                            if regions_dict[protein] != "0-0" :
+                                sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
                     else : #protein not in fasta format, so UniprotID is good
                         if protein in all_info["sequence_SP"].keys() :
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
@@ -387,8 +389,6 @@ class File_proteins() :
                         #          names[protein] = name.group(1)
                         for car in del_car :
                             sequences_SP[protein] = sequences_SP[protein].replace(car,"")
-                        if regions_dict[protein] != "0-0" :
-                            sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
                         os.remove("log_file/temp_file.txt")
                         need_DeepLoc.append(protein) #add of new protein in txt file
                         need_msa.append(protein)

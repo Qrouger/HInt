@@ -16,6 +16,7 @@ from pathlib import Path
 from datetime import datetime
 from numpy import load
 from Bio import SeqIO
+import time
 
 
 # Configure global logger
@@ -310,7 +311,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
             name_file = Path_Pickle_Feature + "/" + protein +".a3m"
             outfile = os.path.basename(url)
             check = subprocess.run(["wget", "--spider", "-q", url])
-            if check.returncode == 0 :
+            if check.returncode == 1 : #normaly 0
                 subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
                 logger.info(f"MSA for {protein} found in AF database")
                 need_msa.remove(protein) #msa found
@@ -358,9 +359,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     file.create_fasta_file(False, need_msa, need_pkl)
 
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
-    if len(need_msa) > 100 : #if more than 50 sequences, use local colabfold_search GPU
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 "  #-e 0.1
-        os.system(cmd)
+    cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
+    os.system(cmd)
 
     if len(need_msa) < 1 :
         logger.info("All MSAs have already been generated")

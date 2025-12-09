@@ -56,7 +56,11 @@ if __name__ == "__main__" :
     #if Informations_dict["Signal_peptide"] != "None" :
     need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP, if None just describe in dict
     if len(need_msa) > 0 or len(need_pkl) > 0 :
+        start = time.time()
         create_feature(HInt_object, Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
+        end = time.time()
+        elapsed = end - start
+        print("Create feature take "+ str(elapsed/60)+" minutes")
     HInt_object.Make_save_dict() #Save SignalP results
 
     print(str(datetime.now())+" Generation of MSA depth figures")
@@ -70,7 +74,11 @@ if __name__ == "__main__" :
             skip = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
             if skip :
                 break
+            start = time.time()
             Generate_3D_model(Informations_dict, "PPI_int", GPU)
+            end = time.time()
+            elapsed = end - start
+            print("3D model generation take "+ str(elapsed/60)+" minutes")
             Score_interaction(HInt_object, Informations_dict, "PPI_int", bait)
             HInt_object.Make_save_dict() #Save scores #Maybe make it for each prot score
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer
