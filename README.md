@@ -9,7 +9,6 @@ It allows you to find homologous proteins with similar interactions.
 conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
-pip install "colabfold[alphafold]"
 pip install -U "jax[cuda12]"==0.5.3
 
 
