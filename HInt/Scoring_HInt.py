@@ -38,6 +38,7 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
     file : object of class File_proteins
     Informations_dict : dictionary
     Interaction : string
+    bait : string
 
     Returns:
     ----------
@@ -45,20 +46,22 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
     start_time = datetime.now()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
-    int_score = file.get_int_score()
+    int_score = file.get_int_score() #save scores
     seq_no_SP = file.get_proteins_sequence_no_SP()
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     regions = Informations_dict["Regions"]
     AF_version = Informations_dict["AlphaFold"]
     ppi_list = list()
+    print(int_score)
 
     if bait is not None : #setup bait name
-        if regions[bait] != "0-0" :
-            start = int(regions[bait].split("-")[0])
-            end = int(regions[bait].split("-")[1])
-            bait = f"{bait}_{start}-{end}"
-
+        bait_name = bait.replace(",","_and_")
+        for prot in bait.split(",") :
+            if regions[prot] != "0-0" :
+                start = int(regions[prot].split("-")[0])
+                end = int(regions[prot].split("-")[1])
+                bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
     #Multiprocessing to score all interactions
     N_CPU = multiprocessing.cpu_count()
     if os.path.isdir(f"./result_{Interaction}") == True :
@@ -68,13 +71,12 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                     ppi_list.append(f"./result_{Interaction}/{direc}") #Found a solution for score only homo-oligomer without score
         else : #for one vs all
             for protein in possible_prey :
-                if f"iQ_score_vs_{bait}" not in int_score[protein].keys() :
-                    ppi_list.append(f"./result_{Interaction}/{bait}_and_{protein}")
+                if f"iQ_score_vs_{bait_name}" not in int_score[protein].keys() :
+                    ppi_list.append(f"./result_{Interaction}/{bait_name}_and_{protein}")
                 else :
-                    result_dict[protein][f"iQ_score_vs_{bait}"] = int_score[protein][f"iQ_score_vs_{bait}"]
-                    if int_score[protein][f"iQ_score_vs_{bait}"] > 0 :
+                    result_dict[protein][f"iQ_score_vs_{bait_name}"] = int_score[protein][f"iQ_score_vs_{bait_name}"]
+                    if int_score[protein][f"iQ_score_vs_{bait_name}"] > 0 :
                         new_possible_prey.append(protein)
-
         results = []
         with multiprocessing.Pool(N_CPU) as pool :
             tasks = [(ppi, "./", Path_ccp4, seq_no_SP, AF_version) for ppi in ppi_list]
@@ -93,11 +95,11 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
             reader = csv.DictReader(result_file)
 
             #For one vs all
-            if Interaction == "PPI_int" :
+            if Interaction == "PPI_int" : #make int_score
                 all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                 for row in reader :
                     job = row['jobs']
-                    if '_and_' in job and job.split("_and_")[1] in possible_prey and bait in job : #check if interaction is a PPI and if prey is in possible prey list
+                    if '_and_' in job and job.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                         if row['pi_score'] == 'No interface detected' :
                             iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
                             line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
@@ -105,17 +107,18 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                             iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
                             line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
 
-                        int_score[job.split("_and_")[1]][f"iQ_score_vs_{bait}"] = iQ_score
-                        result_dict[job.split("_and_")[1]][f"iQ_score_vs_{bait}"] = iQ_score
-                        new_possible_prey.append(job.split("_and_")[1])
+                        int_score[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                        result_dict[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                        new_possible_prey.append(job.split("_and_")[-1])
                         all_lines = all_lines + line
                         name_int = job.split("/")[-1]
+                        print(name_int)
                         os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                 for protein in possible_prey :
                     if protein not in new_possible_prey :
-                        int_score[protein][f"iQ_score_vs_{bait}"] = 0
-                        result_dict[protein][f"iQ_score_vs_{bait}"] = 0 #if prey don't have interaction, set iQ_score to 0
-                        result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait} : PAE < 10"
+                        int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
+                        result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
+                        result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
 
             #For homo-oligomer
             if Interaction == "homo_int" : #score homo-oligomer
@@ -182,7 +185,7 @@ def run_scoring(args) :
     result : string
     """
     interaction, output_dir, Path_ccp4 ,seq_no_SP ,AF_version = args
-    result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version)
+    result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
     return result
 
 def Resume_file(file, Informations_dict) :
@@ -201,27 +204,29 @@ def Resume_file(file, Informations_dict) :
     list_name_baits = list()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
-    possible_baits = Informations_dict["Interact_with"]
+    possible_baits = Informations_dict["Multimer_bait"]
     regions = Informations_dict["Regions"]
     proteins = file.get_proteins()
     informations = ["DeepLoc","Signal_peptide"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
     small_csv_lines = "Name,Reason_for_filtering\n"
+    for protein in Informations_dict["Interact_with"] :
+        result_dict.pop(protein, None) #remove bait from result dict
     if Informations_dict["Interact_with"] != [""] : #sorted in function of all baits
-        for bait in possible_baits : #remove bait from result dict
-            del result_dict[bait]
-            if regions[bait] != "0-0" :
-                start = int(regions[bait].split("-")[0])
-                end = int(regions[bait].split("-")[1])
-                bait = f"{bait}_{start}-{end}"
-            informations.append(f"iQ_score_vs_{bait}")
-            list_name_baits.append(bait)
+        for multimer in possible_baits :
+            bait_name = multimer.replace(",","_and_")
+            for prot in multimer.split(",") :
+                if regions[prot] != "0-0" :
+                    start = int(regions[prot].split("-")[0])
+                    end = int(regions[prot].split("-")[1])
+                    bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+            informations.append(f"iQ_score_vs_{bait_name}")
+            list_name_baits.append(bait_name)
             if len(possible_baits) == 1 :
                 big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
             else :
-                big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait}\n"
+                big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
         sorted_proteins = sorted(result_dict.items(),key=lambda x: sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits), reverse=True) #sorted in function of all baits
-
     if Informations_dict["Homo-oligomer"] != "1" :
         informations.append("hiQ_score")
         big_csv_lines = big_csv_lines.strip("\n") + "hiQ_score\n"
@@ -269,7 +274,7 @@ def Create_figures (file,Informations_dict) :
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
     for bait in Informations_dict["Multimer_bait"] :
-        if len(bait.split(",")) > 1 :
+        if len(bait.split(",")) > 1 or bait == "" : #No figures for multimers bait
             pass
         else :
             if regions[bait] != "0-0" :

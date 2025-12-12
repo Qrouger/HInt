@@ -337,7 +337,8 @@ class File_proteins() :
                 all_info = pickle.load(save_dict)
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
-            int_score = copy.deepcopy(all_info["int_score"])
+            #int_score = copy.deepcopy(all_info["int_score"])
+            int_score.update(copy.deepcopy(all_info["int_score"]))
             for protein in proteins :
                 result_dict[protein] = dict()
                 if protein in all_info["sequence_no_SP"].keys() : #if protein in sequence_no_SP of save dict
@@ -365,8 +366,9 @@ class File_proteins() :
                                 need_msa.append(protein)
                             if protein not in all_info["deeploc"].keys() :
                                 need_DeepLoc.append(protein)
-                            if regions_dict[protein] != "0-0" :
-                                sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
+                            if protein in regions_dict.keys() : #if is a bait
+                                if regions_dict[protein] != "0-0" :
+                                    sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
                     else : #protein not in fasta format, so UniprotID is good
                         if protein in all_info["sequence_SP"].keys() :
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
@@ -391,6 +393,9 @@ class File_proteins() :
                             sequences_SP[protein] = sequences_SP[protein].replace(car,"")
                         os.remove("log_file/temp_file.txt")
                         need_DeepLoc.append(protein) #add of new protein in txt file
+                        need_msa.append(protein)
+                    else : #protein in fasta format, who don't have sequence without SP and DeepLoc
+                        need_DeepLoc.append(protein)
                         need_msa.append(protein)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False and protein not in need_msa : #proteins without msa
                     need_msa.append(protein)

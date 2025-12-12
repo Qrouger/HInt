@@ -40,21 +40,32 @@ if __name__ == "__main__" :
     Informations_dict = Define_informations()
     logger.info("GPU set to : "+str(GPU))
 
-    #Create objects and filtre proteins
+    #Create objects
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["Regions"])
+
+    #Error if bait not in protein list
+    for bait in Informations_dict["Interact_with"] :
+        if bait not in HInt_object.get_proteins() :
+            raise Exception(f"Bait {bait} not in the protein list of {Informations_dict['Path_Uniprot_ID']}")
+
+    #Look at Checkpoint
+    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["Regions"]) #need MSA represnt alos protein who just need SP informations
+
+    #Filter with DeepLoc
     if len(need_DeepLoc) > 0 :
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU) #run DeepLoc for new proteins and set in dict
     if Informations_dict["DeepLoc"].split(",") != ["None"] :
         need_msa, need_pkl = filter_deeploc(HInt_object, Informations_dict, need_msa, need_pkl)
     HInt_object.Make_save_dict() #Save DeepLoc results
 
-    
+    #Filter with SignalP
     if len(need_msa) > 0 :
-        need_msa = run_SP(HInt_object,Informations_dict, need_msa) #run SignalP for new proteins and set in dict, if protein have already msa but no sequence without SP don't return it
+        need_msa = run_SP(HInt_object, Informations_dict, need_msa) #run SignalP for new proteins and set in dict, if protein have already msa but no SP informations don't return it
     HInt_object.Make_save_dict() #Save sequence without signal peptide
     #if Informations_dict["Signal_peptide"] != "None" :
     need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP, if None just describe in dict
+
+    #Create MSA features
     if len(need_msa) > 0 or len(need_pkl) > 0 :
         start = time.time()
         create_feature(HInt_object, Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
@@ -69,11 +80,10 @@ if __name__ == "__main__" :
     print(str(datetime.now()) + " Remove baits from prey list")
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
 
+
     if Informations_dict["Interact_with"] != [""] :
-        for bait in Informations_dict["Interact_with"] :
-            skip = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
-            if skip :
-                break
+        for bait in Informations_dict["Multimer_bait"] :
+            Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
             start = time.time()
             Generate_3D_model(Informations_dict, "PPI_int", GPU)
             end = time.time()

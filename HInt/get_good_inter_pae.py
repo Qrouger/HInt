@@ -84,7 +84,7 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
             "python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"
         ], check=True)
 
-    direc = jobs[0].split("/")[2]
+    direc = jobs[0].split("/")[len(jobs[0].split("/"))-1]
     if os.path.isdir("/scratch") :
         tmp_dir = f"/scratch/tmp/{direc}"
     else :

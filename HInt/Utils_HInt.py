@@ -30,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 
-#add [] for multimer bait, add log msg for too big bait with the gpu
+#check if U, O, B, Z, J, X is not in a sequence
 def Define_informations() :
     """
     Extract all paths from HInt.txt and store them in a dictionary.
@@ -44,7 +44,7 @@ def Define_informations() :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions","Multimer_bait","AlphaFold", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -359,8 +359,9 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     file.create_fasta_file(False, need_msa, need_pkl)
 
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
-    cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
-    os.system(cmd)
+    if len(need_msa) > 10 :
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
+        os.system(cmd)
 
     if len(need_msa) < 1 :
         logger.info("All MSAs have already been generated")
@@ -574,14 +575,14 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
     start = 0
     end = 0
     complexe = False
-    for multimer in Multimer_bait : #refaire cette partie en pensant a se qu'on puisse mettre une même prot en multimer mais aussi seul (sauvegarder l'entrée brut, divisé par ) peut être déja fait avec Informations_dict["Multimer_bait"]
-        if bait in multimer :
-            if len(multimer.split(",")) > 1 :
-                if bait == multimer.split(",")[0] :
-                    complexe = True
-                    save_multimer = multimer
-                else :
-                    return
+    if len(bait.split(",")) > 1 :
+        complexe = True
+        save_multimer = bait
+        lenght_mult = 0
+        for prot in bait.split(",") :
+            lenght_mult += lenght_prot[prot]
+        if lenght_mult >= max_aa/2 :
+            logger.info(f"/!\ Multimer bait {bait} is large compare to your GPU Vram")
     if Interaction_file == "PPI_int" :
         if complexe == True :
             bait_file = save_multimer.replace(",","_and_")
