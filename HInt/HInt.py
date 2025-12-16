@@ -45,7 +45,7 @@ if __name__ == "__main__" :
 
     #Error if bait not in protein list
     for bait in Informations_dict["Interact_with"] :
-        if bait not in HInt_object.get_proteins() :
+        if bait not in HInt_object.get_proteins() and bait != "" :
             raise Exception(f"Bait {bait} not in the protein list of {Informations_dict['Path_Uniprot_ID']}")
 
     #Look at Checkpoint
@@ -76,10 +76,8 @@ if __name__ == "__main__" :
 
     print(str(datetime.now())+" Generation of MSA depth figures")
     Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"]) #make MSA depth for new pickle and set shallow_MSA.txt
-    
     print(str(datetime.now()) + " Remove baits from prey list")
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]]) #remove baits from prey list
-
 
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Multimer_bait"] :
@@ -96,6 +94,5 @@ if __name__ == "__main__" :
         Generate_3D_model(Informations_dict, "homo_int", GPU)
         Score_interaction(HInt_object, Informations_dict, "homo_int")
     Resume_file(HInt_object, Informations_dict)
-    Create_figures(HInt_object, Informations_dict)
-    #figures generations
+    Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"])
     

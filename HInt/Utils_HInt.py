@@ -296,7 +296,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     GPU_str = GPU_str.strip(",")
     #logger.info(f"GPU use : {GPU_str}")
     
-    logger.info(f"{len(need_msa)} proteins need msa")
+    logger.info(f"{len(need_msa)} proteins need MSA")
     logger.info(f"{len(need_pkl)} proteins need pkl files")
     
     if os.path.exists(Path_Pickle_Feature) == False :
@@ -304,6 +304,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
 
     #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
+    logger.info(f"Search MSA in AlphaFold database")
     for protein in generated_msa : #check if prot have an MSA in alphafold database
         l_p = len(protein)
         if l_p >= 5 and l_p <= 10 : #if not, is not an UniprotID
@@ -583,10 +584,10 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
             lenght_mult += lenght_prot[prot]
         if lenght_mult >= max_aa/2 :
             logger.info(f"/!\ Multimer bait {bait} is large compare to your GPU Vram")
+    lenght = 0
     if Interaction_file == "PPI_int" :
         if complexe == True :
             bait_file = save_multimer.replace(",","_and_")
-            lenght = 0
             for prot in save_multimer.split(",") :
                 if regions[prot] != "0-0" :
                     start = int(regions[prot].split("-")[0])
@@ -602,7 +603,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
                 end = int(regions[bait].split("-")[1])
                 bait_file = f"{bait}_{start}-{end}"
                 lenght = end - start + 1
-        elif complexe == False :
+        if complexe == False :
             lenght = lenght_prot[bait]
             bait_file = bait
         #nbr_prey = 0
@@ -737,13 +738,28 @@ def Split_to_GPU(file, save_lenght_line, GPU) :
     sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
     dict_split_GPU = dict()
     gpu_loads = dict()
+    lenght_prot = list()
+    for interactions in sorted_list :
+        lenght_prot.append(interactions[1][0])
+    mid_aa = sum(lenght_prot) // len(GPU)  #algo mid_aa
     for nbr_GPU in GPU :
         dict_split_GPU[f"GPU_{nbr_GPU}"] = ""
         gpu_loads[f"GPU_{nbr_GPU}"] = 0
     for interactions in sorted_list :
-        target_gpu = min(gpu_loads, key=gpu_loads.get)
-        dict_split_GPU[target_gpu] += interactions[1][1]
-        gpu_loads[target_gpu] += interactions[1][0]
+        placed = False
+        for target_gpu in dict_split_GPU.keys() :
+            if gpu_loads[target_gpu]+interactions[1][0] <= mid_aa :
+                dict_split_GPU[target_gpu] += interactions[1][1]
+                gpu_loads[target_gpu] += interactions[1][0]
+                placed = True
+                break
+
+    # If all GPU are above mid_aa, place on the least loaded GPU
+        if not placed:
+            target_gpu = min(gpu_loads, key=gpu_loads.get)
+            dict_split_GPU[target_gpu] += interactions[1][1]
+            gpu_loads[target_gpu] += interactions[1][0]
+
     return dict_split_GPU
 
 @staticmethod

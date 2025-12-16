@@ -279,6 +279,15 @@ class File_proteins() :
         already_fasta = dict()
         int_score = dict()
         save_prot = ""
+        with open(path_txt,"r") as check_f : #clean ncbi file
+            new_fasta = str()
+            for line in check_f :
+                if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line :
+                    new_fasta += ">" + line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1] + "\n"
+                else :
+                    new_fasta += line.replace("*", "")
+        with open(path_txt,"w") as w_file :
+            w_file.write(new_fasta)
         with open(path_txt,"r") as in_file :
             for line in in_file :
                 if "," in str(line) or (line[0] != ">" and save_prot == "" and line.strip() != "") :
@@ -333,7 +342,7 @@ class File_proteins() :
         proteins = self.get_proteins()
 
         if os.path.isfile('log_file/save_dict.pkl') == True :
-            with open('log_file/save_dict.pkl', 'rb') as save_dict:
+            with open('log_file/save_dict.pkl', 'rb') as save_dict :
                 all_info = pickle.load(save_dict)
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
@@ -384,7 +393,7 @@ class File_proteins() :
                         except Exception as e :
                             raise Exception(f"{protein} is not a compliant UniprotID")  # ou break selon ton contexte
                         with open("log_file/temp_file.txt","r") as in_file:
-                            for seq in re.finditer(pattern, in_file.read()):
+                            for seq in re.finditer(pattern, in_file.read()) :
                                 sequences_SP[protein] = seq.group(1)
                         #  with open("temp_file.txt","r") as in_file:
                         #      for name in re.finditer(pattern2, in_file.read()) :
@@ -417,10 +426,10 @@ class File_proteins() :
                     urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                     if os.path.getsize("log_file/temp_file.txt") == 0 :
                         print(f"{protein} is not a compliant UniprotID")
-                    with open("log_file/temp_file.txt","r") as in_file:
+                    with open("log_file/temp_file.txt","r") as in_file :
                         for seq in re.finditer(pattern, in_file.read()):
                             sequences_SP[protein] = seq.group(1)
-                    #  with open("temp_file.txt","r") as in_file:
+                    #  with open("temp_file.txt","r") as in_file :
                     #      for name in re.finditer(pattern2, in_file.read()) :
                     #          names[protein] = name.group(1)
                     for car in del_car :

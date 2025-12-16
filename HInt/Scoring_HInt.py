@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from scipy.special import softmax
 from Bio import PDB
 import copy
+import string
 
 # Configure global logger
 logging.basicConfig(
@@ -53,7 +54,6 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
     regions = Informations_dict["Regions"]
     AF_version = Informations_dict["AlphaFold"]
     ppi_list = list()
-    print(int_score)
 
     if bait is not None : #setup bait name
         bait_name = bait.replace(",","_and_")
@@ -78,7 +78,7 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                     if int_score[protein][f"iQ_score_vs_{bait_name}"] > 0 :
                         new_possible_prey.append(protein)
         results = []
-        with multiprocessing.Pool(N_CPU) as pool :
+        with multiprocessing.Pool(N_CPU) as pool : #just run scoring for interactions without score
             tasks = [(ppi, "./", Path_ccp4, seq_no_SP, AF_version) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
@@ -86,84 +86,85 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                     results.append(df)
             pool.close()
             pool.join()
-        if results :
+
+        if results : #Make a dataframe if there is results
             merged_df = pd.concat(results, ignore_index=True)
             merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
 
-        #Resume all score and set new possible prey
-        with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as result_file :
-            reader = csv.DictReader(result_file)
+        if ppi_list : #Add result in dict result if there is new ppi scored
+            #Resume all score and set new possible prey
+            with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as result_file :
+                reader = csv.DictReader(result_file)
 
-            #For one vs all
-            if Interaction == "PPI_int" : #make int_score
-                all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
-                for row in reader :
-                    job = row['jobs']
-                    if '_and_' in job and job.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
-                        if row['pi_score'] == 'No interface detected' :
-                            iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
-                            line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                #For one vs all
+                if Interaction == "PPI_int" : #make int_score
+                    all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
+                    for row in reader :
+                        job = row['jobs']
+                        if '_and_' in job and job.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
+                            if row['pi_score'] == 'No interface detected' :
+                                iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
+                                line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                            else :
+                                iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
+                                line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+
+                            int_score[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            result_dict[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            new_possible_prey.append(job.split("_and_")[-1])
+                            all_lines = all_lines + line
+                            name_int = job.split("/")[-1]
+                            os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
+                    for protein in possible_prey :
+                        if protein not in new_possible_prey :
+                            int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
+                            result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
+                            result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+
+                #For homo-oligomer
+                if Interaction == "homo_int" : #score homo-oligomer
+                    all_homo = dict()
+                    save_pi_score = dict()
+                    all_lines = "jobs,pi_score,iptm_ptm,hiQ_score\n"
+                    for row in reader :
+                        job = row['jobs']
+                        if row['pi_score'] != 'No interface detected' :
+                            if job not in all_homo.keys() :
+                                all_homo[job] = (row['pi_score'],1,row)
+                                save_pi_score[job] = [float(row['pi_score'])]
+                            else :
+                                save_pi_score[job].append(float(row['pi_score']))
+                                sum_pi_score = float(all_homo[job][0]) + float(row['pi_score'])
+                                sum_int = all_homo[job][1] + 1
+                                all_homo[job] = (sum_pi_score,sum_int,row)
+                    for key in all_homo.keys() :
+                        row = all_homo[key][2]
+                        number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4
+                        prot_name = row["jobs"].split("_")[0]
+                        if len(save_pi_score[key]) > int(number_oligo) : #if model have more interface than number of homo-oligomerization
+                            new_sum_pi_score = 0
+                            save_pi_score[key].sort(reverse=True)
+                            for index in range(0,int(number_oligo)) :
+                                new_sum_pi_score += save_pi_score[key][index]
+                                hiQ_score = (((float(new_sum_pi_score)/int(number_oligo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
+                            line =f'{key},{str(float(new_sum_pi_score)/int(number_oligo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                            all_lines += line   
                         else :
-                            iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
-                            line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                            hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                            line =f'{key},{str(float(all_homo[key][0])/all_homo[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                            all_lines += line
+                        new_possible_prey.append(prot_name)
+                        result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
+                        name_int = key.split("/")[-1]
+                        os.system(f"cp {key}/ranked_0.pdb {key}/{name_int}_ranked_0.pdb") #rename pdb file
+                    for protein in possible_prey :
+                        if protein not in new_possible_prey :
+                            result_dict[protein]["hiQ_score"] = 0
+                            result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
 
-                        int_score[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                        result_dict[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                        new_possible_prey.append(job.split("_and_")[-1])
-                        all_lines = all_lines + line
-                        name_int = job.split("/")[-1]
-                        print(name_int)
-                        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
-                for protein in possible_prey :
-                    if protein not in new_possible_prey :
-                        int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
-                        result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
-                        result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
-
-            #For homo-oligomer
-            if Interaction == "homo_int" : #score homo-oligomer
-                all_homo = dict()
-                save_pi_score = dict()
-                all_lines = "jobs,pi_score,iptm_ptm,hiQ_score\n"
-                for row in reader :
-                    job = row['jobs']
-                    if row['pi_score'] != 'No interface detected' :
-                        if job not in all_homo.keys() :
-                            all_homo[job] = (row['pi_score'],1,row)
-                            save_pi_score[job] = [float(row['pi_score'])]
-                        else :
-                            save_pi_score[job].append(float(row['pi_score']))
-                            sum_pi_score = float(all_homo[job][0]) + float(row['pi_score'])
-                            sum_int = all_homo[job][1] + 1
-                            all_homo[job] = (sum_pi_score,sum_int,row)
-                for key in all_homo.keys() :
-                    row = all_homo[key][2]
-                    number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4
-                    prot_name = row["jobs"].split("_")[0]
-                    if len(save_pi_score[key]) > int(number_oligo) : #if model have more interface than number of homo-oligomerization
-                        new_sum_pi_score = 0
-                        save_pi_score[key].sort(reverse=True)
-                        for index in range(0,int(number_oligo)) :
-                            new_sum_pi_score += save_pi_score[key][index]
-                            hiQ_score = (((float(new_sum_pi_score)/int(number_oligo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
-                        line =f'{key},{str(float(new_sum_pi_score)/int(number_oligo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
-                        all_lines += line   
-                    else :
-                        hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
-                        line =f'{key},{str(float(all_homo[key][0])/all_homo[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
-                        all_lines += line
-                    new_possible_prey.append(prot_name)
-                    result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
-                    name_int = key.split("/")[-1]
-                    os.system(f"cp {key}/ranked_0.pdb {key}/{name_int}_ranked_0.pdb") #rename pdb file
-                for protein in possible_prey :
-                    if protein not in new_possible_prey :
-                        result_dict[protein]["hiQ_score"] = 0
-                        result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
-
-            if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
-                with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
-                    file2.write(all_lines)
+                if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
+                    with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
+                        file2.write(all_lines)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
@@ -200,6 +201,7 @@ def Resume_file(file, Informations_dict) :
     Returns:
     ----------
     """
+    logger.info("Create result table for all preys")
     iQ_score_dict = dict()
     list_name_baits = list()
     result_dict = file.get_result_dict()
@@ -258,21 +260,24 @@ def Resume_file(file, Informations_dict) :
 
 
 #Generate figures
-def Create_figures (file,Informations_dict) :
+def Create_figures (file, Informations_dict, AF_version) :
     """
     Create figures for all validate preys.
 
     Parameters:
     ----------
     file : object of class File_proteins
+    Informations_dict : dictionary
+    AF_version : string
 
     Returns:
     ----------
     """
-    interface_dict = dict()
+    logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
+    interface_dict = dict()
     for bait in Informations_dict["Multimer_bait"] :
         if len(bait.split(",")) > 1 or bait == "" : #No figures for multimers bait
             pass
@@ -285,12 +290,14 @@ def Create_figures (file,Informations_dict) :
                 bait_file = bait
             for prey in possible_prey :
                 if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
-                    plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
-                    residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, regions[bait])
+                    if AF_version == "2" :
+                        plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}", AF_version)
+                    residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
                     if residues_at_interface is not None :
-                        interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict) #update interaction interface
-                        color_int_residues(path_int,color_res,proteins) #color residue in interaction on the pdb
-        
+                        color_int_residues(path_int, color_res, proteins, AF_version) #color residue in interaction on the pdb
+                        interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict)
+            interface_dict = cluster_interface(interface_dict)
+            plot_sequence_interface(file,interface_dict)
 
 def plot_Distogram (job) :
     """
@@ -306,9 +313,9 @@ def plot_Distogram (job) :
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
     if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
-       path_file = f'{job}/result_{best_model}.pkl.gz'
+        path_file = f'{job}/result_{best_model}.pkl.gz'
     if os.path.isfile(f'{job}/result_{best_model}.pkl') :
-       path_file = f'{job}/result_{best_model}.pkl'
+        path_file = f'{job}/result_{best_model}.pkl'
     if path_file.endswith(".gz") :
         with gzip.open(path_file, "rb") as f :
             results = pickle.load(f)
@@ -343,7 +350,7 @@ def plot_Distogram (job) :
         del d
         gc.collect()
 
-def make_table_res_int (file, path_int, bait, regions) :
+def make_table_res_int (file, path_int, bait, AF_version) :
     """
     Generate a table of residues in interactions.
 
@@ -352,57 +359,118 @@ def make_table_res_int (file, path_int, bait, regions) :
     file : object of class File_proteins
     path_int : string
     bait : string
-    
+    AF_verison : string
+
     Returns:
     ----------
     """
-    ranking_results = json.load(open(os.path.join(f'{path_int}/ranking_debug.json')))
-    best_model = ranking_results["order"][0]
     parser = PDB.PDBParser(QUIET=True)
     names_int = path_int.split('/')[2]
-    structure = parser.get_structure('protein', path_int + f"/{names_int}_ranked_0.pdb")
     dict_int = dict()
-    int_already_know = dict()
     proteins = [bait]
     proteins.append(names_int.split('_and_')[1])
+    color_res = dict()
+    color_res[proteins[0]] = set()
+    color_res[proteins[1]] = set()
+    if AF_version == "2" :
+        ranking_results = json.load(open(os.path.join(f'{path_int}/ranking_debug.json')))
+        best_model = ranking_results["order"][0]
+        if os.path.isfile(f'{path_int}/result_{best_model}.pkl.gz') :
+            path_file = f'{path_int}/result_{best_model}.pkl.gz'
+        if os.path.isfile(f'{path_int}/result_{best_model}.pkl') :
+            path_file = f'{path_int}/result_{best_model}.pkl'
+        with open(os.path.join(path_file), 'rb') as inf_file :
+            if ".gz" in path_file :
+                pickle_dict = pickle.load(gzip.open(inf_file))
+            else :
+                pickle_dict = pickle.load(inf_file)
+        lenght_prot = file.get_lenght_prot()
+        seq_prot = file.get_proteins_sequence_no_SP()
+        dict_int = dict()
+        color_res = dict()
+        color_res[proteins[0]] = set()
+        color_res[proteins[1]] = set()
+        pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
+        bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
+        bin_edges = np.insert(bin_edges, 0, 0)
+        distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
+        dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
+        dict_int[names_int] = [[proteins[0]," "+proteins[1]," Distance_Ä"," PAE_score"]]
+        for line in range(lenght_prot[proteins[0]],lenght_prot[proteins[0]]+lenght_prot[proteins[1]]) :
+            hori_index = -1
+            for distance in dist[line] :
+                hori_index += 1
+                if hori_index < lenght_prot[proteins[0]] :
+                    if distance <= 10 :  #center of mass of the residue
+                        if pae_mtx[line][hori_index] < 7 :
+                            residue1 = seq_prot[proteins[0]][hori_index]
+                            residue2 = seq_prot[proteins[1]][line-lenght_prot[proteins[0]]]
+                            dict_int[names_int].append([residue1+":"+str(hori_index+1)," "+residue2+":"+str(line-lenght_prot[proteins[0]]+1)," "+str(distance), " "+str(pae_mtx[line][hori_index])])
+                            color_res[proteins[0]].add(str(hori_index+1))
+                            color_res[proteins[1]].add(str(line-lenght_prot[proteins[0]]+1))
 
-    color_res = dict()
-    color_res[proteins[0]] = set()
-    color_res[proteins[1]] = set()
-    atom_possible_contact = ["C","CA","CB"] #["O","OH","NH2","NH1","OG","NE2","ND2","NZ","NE","N","OE1","OE2","OD2","OG1"] #hydrogen bond
-    if os.path.isfile(f'{path_int}/result_{best_model}.pkl.gz') :
-        path_file = f'{path_int}/result_{best_model}.pkl.gz'
-    if os.path.isfile(f'{path_int}/result_{best_model}.pkl') :
-        path_file = f'{path_int}/result_{best_model}.pkl'
-    with open(os.path.join(path_file), 'rb') as inf_file :
-        if ".gz" in path_file :
-            pickle_dict = pickle.load(gzip.open(inf_file))
-        else :
-            pickle_dict = pickle.load(inf_file)
-    lenght_prot = file.get_lenght_prot()
-    seq_prot = file.get_proteins_sequence_no_SP()
-    dict_int = dict()
-    color_res = dict()
-    color_res[proteins[0]] = set()
-    color_res[proteins[1]] = set()
-    pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
-    bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
-    bin_edges = np.insert(bin_edges, 0, 0)
-    distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
-    dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of the residue
-    dict_int[names_int] = [[proteins[0]," "+proteins[1]," Distance Ä"," PAE score"]]
-    for line in range(lenght_prot[proteins[0]],lenght_prot[proteins[0]]+lenght_prot[proteins[1]]) :
-        hori_index = -1
-        for distance in dist[line] :
-            hori_index += 1
-            if hori_index < lenght_prot[proteins[0]] :
-                if distance <= 10 :  #center of the residue
-                    if pae_mtx[line][hori_index] < 7 :
-                        residue1 = seq_prot[proteins[0]][hori_index]
-                        residue2 = seq_prot[proteins[1]][line-lenght_prot[proteins[0]]]
-                        dict_int[names_int].append([residue1+":"+str(hori_index+1)," "+residue2+":"+str(line-lenght_prot[proteins[0]]+1)," "+str(distance), " "+str(pae_mtx[line][hori_index])])
-                        color_res[proteins[0]].add(str(hori_index+1))
-                        color_res[proteins[1]].add(str(line-lenght_prot[proteins[0]]+1))  
+    if AF_version == "3" :
+        with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f:
+            pae_mtx = np.array(json.load(json_f)['pae'])
+        DIST_CUTOFF = 10.0      # Å (CA/CB/C)
+        PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
+        ATOM_CONTACT = ["C","CA","CB"]
+        len_chainA = file.get_lenght_prot()[proteins[0]]
+        total_len = pae_mtx.shape[0]
+        int_already_know = {}
+        dict_int = {}
+        structure = parser.get_structure('protein',os.path.join(path_int, f"{names_int}_ranked_0.pdb"))
+        for model in structure:
+            chains = model.get_list()
+            for i, chain1 in enumerate(chains):
+                for chain2 in chains[i+1:]:
+                    interaction = chain1.get_id() + chain2.get_id()
+                    if interaction not in dict_int:
+                        dict_int[interaction] = [[proteins[0], " " + proteins[1], " Distance_Å", " PAE_score"]]
+                    for res1 in chain1:
+                        if res1.id[0] != " ":
+                            continue
+                        for res2 in chain2:
+                            if res2.id[0] != " ":
+                                continue
+                            for atom1 in res1:
+                                if atom1.get_id() not in ATOM_CONTACT:
+                                    continue
+                                for atom2 in res2:
+                                    if atom2.get_id() not in ATOM_CONTACT:
+                                        continue
+                                    dist = atom1 - atom2
+                                    if dist > DIST_CUTOFF:
+                                        continue
+
+                                    r1 = res1.id[1] - 1
+                                    r2 = res2.id[1] - 1
+                                    if interaction[0] == "A":  # bait = chain A
+                                        idx1 = r1
+                                        idx2 = len_chainA + r2
+                                    else:
+                                        idx1 = len_chainA + r1
+                                        idx2 = r2
+                                    if idx1 >= total_len or idx2 >= total_len:
+                                        continue
+                                    pae_score = float(pae_mtx[idx1, idx2])
+                                    if pae_score > PAE_CUTOFF:
+                                        continue
+                                    key = (f"{chain1.get_id()}:{res1.get_resname()} {res1.id[1]}",f"{chain2.get_id()}:{res2.get_resname()} {res2.id[1]}")
+                                    color_res[proteins[0]].add(str(res1.id[1]))
+                                    color_res[proteins[1]].add(str(res2.id[1]))
+                                    # Keep the interaction with the lowest distance
+                                    if key in int_already_know:
+                                        if dist < int_already_know[key][0]:
+                                            int_already_know[key] = (dist, pae_score)
+                                    else:
+                                        int_already_know[key] = (dist, pae_score)
+
+        for (resA, resB), (dist, pae) in int_already_know.items():
+            interaction = resA[0] + resB[0]
+            dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
+
+
     residues_at_interface = dict()
     residues_at_interface[names_int] = []
     for chains in dict_int.keys() :
@@ -420,7 +488,7 @@ def make_table_res_int (file, path_int, bait, regions) :
     else :
         return None,None,None,None
 
-def color_int_residues(pdb_path, residues_to_color, names) :
+def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
     """
     Color residues in interaction in a PDB file.
    
@@ -429,14 +497,19 @@ def color_int_residues(pdb_path, residues_to_color, names) :
     pdb_path : string
     residues_to_color : dict
     names : string
+    AF_version : string
     
     Returns:
     ----------
     """
+    if AF_version == "3" :
+        chain1 = "A"
+    if AF_version == "2" :
+        chain1 = "B"
+    print(residues_to_color)
     names_int = pdb_path.split('/')[2]
     name_prot = names[0]
     save_line = str()
-    chain1 = "B"
     with open(f'{pdb_path}/{names_int}_ranked_0.pdb', 'r') as file :
         for line in file:
             if line.startswith("ATOM") :
@@ -455,8 +528,7 @@ def color_int_residues(pdb_path, residues_to_color, names) :
 
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """
-    Create a dictionary of all interacting residues, including their UniProt IDs.
-
+    Create a dictionary of all interacting residues.
     Parameters:
     ----------
     list_of_list_int : list
@@ -476,41 +548,71 @@ def define_interface (list_of_list_int, int, old_interface_dict) :
     if protein2 not in old_interface_dict.keys() :
         old_interface_dict[protein2] = []
     for line in all_residues_int :
-        line[1] = line[1].strip() #remove readability spaces
+        line[1] = line[1].strip()
         if line[0] != int[0] and "chain" not in line[0] :
             if line[0].split(":")[1] not in list_int_protein1 :
                 list_int_protein1.append(line[0].split(":")[1])
             if line[1].split(":")[1] not in list_int_protein2 :
                 list_int_protein2.append(line[1].split(":")[1])
-    if protein1 == protein2 : #fusion of residues at interface for homo-oligomer
-        for residue in list_int_protein2 :
-            list_int_protein1.append(residue)
-        list_int_protein1 = list(set(list_int_protein1))
-        list_int_protein1.append(protein2)
-        old_interface_dict[protein1].append(list_int_protein1)
-    else :
-        list_int_protein1.append(protein2) #last values of each list is the second proteins
-        list_int_protein2.append(protein1)
-        old_interface_dict[protein1].append(list_int_protein1)
-        old_interface_dict[protein2].append(list_int_protein2)
+    list_int_protein1.append(protein2) #last values of each list is the second proteins
+    list_int_protein2.append(protein1)
+    old_interface_dict[protein1].append(list_int_protein1)
+    old_interface_dict[protein2].append(list_int_protein2)
     return old_interface_dict
 
-def plot_sequence_interface (file) :
+def cluster_interface (interface_dict) :
+    """
+    Compare interface in function of smaller interface and classify them with a letter representing the interface. Each interface is classed with more 
+   
+    Parameters:
+    ----------
+    interface_dict : dict
+
+    Returns:
+    ----------
+    """
+    alphabet = string.ascii_lowercase
+    for proteins in interface_dict.keys() :
+        alpha_index = 0
+        already_inter = list()
+        interface_dict[proteins] = sorted(interface_dict[proteins], key=lambda x : len(x)) #sorted all interface in function of number of residues
+        for interface1 in range(len(interface_dict[proteins])) :
+            if interface1 == 0 : #if it's the first interface, define a
+                interface_dict[proteins][interface1].insert(0,alphabet[0])
+                already_inter.append(alphabet[0])
+            for interface2 in range(interface1+1,len(interface_dict[proteins])) :
+                alpha_index += 1
+                list_inter = list(set(interface_dict[proteins][interface1]).intersection(set(interface_dict[proteins][interface2])))
+                simi_inter = len(list_inter)/(len(set(interface_dict[proteins][interface1]).union(set(interface_dict[proteins][interface2])))-3) #indice jaccard # -3 just to remove interface 'a' and uniprotID from .union()
+                if simi_inter < 0.20: #create a new interface #Bias on small interface
+                    if interface_dict[proteins][interface2][0] in already_inter : #Don't create new interface if it already has one
+                        pass
+                    else :
+                        interface_dict[proteins][interface2].insert(0,alphabet[alpha_index])
+                        already_inter.append(alphabet[alpha_index])
+                else : #if interfaces got more than 0.20 of same residues, it's the same interface
+                    if interface_dict[proteins][interface2][0] in alphabet :
+                       interface_dict[proteins][interface2].pop(0)
+                    interface_dict[proteins][interface2].insert(0,interface_dict[proteins][interface1][0]) #set same letter for same interface
+                    alpha_index -= 1
+    return interface_dict
+
+
+def plot_sequence_interface (file, dict_inter) :
     """
     Generated figures for interface in one sequence.
 
     Parameters:
     ----------
     file : object of File_proteins class
+    dict_inter : dict
 
     Returns:
     ----------
     """
-    cluster_dict = file.get_interface_dict()
-    if not os.path.exists("./interface_fig/") :
-        os.makedirs("./interface_fig/")
-    sequence_dict = file.get_proteins_sequence()
-    dict_inter = file.get_interface_dict()
+    if not os.path.exists("./Interface_fig/") :
+        os.makedirs("./Interface_fig/")
+    sequence_dict = file.get_proteins_sequence_no_SP()
     all_color = ['red','green', 'blue', 'orange', 'purple', 'cyan', 'magenta', 'yellow', 'pink', 'brown','lime', 'indigo', 'violet', 'turquoise', 'teal', 'crimson', 'gold', 'salmon', 'plum', 'chartreuse']
     for uniprotID_main in dict_inter.keys() :
         sequence = sequence_dict[uniprotID_main]
@@ -548,7 +650,7 @@ def plot_sequence_interface (file) :
                         if aa_to_color in index_to_color.keys() and interface_done[interaction[0]] not in index_to_color[aa_to_color] : #add two colour if it's in two interface
                             index_to_color[aa_to_color].append(interface_done[interaction[0]])
         line_adjust = 150 #max aa per line
-        dict_name = file.get_names()
+        dict_name = dict()
         n_lines = (len(sequence) + line_adjust - 1) // line_adjust
         fig, ax = plt.subplots(figsize=(line_adjust / 4, n_lines*1.5)) #Adjust figsize
         for line_index in range(0, len(sequence), line_adjust) :
@@ -576,5 +678,5 @@ def plot_sequence_interface (file) :
         ax.set_xlim(0, line_adjust)
         ax.set_ylim(-n_lines*2, 1)  #Adjust high
         ax.axis('off')
-        plt.savefig("./interface_fig/"+uniprotID_main+"_interface_fig.png", dpi=300, bbox_inches='tight')
+        plt.savefig("./Interface_fig/"+uniprotID_main+"_interface_fig.png", dpi=300, bbox_inches='tight')
         plt.close()
