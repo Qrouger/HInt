@@ -60,7 +60,7 @@ pip install .
 
 **Homo-oligomer** : Oligomerization (integer : 1-20). <br>
 
-**Interact_with** : Proteins names expected to be interacting with (Uniprot name or fasta name)
+**Interact_with** : Proteins names expected to be interacting with (UniprotID or protein fasta name)
 <details>
 <summary>Advanced uses and examples </summary>
 
