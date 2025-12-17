@@ -69,7 +69,7 @@ One bait :
 Interact_with : UniprotID1
 ```
 
-Part of a bait :
+Region of a bait :
 ```
 Interact_with : UniprotID1(20-200)
 ```
