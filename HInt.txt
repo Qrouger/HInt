@@ -4,6 +4,8 @@ Homo-oligomer : 5 #Integer between 2-20
 Interact_with : O50333 #UniprotID/Protein Name #Precise a region (start-end)
 Organism : gram- #gram-, gram+, euk or arch
 DeepLoc :
+AlphaFold : 2 #version 3 or 2
+
 
 ###Paths #All paths are mandatory except Path_MMseqs2_Data
 Path_Uniprot_ID : sequence.txt
