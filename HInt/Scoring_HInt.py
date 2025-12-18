@@ -291,7 +291,7 @@ def Create_figures (file, Informations_dict, AF_version) :
             for prey in possible_prey :
                 if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
                     if AF_version == "2" :
-                        plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}", AF_version)
+                        plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
                     residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
                     if residues_at_interface is not None :
                         color_int_residues(path_int, color_res, proteins, AF_version) #color residue in interaction on the pdb
@@ -506,7 +506,6 @@ def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
         chain1 = "A"
     if AF_version == "2" :
         chain1 = "B"
-    print(residues_to_color)
     names_int = pdb_path.split('/')[2]
     name_prot = names[0]
     save_line = str()

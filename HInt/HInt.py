@@ -48,8 +48,17 @@ if __name__ == "__main__" :
         if bait not in HInt_object.get_proteins() and bait != "" :
             raise Exception(f"Bait {bait} not in the protein list of {Informations_dict['Path_Uniprot_ID']}")
 
+
     #Look at Checkpoint
     need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["Regions"]) #need MSA represnt alos protein who just need SP informations
+
+    for bait in Informations_dict["Interact_with"] :
+        if Informations_dict["Regions"][bait] != "0-0" : #modifying real lenght of bait
+            dict_lenght = HInt_object.get_lenght_prot()
+            start = int(Informations_dict["Regions"][bait].split("-")[0])
+            end = int(Informations_dict["Regions"][bait].split("-")[1])
+            dict_lenght[bait] = end - start + 1
+            HInt_object.set_lenght_prot(dict_lenght)
 
     #Filter with DeepLoc
     if len(need_DeepLoc) > 0 :
@@ -66,12 +75,9 @@ if __name__ == "__main__" :
     need_msa, need_pkl = filter_signalP(HInt_object,Informations_dict, need_msa, need_pkl) #filter proteins with SignalP, if None just describe in dict
 
     #Create MSA features
-    if len(need_msa) > 0 or len(need_pkl) > 0 :
-        start = time.time()
+    if len(need_msa) > 0 or len(need_pkl) > 0 : 
         create_feature(HInt_object, Informations_dict,GPU, need_msa, need_pkl) #run MSA and create pkl files for new proteins
-        end = time.time()
-        elapsed = end - start
-        print("Create feature take "+ str(elapsed/60)+" minutes")
+
     HInt_object.Make_save_dict() #Save SignalP results
 
     print(str(datetime.now())+" Generation of MSA depth figures")
@@ -82,11 +88,7 @@ if __name__ == "__main__" :
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Multimer_bait"] :
             Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait, GPU) #generate bait_vs_prey with new preys
-            start = time.time()
             Generate_3D_model(Informations_dict, "PPI_int", GPU)
-            end = time.time()
-            elapsed = end - start
-            print("3D model generation take "+ str(elapsed/60)+" minutes")
             Score_interaction(HInt_object, Informations_dict, "PPI_int", bait)
             HInt_object.Make_save_dict() #Save scores #Maybe make it for each prot score
     if int(Informations_dict["Homo-oligomer"]) > 1 : #select proteins who can create an homo-oligomer

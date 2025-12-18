@@ -158,7 +158,7 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     
     
 
-def main(job,output_dir,cutoff,surface_thres,ccp4_setup,seq_no_SP,AF_version) :
+def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_version) :
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
@@ -168,7 +168,9 @@ def main(job,output_dir,cutoff,surface_thres,ccp4_setup,seq_no_SP,AF_version) :
     if AF_version == "3" : #for alphafold3
         interaction = job.split("/")[-1]
         bait = interaction.split("_and_")[0]
-        protein = interaction.split("_and_")[1]
+        if "_" in bait :
+            bait = bait.split("_")[0]
+        prey = interaction.split("_and_")[1]
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)
             structure = parser.get_structure('model', os.path.join(result_subdir,'ranked_0_model.cif'))
@@ -186,7 +188,7 @@ def main(job,output_dir,cutoff,surface_thres,ccp4_setup,seq_no_SP,AF_version) :
                 json_data = json.load(json_f)
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
-            seqs = [seq_no_SP[bait],seq_no_SP[protein]]
+            seqs = [seq_no_SP[bait],seq_no_SP[prey]]
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job))
             check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)

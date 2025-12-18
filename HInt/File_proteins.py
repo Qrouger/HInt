@@ -282,7 +282,7 @@ class File_proteins() :
         with open(path_txt,"r") as check_f : #clean ncbi file
             new_fasta = str()
             for line in check_f :
-                if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line :
+                if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     new_fasta += ">" + line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1] + "\n"
                 else :
                     new_fasta += line.replace("*", "")
@@ -299,6 +299,8 @@ class File_proteins() :
                         int_score[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
+                    if "_" in save_prot :
+                        raise ValueError("Please do not put any '_' in the names of the proteins") 
                     new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
                     sequence_SP[save_prot] = ""
@@ -375,9 +377,7 @@ class File_proteins() :
                                 need_msa.append(protein)
                             if protein not in all_info["deeploc"].keys() :
                                 need_DeepLoc.append(protein)
-                            if protein in regions_dict.keys() : #if is a bait
-                                if regions_dict[protein] != "0-0" :
-                                    sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
+
                     else : #protein not in fasta format, so UniprotID is good
                         if protein in all_info["sequence_SP"].keys() :
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
@@ -434,8 +434,7 @@ class File_proteins() :
                     #          names[protein] = name.group(1)
                     for car in del_car :
                         sequences_SP[protein] = sequences_SP[protein].replace(car,"")
-                    if protein in regions_dict.keys() and regions_dict[protein] != "0-0" :
-                        sequences_SP[protein] = sequences_SP[protein][int(regions_dict[protein].split("-")[0])-1:int(regions_dict[protein].split("-")[1])]
+
                     os.remove("log_file/temp_file.txt")
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False : #proteins without msa
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files

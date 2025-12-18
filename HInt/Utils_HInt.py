@@ -17,6 +17,7 @@ from datetime import datetime
 from numpy import load
 from Bio import SeqIO
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # Configure global logger
@@ -305,58 +306,39 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
     logger.info(f"Search MSA in AlphaFold database")
-    for protein in generated_msa : #check if prot have an MSA in alphafold database
-        l_p = len(protein)
-        if l_p >= 5 and l_p <= 10 : #if not, is not an UniprotID
-            url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
-            name_file = Path_Pickle_Feature + "/" + protein +".a3m"
-            outfile = os.path.basename(url)
-            check = subprocess.run(["wget", "--spider", "-q", url])
-            if check.returncode == 1 : #normaly 0
-                subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
-                logger.info(f"MSA for {protein} found in AF database")
-                need_msa.remove(protein) #msa found
-                need_pkl.append(protein)
 
-                #Cut SP for all MSA
-                msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
-                SP = len(prot_SP[protein])-len(prot_no_SP[protein])
-                if SP > 0 : #if no SP don't modify the MSA
-                    logger.info(f"Remove SP from MSA")
-                    trimmed_records = []
-                    for rec in SeqIO.parse(msa_in, "fasta") :
-                        new_seq = rec.seq[SP:]  #cut SP from MSA
-                        if any(c.isupper() for c in str(new_seq)): #remove empty sequence
-                            new_rec = rec[:]
-                            new_rec.seq = new_seq
-                            trimmed_records.append(new_rec)
-                    if trimmed_records : #if objects is not empty
-                        with open(msa_in, "w") as msa_file : #overwrites the old MSA
-                            for rec in trimmed_records:
-                                msa_file.write(f">{rec.description}\n{rec.seq}\n")
-                    num_cpus_os = os.cpu_count()
-                    os.system(f"mafft --quiet --anysymbol --thread {num_cpus_os} --auto {Path_Pickle_Feature}/{protein}.a3m > {Path_Pickle_Feature}/{protein}.aln") #realign the new cut MSA
-                    os.system(f"reformat.pl fas a3m {Path_Pickle_Feature}/{protein}.aln {Path_Pickle_Feature}/{protein}.a3m")
-                    os.system(f"rm {Path_Pickle_Feature}/{protein}.aln")
+    # ThreadPool to parallelise
+    n_cpu = multiprocessing.cpu_count()
+    cpu_per_mafft = 2
+    max_workers = max(1, n_cpu // cpu_per_mafft)  # how many mafft in parallel
+    futures_list = []
 
-                    #Delete \n
-                    all_lines = str()
-                    with open(f"{Path_Pickle_Feature}/{protein}.a3m","r") as in_a3m :
-                        seq = ""
-                        header = None
-                        for line in in_a3m:
-                            if line.startswith(">") :
-                                if header:
-                                    all_lines += f"{header}\n{seq}\n"
-                                header = line.strip()
-                                seq = ""
-                            else:
-                                seq += line.strip()
-                        if header :
-                            all_lines += f"{header}\n{seq}\n"
-                    with open(f"{Path_Pickle_Feature}/{protein}.a3m","w") as out_a3m :
-                        out_a3m.write(all_lines)
+    start = time.time()
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor : #CPU parallelization
+        for protein in generated_msa : #check if prot have an MSA in alphafold database
+            l_p = len(protein)
+            if l_p >= 5 and l_p <= 10 : #if not, is not an UniprotID
+                url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
+                name_file = Path_Pickle_Feature + "/" + protein +".a3m"
+                outfile = os.path.basename(url)
+                check = subprocess.run(["wget", "--spider", "-q", url])
+                if check.returncode == 0 : #normaly 0
+                    subprocess.run(["wget", "-q", "-O",name_file , url], check=True)
+                    logger.info(f"MSA for {protein} found in AF database")
+                    need_msa.remove(protein) #msa found
+                    need_pkl.append(protein)
 
+                    #Cut SP for MSA with SP
+                    msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
+                    SP = len(prot_SP[protein])-len(prot_no_SP[protein])
+                    if SP > 0 : #if no SP don't modify the MSA
+                        logger.info(f"[{protein}] Remove SP from MSA")
+                        futures_list.append(executor.submit(trim_and_mafft, protein, Path_Pickle_Feature, SP)) #cut MSA in parallel with MSA research
+                    
+
+    for future in as_completed(futures_list):
+        future.result() #wait all mafft
     file.create_fasta_file(False, need_msa, need_pkl)
 
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
@@ -380,7 +362,9 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
-        
+    end = time.time()
+    elapsed = end - start
+    print("Create MSA take "+ str(elapsed/60)+" minutes")
     #Create pkl files for proteins without pkl file # optimisation of this part with CPU/split
     if os.path.isfile(f"log_file/{pkl_name}") == True :
         cmd2 = ["create_individual_features.py",
@@ -392,11 +376,72 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         "--skip_existing=True",
         "--use_mmseqs2=True",
         "--use_precomputed_msas=True"]
-        process = subprocess.Popen(cmd2, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-        for line in process.stdout:
-            logger.info(line)
+        process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
             
+
+def trim_and_mafft(protein, Path_Pickle_Feature, SP):
+    """
+    Cut signal peptide and re align with mafft.
+
+    Parameters:
+    ----------
+    protein : string
+    Path_Pickle_Feature : string
+    SP : int
+
+    Returns:
+    ----------
+    """
+    msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
+
+    
+    #cut SP
+    trimmed_records = []
+    for rec in SeqIO.parse(msa_in, "fasta") :
+        new_seq = rec.seq[SP:]
+        len_aa_count = sum(1 for c in new_seq if c.isupper())
+        if len_aa_count < 10 or not any(c.isupper() for c in str(new_seq)) : #skip short sequence after SP cut or sequence don't have aa
+            continue
+        new_rec = rec[:]
+        new_rec.seq = new_seq
+        trimmed_records.append(new_rec)
+            
+    if trimmed_records :
+        with open(msa_in, "w") as msa_file :
+            for rec in trimmed_records :
+                msa_file.write(f">{rec.description}\n{rec.seq}\n")
+    
+    #realign with mafft
+    aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
+    cmd_mafft = f"mafft --quiet --anysymbol --thread 2 --parttree --retree 1 --maxiterate 0 {msa_in} > {aln_out}"
+    subprocess.run(cmd_mafft, shell=True, check=True)
+    
+    #reformat a3m
+    cmd_reformat = f"reformat.pl fas a3m {aln_out} {msa_in}"
+    subprocess.run(cmd_reformat, shell=True, check=True)
+    cmd_rm_f = f"rm {aln_out}"
+    subprocess.run(cmd_rm_f, shell=True, check=True)
+
+    #delete \n
+    all_lines = ""
+    with open(msa_in, "r") as in_a3m:
+        seq, header = "", None
+        for line in in_a3m:
+            if line.startswith(">"):
+                if header:
+                    all_lines += f"{header}\n{seq}\n"
+                header = line.strip()
+                seq = ""
+            else:
+                seq += line.strip()
+        if header:
+            all_lines += f"{header}\n{seq}\n"
+    with open(msa_in, "w") as out_a3m:
+        out_a3m.write(all_lines)
+
+
+
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
@@ -589,28 +634,22 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
         if complexe == True :
             bait_file = save_multimer.replace(",","_and_")
             for prot in save_multimer.split(",") :
+                lenght += lenght_prot[prot]
                 if regions[prot] != "0-0" :
                     start = int(regions[prot].split("-")[0])
                     end = int(regions[prot].split("-")[1])
-                    lenght = end - start + 1
                     bait_file = bait_file.replace(prot,f"{prot}_{start}-{end}")
-                else :
-                    lenght += lenght_prot[prot]
             bait = save_multimer.replace(",",";")
-        if bait in regions.keys() and complexe == False :
+        else : #if complexe == False
+            lenght = lenght_prot[bait]
             if regions[bait] != "0-0" :
                 start = int(regions[bait].split("-")[0])
                 end = int(regions[bait].split("-")[1])
                 bait_file = f"{bait}_{start}-{end}"
-                lenght = end - start + 1
-        if complexe == False :
-            lenght = lenght_prot[bait]
-            bait_file = bait
-        #nbr_prey = 0
+            else :
+                bait_file = bait
         for prey in possible_prey :
             int_lenght = lenght + lenght_prot[prey]
-            #if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
-            #    break
             if AF_version == "3" :
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0_model.cif")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0_model.cif")
@@ -626,7 +665,6 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
                     OOM_int += OOM_int + bait + ";" + prey + "\n"
                     result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions : AF OOM"
             else :
-                #nbr_prey += 1
                 pass
     if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict["Homo-oligomer"]
