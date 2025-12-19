@@ -168,8 +168,8 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     if AF_version == "3" : #for alphafold3
         interaction = job.split("/")[-1]
         bait = interaction.split("_and_")[0]
-        if "_" in bait :
-            bait = bait.split("_")[0]
+        if "-" in bait :
+            bait = bait.split("_")[:-1]
         prey = interaction.split("_and_")[1]
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)

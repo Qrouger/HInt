@@ -299,8 +299,6 @@ class File_proteins() :
                         int_score[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
-                    if "_" in save_prot :
-                        raise ValueError("Please do not put any '_' in the names of the proteins") 
                     new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
                     sequence_SP[save_prot] = ""
@@ -317,7 +315,7 @@ class File_proteins() :
     
     def check_save_dict (self, Path_Pickle_Feature, regions_dict) :
         """
-        Check in a save dictionary which step for which protein have already been done. Take the sequence from it and return a list of proteins that do not have a MSA, pkl file or DeepLoc informations.
+        Check in the save dictionary which step for which protein have already been done. Take the sequence from it and return a list of proteins that do not have a MSA, pkl file or DeepLoc informations.
 
         Parameters:
         ----------

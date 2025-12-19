@@ -20,6 +20,7 @@ from scipy.special import softmax
 from Bio import PDB
 import copy
 import string
+from pathlib import Path
 
 # Configure global logger
 logging.basicConfig(
@@ -322,7 +323,7 @@ def plot_Distogram (job) :
     else :
         with open(path_file, "rb") as f :
             results = pickle.load(f)
-    if "distogram" in results.keys() : #avoid error from APD release 
+    if "distogram" in results.keys() and os.path.exists(f'{job}/result_{best_model}.dmap.png') == False : #avoid error from APD release 
         bin_edges = results["distogram"]["bin_edges"]
         bin_edges = np.insert(bin_edges, 0, 0)
         distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
@@ -343,6 +344,7 @@ def plot_Distogram (job) :
            ax.axvline(initial_lenght, color="black", linewidth=1.5)
         plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
         plt.close()
+        os.remove(f"{job}/result_{best_model}.dmap")
         del dist
         del results
         del distogram_softmax
@@ -363,6 +365,10 @@ def make_table_res_int (file, path_int, bait, AF_version) :
 
     Returns:
     ----------
+    residues_at_interface[names_int] : list
+    proteins : string
+    path_int : string
+    color_res : dict
     """
     parser = PDB.PDBParser(QUIET=True)
     names_int = path_int.split('/')[2]
@@ -470,7 +476,6 @@ def make_table_res_int (file, path_int, bait, AF_version) :
             interaction = resA[0] + resB[0]
             dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
 
-
     residues_at_interface = dict()
     residues_at_interface[names_int] = []
     for chains in dict_int.keys() :
@@ -528,6 +533,7 @@ def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """
     Create a dictionary of all interacting residues.
+    
     Parameters:
     ----------
     list_of_list_int : list
@@ -536,6 +542,7 @@ def define_interface (list_of_list_int, int, old_interface_dict) :
 
     Returns:
     ----------
+    old_interface_dict : dict
     """
     all_residues_int = copy.deepcopy(list_of_list_int)
     protein1 = int[0]
@@ -561,7 +568,7 @@ def define_interface (list_of_list_int, int, old_interface_dict) :
 
 def cluster_interface (interface_dict) :
     """
-    Compare interface in function of smaller interface and classify them with a letter representing the interface. Each interface is classed with more 
+    Compare interface in function of smaller interface and classify them with a letter representing the interface.
    
     Parameters:
     ----------
@@ -569,6 +576,7 @@ def cluster_interface (interface_dict) :
 
     Returns:
     ----------
+    interface_dict : dict
     """
     alphabet = string.ascii_lowercase
     for proteins in interface_dict.keys() :

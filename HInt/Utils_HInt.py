@@ -123,15 +123,15 @@ def Define_informations() :
                 Informations_dict[informations_key] = "1"
         if informations_key == "DeepLoc" :
             if Informations_dict["Organism"] == "euk" : #euk
-                for value in Informations_dict[informations_key].split(",") :
-                    if value not in ["Cytoplasm", "Nucleus", "Extracellular", "Cell membrane", "Mitochondrion", "Plastid", "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgo apparatus", "Peroxisome","None"] :
+                for value in Informations_dict[informations_key].split(","):
+                    if value.strip()  not in ["Cytoplasm", "Nucleus", "Extracellular", "Cell membrane", "Mitochondrion", "Plastid", "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgo apparatus", "Peroxisome","None"] :
                         raise ValueError(f"Incorrect DeepLoc value : {value}")
             else : #other
-                for value in Informations_dict[informations_key].split(",") :
-                    if value not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
+                for value in Informations_dict[informations_key].split(","):
+                    if value.strip()  not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
-        logger.info("Need information to discriminate the potential homolog")
+        logger.info("Need information to discriminate the potential homolog/interolog")
         exit()
     return(Informations_dict)
 
@@ -233,8 +233,13 @@ def run_SP (file, Informations_dict, need_prot) :
     file_name = file.get_file_name()
     fasta_file = file_name.replace(".txt","_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
+    new_fasta_dict = file.get_proteins_sequence_no_SP()
 
-    file.create_fasta_file(True, need_prot)
+    for protein in need_prot :
+        if protein in new_fasta_dict.keys() : #protein need MSA but already have sequence without SP
+            need_SP.append(protein)
+
+    file.create_fasta_file(True, need_SP)
     cmd1 = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
     os.system(cmd1)
     file_signalp = fasta_file.replace(".fasta","_summary.signalp5")
@@ -243,7 +248,6 @@ def run_SP (file, Informations_dict, need_prot) :
             new_line = line.split("\t")
             if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                 prot_SP[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
-    new_fasta_dict = file.get_proteins_sequence_no_SP()
     with open(f"log_file/{fasta_file}", "r") as fa_file :
         for line2 in fa_file :
             new_line2 = line2
@@ -318,7 +322,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     with ThreadPoolExecutor(max_workers=max_workers) as executor : #CPU parallelization
         for protein in generated_msa : #check if prot have an MSA in alphafold database
             l_p = len(protein)
-            if l_p >= 5 and l_p <= 10 : #if not, is not an UniprotID
+            if l_p >= 5 and l_p <= 10 and "_" not in protein : #if not, is not an UniprotID
                 url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
                 name_file = Path_Pickle_Feature + "/" + protein +".a3m"
                 outfile = os.path.basename(url)
@@ -337,12 +341,14 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
                         futures_list.append(executor.submit(trim_and_mafft, protein, Path_Pickle_Feature, SP)) #cut MSA in parallel with MSA research
                     
 
-    for future in as_completed(futures_list):
+    for future in as_completed(futures_list) :
         future.result() #wait all mafft
     file.create_fasta_file(False, need_msa, need_pkl)
 
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
     if len(need_msa) > 10 :
+        if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
+            GPU_str = GPU_str[:-2]
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
         os.system(cmd)
 
@@ -558,7 +564,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     new_need_msa : list
     new_need_pkl : list
     """
-    localisation = Informations_dict["DeepLoc"].split(",")
+    localisation = Informations_dict["DeepLoc"].split(",").strip()
     deeploc = file.get_deeploc()
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
