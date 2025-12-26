@@ -80,7 +80,7 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     exists = any("pi_score" in env for env in envs)
     if not exists:
         subprocess.run([
-            "conda", "create", "-y", "-n", "pi_score",
+            "conda", "create", "-y", "-c", "conda-forge", "-n", "pi_score",
             "python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"
         ], check=True)
 
