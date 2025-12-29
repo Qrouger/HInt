@@ -284,6 +284,8 @@ class File_proteins() :
             for line in check_f :
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     new_fasta += ">" + line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1] + "\n"
+                elif line[0] == ">" and " " in line :
+                    new_fasta += line.split(" ")[0]
                 else :
                     new_fasta += line.replace("*", "")
         with open(path_txt,"w") as w_file :
