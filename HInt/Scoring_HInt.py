@@ -289,8 +289,12 @@ def Create_figures (file, Informations_dict, AF_version) :
                 bait_file = f"{bait}_{start}-{end}"
             else :
                 bait_file = bait
+            index_p = 0
             for prey in possible_prey :
                 if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
+                    index_p += 1
+                    if index_p >= 50 :  #if more than 50 possible preys take only 50 better
+                        break
                     if AF_version == "2" :
                         plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
                     residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
