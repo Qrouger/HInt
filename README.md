@@ -53,6 +53,9 @@ pip install .
 # 2.Example 
 ## Folder structure
 ## Setup HInt.txt
+## Setup protein file
+The bait protein need to be in this file <br>
+The use of UniprotIDs is recommended for pipeline speed
 ## Run HInt
 
 # 3.All parameters
