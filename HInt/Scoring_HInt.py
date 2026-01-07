@@ -307,7 +307,7 @@ def Create_figures (file, Informations_dict, AF_version) :
                         plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
                     residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
                     if residues_at_interface is not None :
-                        color_int_residues(path_int, color_res, proteins, AF_version) #color residue in interaction on the pdb
+                        color_int_residues(path_int, color_res, proteins) #color residue in interaction on the pdb
                         interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict)
             interface_dict = cluster_interface(interface_dict)
             plot_sequence_interface(file,interface_dict)
@@ -505,7 +505,7 @@ def make_table_res_int (file, path_int, bait, AF_version) :
     else :
         return None,None,None,None
 
-def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
+def color_int_residues(pdb_path, residues_to_color, names) :
     """
     Color residues in interaction in a PDB file.
    
@@ -514,33 +514,36 @@ def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
     pdb_path : string
     residues_to_color : dict
     names : string
-    AF_version : string
     
-    Returns:
     ----------
     """
-    if AF_version == "3" :
-        chain1 = "A"
-    if AF_version == "2" :
-        chain1 = "B"
     names_int = pdb_path.split('/')[2]
-    name_prot = names[0]
-    save_line = str()
-    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', 'r') as file :
-        for line in file:
+    save_lines = list()
+    first_chain = None
+    current_prot = names[0]
+    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', "r") as file_in : 
+        for line in file_in :
             if line.startswith("ATOM") :
-                chain2 = line[21]
-                if chain1 != chain2 :
-                   name_prot = names[1] #use new dict to color atoms
+                chain = line[21]
+
+                if first_chain is None :
+                    first_chain = chain
+
+                if chain != first_chain :
+                    current_prot = names[1]
+
                 res_num = line[22:26].strip()
-                if res_num in residues_to_color[name_prot] : #change B-factor in color interaction residue
+                if res_num in residues_to_color[current_prot] :
                     line = line[:60] + " 100  " + line[66:]
                 else :
                     line = line[:60] + " 0    " + line[66:]
-                chain1 = line[21]
-            save_line += line
-    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', 'w') as writer:
-        writer.write(save_line)
+            save_lines.append(line)
+
+    with open(f'{pdb_path}/{names_int}_ranked_0.pdb', "w") as writer :
+        writer.writelines(save_lines)
+
+
+
 
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """

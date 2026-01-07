@@ -17,6 +17,7 @@ from datetime import datetime
 from numpy import load
 from Bio import SeqIO
 import time
+import queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -640,157 +641,149 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     return(new_need_msa, new_need_pkl)
 
 
-def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
+def Generate_scripts(file, Informations_dict, Interaction_file, bait):
     """
-    Write one local script to use AlphaPullDown. This script should be written based on the maximum number of amino acids.
+    Prepare the list of interaction jobs for AlphaPullDown based on protein length
+    and GPU VRAM constraints.
 
     Parameters:
     ----------
     file : object of class File_proteins
-    Informations_dict : dictionnary
-    Interaction_file : string
-    bait : string
-    GPU : list
+    Informations_dict : dict
+    Interaction_file : str
+    bait : str
 
     Returns:
     ----------
+    job_list : list of str
     """
-    all_lines = str()
-    OOM_int = str()
+    job_list = []
+    OOM_int = ""
     result_dict = file.get_result_dict()
-    Multimer_bait = Informations_dict["Multimer_bait"]
-    regions = Informations_dict["Regions"]
     AF_version = Informations_dict["AlphaFold"]
     possible_prey = file.get_possible_prey()
     lenght_prot = file.get_lenght_prot()
-    save_lenght_line = dict()
-    #found max amino acids for your GPU
+    regions = Informations_dict["Regions"]
+
+    # Estimate max amino acids based on GPU VRAM (choose first GPU as reference)
+    import pynvml
     pynvml.nvmlInit()
-    device_count = pynvml.nvmlDeviceGetCount()
-    for i in range(len(GPU)):
-        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        name = pynvml.nvmlDeviceGetName(handle)
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        vram = (mem_info.total / 1024**2) * 0.001 # in MiB
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    vram = (mem_info.total / 1024**2) * 0.001  # GiB
+    max_aa = int(vram * 120)  # 120 AA per GiB VRAM
     pynvml.nvmlShutdown()
-    max_aa = int(vram * 120) #120 aa per Go of vram
-    start = 0
-    end = 0
-    complexe = False
-    if len(bait.split(",")) > 1 :
-        complexe = True
+
+    # Determine bait length and region
+    complexe = "," in bait
+    if complexe :
         save_multimer = bait
-        lenght_mult = 0
-        for prot in bait.split(",") :
-            lenght_mult += lenght_prot[prot]
-        if lenght_mult >= max_aa/2 :
-            logger.info(f"/!\ Multimer bait lenght {bait} is large compare to your GPU Vram")
-    lenght = 0
+        bait_file = save_multimer.replace(",", "_and_")
+        lenght = sum(lenght_prot[prot] for prot in save_multimer.split(","))
+        for prot in save_multimer.split(",") :
+            if regions[prot] != "0-0":
+                start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
+                bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
+        bait_for_job = save_multimer.replace(",", ";")
+    else :
+        lenght = lenght_prot[bait]
+        if regions[bait] != "0-0" :
+            start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
+            bait_file = f"{bait}_{start}-{end}"
+        else: 
+            bait_file = bait
+        bait_for_job = bait
+
+    # Build job list
     if Interaction_file == "PPI_int" :
-        if complexe == True :
-            bait_file = save_multimer.replace(",","_and_")
-            for prot in save_multimer.split(",") :
-                lenght += lenght_prot[prot]
-                if regions[prot] != "0-0" :
-                    start = int(regions[prot].split("-")[0])
-                    end = int(regions[prot].split("-")[1])
-                    bait_file = bait_file.replace(prot,f"{prot}_{start}-{end}")
-            bait = save_multimer.replace(",",";")
-        else : #if complexe == False
-            lenght = lenght_prot[bait]
-            if regions[bait] != "0-0" :
-                start = int(regions[bait].split("-")[0])
-                end = int(regions[bait].split("-")[1])
-                bait_file = f"{bait}_{start}-{end}"
-            else :
-                bait_file = bait
         for prey in possible_prey :
             int_lenght = lenght + lenght_prot[prey]
-            if AF_version == "3" :
+
+            # Check if model already exists
+            if AF_version == "3":
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0_model.cif")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0_model.cif")
-            if AF_version == "2" :
+            else:  # AF_version == "2"
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
-            int_script = bait_file.replace("_and_",";") 
-            int_script = int_script.replace("_",",") 
-            if len(path1) == 0 and len(path2) == 0 : #if model don't exist
-                if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
-                    save_lenght_line[f"{bait_file}_and_{prey}"] = [int_lenght, f"{int_script};{prey}\n"]
-                else : #if interaction is too large
-                    OOM_int += OOM_int + bait + ";" + prey + "\n"
-                    result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions : AF OOM"
-            else :
-                pass
-    if Interaction_file == "homo_int" :
-        nbr_oligo = Informations_dict["Homo-oligomer"]
-        nbr_prey = 0
+
+            if len(path1) == 0 and len(path2) == 0 :
+                if int_lenght <= max_aa:
+                    job_str = f"{bait_for_job};{prey}\n"
+                    job_list.append(job_str)
+                else :
+                    OOM_int += f"{bait_for_job};{prey}\n"
+                    result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions: AF OOM"
+
+    elif Interaction_file == "homo_int" :
+        nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
-            if nbr_prey > 100 : #take 100 int if filtred is not sufficient # need to verify 100 first ?
-                break
             path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
-            if len(path) == 0 : #if model don't exist
-                if int_lenght <= max_aa: #make interaction if doesn't exist and is not too long
-                    save_lenght_line[f"{prey}_homer_{nbr_oligo}er"] = [int_lenght, f"{prey}:{nbr_oligo}\n"]
-                    nbr_prey += 1
-                else : #if interaction is too large
-                    OOM_int += prey + ":" + nbr_oligo + "\n"
+            if len(path) == 0 :
+                if int_lenght <= max_aa :
+                    job_str = f"{prey}:{nbr_oligo}\n"
+                    job_list.append(job_str)
+                else :
+                    OOM_int += f"{prey}:{nbr_oligo}\n"
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
-            else :
-                nbr_prey += 1
-                pass
-    dict_split_GPU = Split_to_GPU(file, save_lenght_line, GPU)
-    for GPU_i in dict_split_GPU.keys() :
-        with open(f"log_file/{Interaction_file}_{GPU_i}.txt",'w') as final_file :
-            final_file.write(dict_split_GPU[GPU_i])
+
+
+    # Save OOM interactions
     with open("log_file/OOM_interactions.txt", "w") as OOM_file :
         OOM_file.write(OOM_int)
+
     file.set_result_dict(result_dict)
 
-def Generate_3D_model (Informations_dict, Interaction_file, GPU) :
+    return job_list
+
+
+def Generate_3D_model(Informations_dict, interaction_type, job_list, GPU) :
     """
-    Use Alphapulldown script to generate 3D models.
+    Genrerate 3D models using multiple GPUs and multiprocessing.
 
     Parameters:
     ----------
-    Informations_dict : dictionnary
-    Interaction_file : string
+    Informations_dict : dict
+    interaction_files : str
+    job_list : list
     GPU : list
-
-    Returns:
-    ----------
     """
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    start_time = datetime.now()
+
+    job_queue = multiprocessing.Queue()
+
+    for interaction in job_list :
+        job_queue.put(interaction)
+
     processes = []
-    for gpu_id in GPU:
-        p = multiprocessing.Process(
-            target=run_AF_on_gpu,
-            args=(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature, AF_version)
-        )
+    start_time = datetime.now()
+
+    for gpu_id in GPU :
+        p = multiprocessing.Process(target=gpu_worker, args=(gpu_id,job_queue,Path_AlphaFold_Data,Path_Pickle_Feature,interaction_type,AF_version))
         p.start()
         processes.append(p)
-    for p in processes:
-        p.join()
-    end_time = datetime.now()
-    logger.info("Time modelisation : %s\n", end_time - start_time)
 
-def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Feature, AF_version):
+    for p in processes :
+        p.join()
+
+    logger.info("Time modelisation : %s", datetime.now() - start_time)
+
+
+def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version) :
     """
-    Run the AlphaFold script on a specific GPU.
+    Run the AlphaFold script on a specific GPU, allows parallel processing of jobs on multiple GPUs.
 
     Parameters:
     ----------
-    gpu_id : int
-    Interaction_file : string
-    Path_AlphaFold_Data : string
-    Path_Pickle_Feature : string
-
-    Returns:
-    ----------
+    gpu_id : str
+    job_queue : list
+    Path_AlphaFold_Data : str
+    Path_Pickle_Feature : str
+    interaction_type : str
+    AF_version : str
     """
     #for H100, cluster ?
     # JAX-specific optimizations
@@ -806,55 +799,38 @@ def run_AF_on_gpu(gpu_id, Interaction_file, Path_AlphaFold_Data, Path_Pickle_Fea
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
-    if AF_version == "2" :
-        cmd =f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=False \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False"
-    if AF_version == "3" :
-        cmd =f"run_multimer_jobs.py --mode=custom \--output_path=./result_{Interaction_file} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{Interaction_file}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--fold_backend=alphafold3"
-    log_file = f"log_file/log_GPU_{gpu_id}.txt"
-    run_cmd(cmd, env=env)
+
+    while True:
+        try:
+            interaction_file = job_queue.get(timeout=5)
+        except queue.Empty :
+            break  #all jobs are done
+
+        logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
+        with open(f"log_file/{interaction_type}_GPU_{gpu_id}.txt", "w") as int_file :
+            int_file.write(interaction_file)
+
+        if AF_version == "2" :
+            cmd = (f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{interaction_type} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False")
+
+
+        elif AF_version == "3" :
+            cmd = (
+                f"run_multimer_jobs.py --mode=custom "
+                f"--output_path=./result_{interaction_type} "
+                f"--data_dir={Path_AlphaFold_Data} "
+                f"--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt "
+                f"--monomer_objects_dir={Path_Pickle_Feature} "
+                f"--fold_backend=alphafold3"
+            )
+        run_cmd(cmd, env=env)
+        cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
+        os.system(cmd_rm)
+        logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
 
 
-def Split_to_GPU(file, save_lenght_line, GPU) :
-    """
-    Split interactions in function of their lenght on the least loaded GPU.
 
-    Parameters:
-    ----------
-    file : object of class File_proteins
-    save_lenght_line : dictionnary
-    GPU : list
-
-    Returns:
-    ----------
-    dict_split_GPU : dictionnary
-    """
-    sorted_list = list(sorted(save_lenght_line.items(), key=lambda item: item[1][0], reverse = True)) #sorted in function of interaction lenght
-    dict_split_GPU = dict()
-    gpu_loads = dict()
-    lenght_prot = list()
-    for interactions in sorted_list :
-        lenght_prot.append(interactions[1][0])
-    mid_aa = sum(lenght_prot) // len(GPU)  #algo mid_aa
-    for nbr_GPU in GPU :
-        dict_split_GPU[f"GPU_{nbr_GPU}"] = ""
-        gpu_loads[f"GPU_{nbr_GPU}"] = 0
-    for interactions in sorted_list :
-        placed = False
-        for target_gpu in dict_split_GPU.keys() :
-            if gpu_loads[target_gpu]+interactions[1][0] <= mid_aa :
-                dict_split_GPU[target_gpu] += interactions[1][1]
-                gpu_loads[target_gpu] += interactions[1][0]
-                placed = True
-                break
-
-    # If all GPU are above mid_aa, place on the least loaded GPU
-        if not placed:
-            target_gpu = min(gpu_loads, key=gpu_loads.get)
-            dict_split_GPU[target_gpu] += interactions[1][1]
-            gpu_loads[target_gpu] += interactions[1][0]
-
-    return dict_split_GPU
 
 @staticmethod
 def run_cmd(cmd, env=None):
@@ -863,7 +839,7 @@ def run_cmd(cmd, env=None):
 
     Parameters:
     ----------
-    cmd : string
+    cmd : str
     env : dict
 
     Returns:
