@@ -45,7 +45,7 @@ def Define_informations() :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_lenght", "Min_protein_lenght", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -57,7 +57,7 @@ def Define_informations() :
         if info not in Informations_dict.keys() : #if settings file is not authentic
             if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_lenght","Min_protein_lenght"] :
                 Informations_dict[info] = ""
     for informations_key in Informations_dict.keys() : #verify all informations and set default value
         if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
@@ -84,6 +84,11 @@ def Define_informations() :
             elif informations_key == "AlphaFold" :
                 Informations_dict[informations_key] = "2"
                 logger.info("Set AlphaFold version by default on AlphaFold2")
+            elif informations_key == "Min_protein_lenght" :
+                Informations_dict[informations_key] = "30"
+                logger.info("Minimum lenght for prey protein set default 30 AA")
+            elif informations_key == "Max_protein_lenght" :
+                Informations_dict[informations_key] = ""
         if informations_key == "Interact_with" :
             regions_dict = dict()
             new_baits_list = list()
@@ -214,7 +219,7 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
 
 def run_SP (file, Informations_dict, need_prot) :
     """
-    Create a new FASTA file without the signal peptide using SignalP and filtred signal peptide.
+    Create a new FASTA file without the signal peptide using SignalP.
     If protein have already msa but no sequence without SP don't return it.
 
     Parameters:
@@ -234,14 +239,15 @@ def run_SP (file, Informations_dict, need_prot) :
     fasta_file = file_name.replace(".txt","_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
     new_fasta_dict = file.get_proteins_sequence_no_SP()
+    need_SP = list()
 
     for protein in need_prot :
-        if protein in new_fasta_dict.keys() : #protein need MSA but already have sequence without SP
+        if protein not in new_fasta_dict.keys() : #protein need MSA but can already have sequence without SP
             need_SP.append(protein)
-
     file.create_fasta_file(True, need_SP)
     cmd1 = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
     os.system(cmd1)
+
     file_signalp = fasta_file.replace(".fasta","_summary.signalp5")
     with open(f"log_file/{file_signalp}","r") as fh :
         for line in fh :
@@ -270,15 +276,16 @@ def run_SP (file, Informations_dict, need_prot) :
     file.set_proteins_sequence_no_SP(new_fasta_dict)
     return need_msa
 
-def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
+def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     """
-    Launch command to generate features.
+    Launch command to generate MSA and feature pickle.
 
     Parameters:
     ----------
     file : object of class File_proteins
     informations_dict : dict
     GPU : list
+    CPU : intS
     need_msa : list
     need_pkl : list
 
@@ -312,9 +319,8 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
     logger.info(f"Search MSA in AlphaFold database")
 
     # ThreadPool to parallelise
-    n_cpu = multiprocessing.cpu_count()
     cpu_per_mafft = 2
-    max_workers = max(1, n_cpu // cpu_per_mafft)  # how many mafft in parallel
+    max_workers = max(1, CPU // cpu_per_mafft)  # how many mafft in parallel
     futures_list = []
 
     start = time.time()
@@ -370,7 +376,7 @@ def create_feature (file, Informations_dict, GPU, need_msa, need_pkl) :
         stdout, stderr = process.communicate()
     end = time.time()
     elapsed = end - start
-    print("Create MSA take "+ str(elapsed/60)+" minutes")
+    logger.info("Create MSA take "+ str(elapsed/60)+" minutes")
     #Create pkl files for proteins without pkl file # optimisation of this part with CPU/split
     if os.path.isfile(f"log_file/{pkl_name}") == True :
         cmd2 = ["create_individual_features.py",
@@ -450,7 +456,7 @@ def trim_and_mafft(protein, Path_Pickle_Feature, SP):
 
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
-    Filter proteins based on the presence of a signal peptide using SignalP results.
+    Filter proteins based on the presence of a signal peptide using SignalP results, if not specified keep all proteins and just describe them in the result file.
 
     Parameters:
     ----------
@@ -484,6 +490,8 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
                 need_msa.remove(protein)
             if protein in need_pkl :
                 need_pkl.remove(protein)
+    if SignalP != "None" :
+        logger.info("Protein remaining after SignalP filtering : " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
@@ -548,6 +556,47 @@ def Make_all_MSA_coverage (file, Path_Pickle_Feature) :
     file.set_result_dict(result_dict)
 
 
+def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
+    """
+    Filter proteins based on their lenght and set new prey list.
+
+    Parameters:
+    ----------
+    file : object of class File_proteins
+    Informations_dict : dict
+    need_msa : list
+    need_pkl : list
+    need_DeepLoc : list
+
+    Returns:
+    ----------
+    """
+    result_dict = file.get_result_dict()
+    sequence_dict = file.get_proteins_sequence_SP() #use sequence with SP for lenght filtering
+    possible_prey = file.get_possible_prey()
+    if Informations_dict["Max_protein_lenght"] == "" : #no set by default, depend of GPU memory
+        max_lenght = 100000
+    else :
+        max_lenght = int(Informations_dict["Max_protein_lenght"])
+    min_lenght = int(Informations_dict["Min_protein_lenght"]) #set by default to 30
+    new_possible_prey = list()
+    for protein in possible_prey :
+        if len(sequence_dict[protein]) < max_lenght and len(sequence_dict[protein]) > min_lenght :
+            new_possible_prey.append(protein)
+        else :
+            result_dict[protein]["Reason_for_filtering"] = "Lenght filtering"
+            if protein in need_msa :
+                need_msa.remove(protein)
+            if protein in need_pkl :
+                need_pkl.remove(protein)
+            if protein in need_DeepLoc :
+                need_DeepLoc.remove(protein)
+    logger.info("Protein remaining after lenght filtering : " + str(len(new_possible_prey)))
+    file.set_possible_prey(new_possible_prey)
+    file.set_result_dict(result_dict)
+    return(need_msa, need_pkl, need_DeepLoc)
+
+
 def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on cellular localisation and set new prey list and new need_msa/need_pkl list.
@@ -564,7 +613,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     new_need_msa : list
     new_need_pkl : list
     """
-    localisation = Informations_dict["DeepLoc"].split(",").strip()
+    localisation = Informations_dict["DeepLoc"].split(",")
     deeploc = file.get_deeploc()
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
@@ -585,6 +634,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     for prot_pkl in need_pkl :
         if prot_pkl in new_possible_prey or prot_pkl in possible_baits :
             new_need_pkl.append(prot_pkl)
+    logger.info("Protein remaining after DeepLoc filtering : " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return(new_need_msa, new_need_pkl)
@@ -634,7 +684,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, GPU) :
         for prot in bait.split(",") :
             lenght_mult += lenght_prot[prot]
         if lenght_mult >= max_aa/2 :
-            logger.info(f"/!\ Multimer bait {bait} is large compare to your GPU Vram")
+            logger.info(f"/!\ Multimer bait lenght {bait} is large compare to your GPU Vram")
     lenght = 0
     if Interaction_file == "PPI_int" :
         if complexe == True :

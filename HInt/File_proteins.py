@@ -268,7 +268,7 @@ class File_proteins() :
         
         Parameters:
         ----------
-        filename : string
+        path_txt : string
         
         Returns:
         ----------
@@ -284,8 +284,6 @@ class File_proteins() :
             for line in check_f :
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     new_fasta += ">" + line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1] + "\n"
-                elif line[0] == ">" and " " in line :
-                    new_fasta += line.split(" ")[0]
                 else :
                     new_fasta += line.replace("*", "")
         with open(path_txt,"w") as w_file :
@@ -296,18 +294,27 @@ class File_proteins() :
                     save_prot = ""
                     new_line = (line.strip().split(","))
                     for prot in new_line :
-                        new_proteins.append(prot.upper().strip())
+                        if prot.upper().strip() in new_proteins :
+                            raise ValueError(f"Protein {prot.upper().strip()} is duplicated in the input file.")
+                        else :
+                            new_proteins.append(prot.upper().strip())
                         result_dict[prot.upper().strip()] = dict()
                         int_score[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
-                    new_proteins.append(save_prot)
+                    if save_prot in new_proteins :
+                        raise ValueError(f"Protein {save_prot} is duplicated in the input file.")
+                    else :
+                        new_proteins.append(save_prot)
                     already_fasta[save_prot] = str()
                     sequence_SP[save_prot] = ""
                     result_dict[save_prot] = dict()
                     int_score[save_prot] = dict()
-                elif len(line) > 2 and save_prot != "" :
+                elif len(line) > 1 and save_prot != "" :
                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n")
+                    for aa in ["U", "O", "B", "Z", "J", "X"] :
+                        if aa in line.strip("\n") :
+                            raise ValueError(f"Sequence {save_prot} contains {aa}.")
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)
@@ -425,7 +432,7 @@ class File_proteins() :
                     print("Search sequence for " + protein)
                     urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                     if os.path.getsize("log_file/temp_file.txt") == 0 :
-                        print(f"{protein} is not a compliant UniprotID")
+                        logger.error(f"{protein} is not a compliant UniprotID")
                     with open("log_file/temp_file.txt","r") as in_file :
                         for seq in re.finditer(pattern, in_file.read()):
                             sequences_SP[protein] = seq.group(1)

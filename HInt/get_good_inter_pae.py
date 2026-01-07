@@ -80,7 +80,7 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     exists = any("pi_score" in env for env in envs)
     if not exists:
         subprocess.run([
-            "conda", "create", "-y", "-c", "conda-forge", "-n", "pi_score",
+            "conda", "create", "-y", "-n", "pi_score",
             "python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"
         ], check=True)
 
@@ -169,7 +169,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
         interaction = job.split("/")[-1]
         bait = interaction.split("_and_")[0]
         if "-" in bait :
-            bait = bait.split("_")[:-1]
+            bait = bait.split("_")[-1]
         prey = interaction.split("_and_")[1]
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)

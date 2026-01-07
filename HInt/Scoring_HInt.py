@@ -31,7 +31,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, Interaction, bait=None) :
+def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     """
     Generate scores for all interactions and set a list of possible prey based on the scores.
 
@@ -39,6 +39,7 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
     ----------
     file : object of class File_proteins
     Informations_dict : dictionary
+    CPU : int
     Interaction : string
     bait : string
 
@@ -64,7 +65,6 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                 end = int(regions[prot].split("-")[1])
                 bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
     #Multiprocessing to score all interactions
-    N_CPU = multiprocessing.cpu_count()
     if os.path.isdir(f"./result_{Interaction}") == True :
         if bait is None : #for homo-oligomer
             for direc in os.listdir(f"./result_{Interaction}") :
@@ -78,8 +78,10 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                     result_dict[protein][f"iQ_score_vs_{bait_name}"] = int_score[protein][f"iQ_score_vs_{bait_name}"]
                     if int_score[protein][f"iQ_score_vs_{bait_name}"] > 0 :
                         new_possible_prey.append(protein)
+                    if int_score[protein][f"iQ_score_vs_{bait_name}"] == 0 :
+                        result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
         results = []
-        with multiprocessing.Pool(N_CPU) as pool : #just run scoring for interactions without score
+        with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
             tasks = [(ppi, "./", Path_ccp4, seq_no_SP, AF_version) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
@@ -121,7 +123,6 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
                             result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
                             result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
-
                 #For homo-oligomer
                 if Interaction == "homo_int" : #score homo-oligomer
                     all_homo = dict()
@@ -140,7 +141,7 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                                 all_homo[job] = (sum_pi_score,sum_int,row)
                     for key in all_homo.keys() :
                         row = all_homo[key][2]
-                        number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4
+                        number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4 #problem with "_" in name sequence ?
                         prot_name = row["jobs"].split("_")[0]
                         if len(save_pi_score[key]) > int(number_oligo) : #if model have more interface than number of homo-oligomerization
                             new_sum_pi_score = 0
@@ -162,6 +163,7 @@ def Score_interaction (file, Informations_dict, Interaction, bait=None) :
                         if protein not in new_possible_prey :
                             result_dict[protein]["hiQ_score"] = 0
                             result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
+
 
                 if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
                     with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
@@ -187,8 +189,15 @@ def run_scoring(args) :
     result : string
     """
     interaction, output_dir, Path_ccp4 ,seq_no_SP ,AF_version = args
-    result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
-    return result
+    try:
+        result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
+        return result
+    except Exception as e:
+        pid = os.getpid()
+        logger.error(f"ERROR in worker PID={pid}")
+        logger.error(f"Interaction: {interaction}")
+        traceback.print_exc()
+        raise
 
 def Resume_file(file, Informations_dict) :
     """
@@ -229,7 +238,9 @@ def Resume_file(file, Informations_dict) :
                 big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
             else :
                 big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits), reverse=True) #sorted in function of all baits
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (
+        any(f"iQ_score_vs_{bait}" in x[1] for bait in list_name_baits),
+        sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits)),reverse=True) #sorted in function of key of all baits iQ_score and sum of iQ_score
     if Informations_dict["Homo-oligomer"] != "1" :
         informations.append("hiQ_score")
         big_csv_lines = big_csv_lines.strip("\n") + "hiQ_score\n"
@@ -239,6 +250,7 @@ def Resume_file(file, Informations_dict) :
         sorted_proteins = result_dict
 
     sorted_dict = dict(sorted_proteins)
+
     logger.info(sorted_dict)
     for prot in sorted_dict.keys() :
         small_csv_lines += prot
@@ -289,12 +301,8 @@ def Create_figures (file, Informations_dict, AF_version) :
                 bait_file = f"{bait}_{start}-{end}"
             else :
                 bait_file = bait
-            index_p = 0
             for prey in possible_prey :
                 if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
-                    index_p += 1
-                    if index_p >= 50 :  #if more than 50 possible preys take only 50 better
-                        break
                     if AF_version == "2" :
                         plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
                     residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
@@ -336,7 +344,7 @@ def plot_Distogram (job) :
         lenght_list = []
         for seq in results["seqs"] :
            lenght_list.append(len(seq))
-        print(f"Generate {job.split('/')[2]} Distogram")
+        logger.info(f"Generate {job.split('/')[2]} Distogram")
         initial_lenght = 0
         fig, ax = plt.subplots()
         d = ax.imshow(dist)
@@ -348,7 +356,7 @@ def plot_Distogram (job) :
            ax.axvline(initial_lenght, color="black", linewidth=1.5)
         plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
         plt.close()
-        os.remove(f"{job}/result_{best_model}.dmap")
+        os.remove(f"{job}/result_{best_model}.pkl.dmap")
         del dist
         del results
         del distogram_softmax
@@ -425,7 +433,7 @@ def make_table_res_int (file, path_int, bait, AF_version) :
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
-        len_chainA = file.get_lenght_prot()[proteins[0]]
+        len_chainA = file.get_lenght_prot_no_SP()[proteins[0]]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
         dict_int = {}
@@ -537,7 +545,7 @@ def color_int_residues(pdb_path, residues_to_color, names, AF_version) :
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """
     Create a dictionary of all interacting residues.
-    
+
     Parameters:
     ----------
     list_of_list_int : list
