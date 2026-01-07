@@ -4,6 +4,9 @@ Homo-oligomer : 5 #Integer between 2-20
 Interact_with : O50333 #UniprotID/Protein Name #Precise a region (start-end)
 Organism : gram- #gram-, gram+, euk or arch
 DeepLoc :
+Max_protein_lenght :
+Min_protein_lenght :
+
 AlphaFold : 2 #version 3 or 2
 
 
