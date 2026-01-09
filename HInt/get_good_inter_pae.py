@@ -89,13 +89,8 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
         tmp_dir = f"/scratch/tmp/{direc}"
     else :
         tmp_dir = f"/tmp/{direc}"
-    try:
-        shutil.rmtree(f"{tmp_dir}/pi_score_outputs")
-    except:
-        pass
     print (f"Creating temporary directory {tmp_dir} for pi_score outputs")
-    subprocess.run(f"mkdir -p {tmp_dir}/pi_score_outputs",
-                   shell=True, executable='/bin/bash')
+    subprocess.run(f"rm -rf {tmp_dir} && mkdir -p {tmp_dir}/pi_score_outputs", shell=True, executable="/bin/bash", check=True)
     pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
 
     for job in jobs:

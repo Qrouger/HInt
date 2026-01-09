@@ -196,7 +196,6 @@ def run_scoring(args) :
         pid = os.getpid()
         logger.error(f"ERROR in worker PID={pid}")
         logger.error(f"Interaction: {interaction}")
-        traceback.print_exc()
         raise
 
 def Resume_file(file, Informations_dict) :
@@ -266,9 +265,9 @@ def Resume_file(file, Informations_dict) :
             small_csv_lines += ", " + str("possible hit")
         big_csv_lines += "\n"
         small_csv_lines += "\n"
-    with open("All_Final_result.csv", "w") as All_result_file :
+    with open("All_Final_result_HInt.csv", "w") as All_result_file :
         All_result_file.write(big_csv_lines)
-    with open("Summary_result.csv", "w") as summary :
+    with open("Summary_result_HInt.csv", "w") as summary :
         summary.write(small_csv_lines)
 
 
@@ -433,7 +432,7 @@ def make_table_res_int (file, path_int, bait, AF_version) :
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
-        len_chainA = file.get_lenght_prot_no_SP()[proteins[0]]
+        len_chainA = file.get_lenght_prot()[proteins[0]]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
         dict_int = {}

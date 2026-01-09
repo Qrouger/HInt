@@ -15,7 +15,7 @@ class File_proteins() :
     """
     def __init__ (self, path_txt_file) :
         """
-        Constructor : 
+        Constructor :
         Set attributes for a single entry file.
 
         Parameters:
@@ -355,7 +355,6 @@ class File_proteins() :
                 all_info = pickle.load(save_dict)
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
-            #int_score = copy.deepcopy(all_info["int_score"])
             int_score.update(copy.deepcopy(all_info["int_score"]))
             for protein in proteins :
                 result_dict[protein] = dict()
@@ -369,9 +368,9 @@ class File_proteins() :
                 if protein in all_info["sequence_SP"].keys() : #if protein in sequence_SP of save dict
                     if protein in sequences_SP.keys() : #check if two sequence match
                         if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
-                            cmd = f"rm -f {Path_Pickle_Feature}/*{protein}*"
-                            cmd2 = f"rm -f ./result_PPI_int/*{protein}*"
-                            cmd3 = f"rm -f ./result_homo_int/*{protein}*"
+                            cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*"
+                            cmd2 = f"rm -rf ./result_PPI_int/*{protein}*"
+                            cmd3 = f"rm -rf ./result_homo_int/*{protein}*"
                             os.system(cmd)
                             os.system(cmd2)
                             os.system(cmd3)
@@ -426,6 +425,9 @@ class File_proteins() :
                     bait = key.split("iQ_score_vs_")[1]
                     if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
                         del int_score[protein][f"iQ_score_vs_{bait}"]
+
+
+
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
                 if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
@@ -539,5 +541,4 @@ class File_proteins() :
                 line_pkl += ">" + protein + "\n" + sequences_no_SP[protein] + "\n"
             with open(f"log_file/{file_pkl}","w") as f_pkl :
                 f_pkl.write(line_pkl)
-
 

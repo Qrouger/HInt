@@ -124,9 +124,12 @@ if __name__ == "__main__" :
     # Signal peptide processing
     # --------------------------------------------------------------
 
-
-    if len(need_msa) > 0 : # Run SignalP for proteins without signal peptide annotation
-        need_msa = run_SP(HInt_object, Informations_dict, need_msa)
+    need_SP = list()
+    for protein in need_msa :
+        if protein not in HInt_object.get_proteins_sequence_no_SP().keys() : #protein need MSA but can already have sequence without SP
+            need_SP.append(protein)
+    if len(need_SP) > 0 : # Run SignalP for proteins without signal peptide annotation
+        need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
 
     HInt_object.Make_save_dict() # Save sequences without signal peptides
 
@@ -172,8 +175,8 @@ if __name__ == "__main__" :
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Multimer_bait"] :
             job_list = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            Generate_3D_model( Informations_dict, "PPI_int", job_list, GPU)
-            Score_interaction( HInt_object, Informations_dict, CPU, "PPI_int", bait)
+            Generate_3D_model(Informations_dict, "PPI_int", job_list, GPU)
+            Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait)
             HInt_object.Make_save_dict()  # Save interaction scores
 
 
