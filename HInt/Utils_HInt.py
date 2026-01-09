@@ -690,15 +690,18 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
             if regions[prot] != "0-0":
                 start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
                 bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
-        bait_for_job = save_multimer.replace(",", ";")
+                bait_for_job = bait_for_job.replace(prot, f"{prot},{start}-{end}")
+            else :
+                bait_for_job = save_multimer.replace(",", ";")
     else :
         lenght = lenght_prot[bait]
         if regions[bait] != "0-0" :
-            start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
+            start, end = int(regions[bait].split("-")[0]), int(regions[bait].split("-")[1])
             bait_file = f"{bait}_{start}-{end}"
+            bait_for_job = f"{bait},{start}-{end}"
         else: 
             bait_file = bait
-        bait_for_job = bait
+            bait_for_job = bait
 
     # Build job list
     if Interaction_file == "PPI_int" :
@@ -868,9 +871,9 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
             logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
             return
 
-    cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
-    os.system(cmd_rm)
-    logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
+        cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
+        os.system(cmd_rm)
+        logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
 
 
