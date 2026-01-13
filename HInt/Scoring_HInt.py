@@ -170,11 +170,11 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                         file2.write(all_lines)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
+        end_time = datetime.now()
+        logger.info("Time scoring interactions : %s\n", end_time - start_time)
+        file.set_int_score(int_score)
     else :
         logger.info(f"result_{Interaction}/ don't exist")
-    end_time = datetime.now()
-    logger.info("Time scoring interactions : %s\n", end_time - start_time)
-    file.set_int_score(int_score)
 
 def run_scoring(args) :
     """
@@ -209,6 +209,7 @@ def Resume_file(file, Informations_dict) :
 
     Returns:
     ----------
+    sorted_proteins : list
     """
     logger.info("Create result table for all preys")
     iQ_score_dict = dict()
@@ -237,9 +238,7 @@ def Resume_file(file, Informations_dict) :
                 big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
             else :
                 big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: (
-        any(f"iQ_score_vs_{bait}" in x[1] for bait in list_name_baits),
-        sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits)),reverse=True) #sorted in function of key of all baits iQ_score and sum of iQ_score
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (any(f"iQ_score_vs_{bait}" in x[1] for bait in list_name_baits), sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits)),reverse=True) #sorted in function of key of all baits iQ_score and sum of iQ_score
     if Informations_dict["Homo-oligomer"] != "1" :
         informations.append("hiQ_score")
         big_csv_lines = big_csv_lines.strip("\n") + "hiQ_score\n"
@@ -269,10 +268,11 @@ def Resume_file(file, Informations_dict) :
         All_result_file.write(big_csv_lines)
     with open("Summary_result_HInt.csv", "w") as summary :
         summary.write(small_csv_lines)
+    return sorted_proteins
 
 
 #Generate figures
-def Create_figures (file, Informations_dict, AF_version) :
+def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
     """
     Create figures for all validate preys.
 
@@ -281,9 +281,8 @@ def Create_figures (file, Informations_dict, AF_version) :
     file : object of class File_proteins
     Informations_dict : dictionary
     AF_version : string
+    sorted_proteins : list
 
-    Returns:
-    ----------
     """
     logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
@@ -308,7 +307,7 @@ def Create_figures (file, Informations_dict, AF_version) :
                     if residues_at_interface is not None :
                         color_int_residues(path_int, color_res, proteins) #color residue in interaction on the pdb
                         interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict)
-            interface_dict = cluster_interface(interface_dict)
+            interface_dict = cluster_interface(file, interface_dict, sorted_proteins)
             plot_sequence_interface(file,interface_dict)
 
 def plot_Distogram (job) :
@@ -319,8 +318,6 @@ def plot_Distogram (job) :
     ----------
     job : string
     
-    Returns:
-    ----------
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
@@ -542,8 +539,6 @@ def color_int_residues(pdb_path, residues_to_color, names) :
         writer.writelines(save_lines)
 
 
-
-
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """
     Create a dictionary of all interacting residues.
@@ -580,20 +575,34 @@ def define_interface (list_of_list_int, int, old_interface_dict) :
     old_interface_dict[protein2].append(list_int_protein2)
     return old_interface_dict
 
-def cluster_interface (interface_dict) :
+def cluster_interface (file, interface_dict, sorted_proteins) :
     """
     Compare interface in function of smaller interface and classify them with a letter representing the interface.
    
     Parameters:
     ----------
+    file : object of class File_proteins
     interface_dict : dict
+    sorted_proteins : dict
 
     Returns:
     ----------
     interface_dict : dict
     """
     alphabet = string.ascii_lowercase
+    int_score = file.get_int_score()
+
     for proteins in interface_dict.keys() :
+        if len(interface_dict[proteins]) >= 27 : #Limit to 27 interfaces per protein
+            best_preys = list()
+            for prey in sorted_proteins :
+                best_preys.append(prey[0])
+                if len(best_preys) >= 27 :
+                    break
+            copy_interface = copy.deepcopy(interface_dict[proteins])
+            for interface in copy_interface :
+                if interface[len(interface)-1] not in best_preys :
+                    interface_dict[proteins].remove(interface)
         alpha_index = 0
         already_inter = list()
         interface_dict[proteins] = sorted(interface_dict[proteins], key=lambda x : len(x)) #sorted all interface in function of number of residues
@@ -613,10 +622,11 @@ def cluster_interface (interface_dict) :
                         already_inter.append(alphabet[alpha_index])
                 else : #if interfaces got more than 0.20 of same residues, it's the same interface
                     if interface_dict[proteins][interface2][0] in alphabet :
-                       interface_dict[proteins][interface2].pop(0)
+                        interface_dict[proteins][interface2].pop(0)
                     interface_dict[proteins][interface2].insert(0,interface_dict[proteins][interface1][0]) #set same letter for same interface
                     alpha_index -= 1
     return interface_dict
+    
 
 
 def plot_sequence_interface (file, dict_inter) :

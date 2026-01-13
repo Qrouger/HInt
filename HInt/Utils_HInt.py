@@ -175,11 +175,11 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
         dp_file.write(dp_lines)
 
     if org == "euk" :
-        logger.info(str(datetime.now())+" Start DeepLoc eucaryote")
+        logger.info(" Start DeepLoc eucaryote")
         software = "deeploc2"
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} {software} -f log_file/{fasta_file} -o log_file/result_deeploc -d cuda"
     else :
-        logger.info(str(datetime.now())+" Start DeepLocPro")
+        logger.info(" Start DeepLocPro")
         software = "deeplocpro"
         if org == "gram-" :
             group = "negative"
@@ -349,6 +349,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
             GPU_str = GPU_str[:-2]
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
         os.system(cmd)
+        need_pkl.extend(need_msa)
+        need_msa = list()
 
     if len(need_msa) < 1 :
         logger.info("All MSAs have already been generated")
@@ -678,6 +680,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     vram = (mem_info.total / 1024**2) * 0.001  # GiB
     max_aa = int(vram * 120)  # 120 AA per GiB VRAM
+    print(max_aa)
     pynvml.nvmlShutdown()
 
     # Determine bait length and region
@@ -761,6 +764,9 @@ def Generate_3D_model(Informations_dict, interaction_type, job_list, GPU) :
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+
+    if job_list == [] :
+        return
 
     stop_flag = multiprocessing.Event()
     job_queue = multiprocessing.Queue()
@@ -873,7 +879,7 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
 
         cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
         os.system(cmd_rm)
-        logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
+    logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
 
 

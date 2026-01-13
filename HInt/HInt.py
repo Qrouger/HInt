@@ -196,5 +196,5 @@ if __name__ == "__main__" :
     # --------------------------------------------------------------
 
 
-    Resume_file(HInt_object, Informations_dict)
-    Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"])
+    sorted_protein = Resume_file(HInt_object, Informations_dict)
+    Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"], sorted_protein)
