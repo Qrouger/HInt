@@ -2,8 +2,7 @@
 
 
 
-HInt allows you to find homologous proteins with significant differences in sequence and structure.
-It allows you to find homologous proteins with similar interactions.
+HInt enables the identification of homologous proteins that may exhibit substantial sequence and structural divergence, while preserving similar functional interactions. This allows researchers to uncover conserved interaction networks that are not apparent from sequence or structural similarity alone.
 # 1.Instalations
 ```bash
 conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
@@ -12,21 +11,8 @@ pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm sci
 pip install -U "jax[cuda12]"==0.5.3
 
 
-RF2_PPI :
-
-pip install torch==1.12.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html
 
 ```
-# MSA generations
-MSA generation is mandatory for using this tool.
-
-## Generated MSA with colabfold (recommended for less than 100 sequences)
-Directly add to the pipeline.
-
-## Generated MSA with MMseqs2 GPU (recommended for more than 100 proteins)
-
-
-
 ### Download MMseqs2 database GPU indexed
 To speed up all the steps, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
@@ -34,8 +20,6 @@ wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh ./mmseq_database
 ```
-
-
 
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
 mmseqs createdb examples/DB.fasta targetDB <br>
@@ -50,6 +34,8 @@ colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br
 git clone https://github.com/Jaimomar99/deeplocpro <br>
 cd deeplocpro <br>
 pip install .
+DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
+
 # 2.Example 
 ## Folder structure
 ## Setup HInt.txt
@@ -96,9 +82,7 @@ And you can mixed up all of theses examples ! <br>
 **DeepLoc** : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
 
 - Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
-- Procaryote:
-
-DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
+- Procaryote: Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
 
 # 4.Results
