@@ -33,18 +33,21 @@ logger = logging.getLogger()
 
 def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     """
-    Generate scores for all interactions and set a list of possible prey based on the scores.
+    Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
-    Parameters:
+    - detects which interactions still need to be scored
+    - runs scoring in parallel (CPU multiprocessing)
+    - merges all results into CSV files
+    - filters out bad interactions based on inter-PAE / interface quality
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dictionary
     CPU : int
-    Interaction : string
-    bait : string
-
-    Returns:
-    ----------
+    Interaction : str
+        Interaction type ("PPI_int" or "homo_int")
+    bait : str
     """
     start_time = datetime.now()
     result_dict = file.get_result_dict()
@@ -64,6 +67,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                 start = int(regions[prot].split("-")[0])
                 end = int(regions[prot].split("-")[1])
                 bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
         if bait is None : #for homo-oligomer
@@ -123,6 +127,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
                             result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
                             result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+
                 #For homo-oligomer
                 if Interaction == "homo_int" : #score homo-oligomer
                     all_homo = dict()
@@ -168,30 +173,34 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                 if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
                     with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
                         file2.write(all_lines)
+            end_time = datetime.now()
+            logger.info("Time scoring interactions : %s\n", end_time - start_time)
+            file.set_int_score(int_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
-        end_time = datetime.now()
-        logger.info("Time scoring interactions : %s\n", end_time - start_time)
-        file.set_int_score(int_score)
     else :
         logger.info(f"result_{Interaction}/ don't exist")
 
 def run_scoring(args) :
     """
-    Run get_good_inter_pae script.
+    Wrapper function executed by multiprocessing workers to score a single AlphaFold interaction using inter-chain PAE metrics.
 
-    Parameters:
-    ----------
-    args : set
+    - it unpacks arguments passed by the multiprocessing Pool
+    - calls the get_good_inter_pae scoring routine
+    - returns the resulting DataFrame
 
-    Returns:
+    Parameters :
     ----------
-    result : string
+    args : tuple
+
+    Returns :
+    ----------
+    result : pandas.DataFrame
     """
-    interaction, output_dir, Path_ccp4 ,seq_no_SP ,AF_version = args
+    interaction, output_dir, Path_ccp4, seq_no_SP, AF_version = args
     try:
         result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
-        return result
+        return  result
     except Exception as e:
         pid = os.getpid()
         logger.error(f"ERROR in worker PID={pid}")
@@ -202,14 +211,27 @@ def Resume_file(file, Informations_dict) :
     """
     Create a resume file with all interactions, their scores and their status.
 
-    Parameters:
+    - PPI interaction scores (iQ_score vs one or multiple baits)
+    - Homo-oligomerization scores (hiQ_score)
+    - Filtering reasons (OOM, size limits, etc.)
+    - Protein-level annotations (DeepLoc, signal peptide)
+
+    Two CSV files are produced:
+    ------------------------
+    1) All_Final_result_HInt.csv
+       Detailed table containing score, SignalP and DeepLoc informations for each protein.
+
+    2) Summary_result_HInt.csv
+       Compact table listing only the protein name and its global status ("possible hit" or reason for filtering).
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dictionary
 
-    Returns:
+    Returns :
     ----------
-    sorted_proteins : list
+    sorted_proteins : list of tuples
     """
     logger.info("Create result table for all preys")
     iQ_score_dict = dict()
@@ -274,15 +296,24 @@ def Resume_file(file, Informations_dict) :
 #Generate figures
 def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
     """
-    Create figures for all validate preys.
+    Generate structural and sequence-level figures for validated prey proteins.
 
-    Parameters:
+    This function produces figures only for :
+    - Monomeric baits (single protein only)
+    - Preys that passed all filtering steps (i.e. no "Reason_for_filtering")
+
+    - Distogram (AlphaFold v2 only)
+    - Colored PDB structures highlighting interface residues
+    - Interface residue tables
+    - Clustering of interfaces across ranked proteins
+    - Sequence-level interface visualization
+
+    Parameters :
     ----------
     file : object of class File_proteins
-    Informations_dict : dictionary
-    AF_version : string
+    Informations_dict : dict
+    AF_version : str
     sorted_proteins : list
-
     """
     logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
@@ -312,12 +343,14 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
 
 def plot_Distogram (job) :
     """
-    Generate distogram, only for best models.
+    Generate a distance map (distogram) for the best model of a given AlphaFold job.
 
-    Parameters:
+    Only generates the distogram if it does not already exist as a PNG.
+    Works with both pickled (.pkl) and gzipped (.pkl.gz) result files.
+
+    Parameters :
     ----------
-    job : string
-    
+    job : str
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
@@ -362,21 +395,30 @@ def plot_Distogram (job) :
 
 def make_table_res_int (file, path_int, bait, AF_version) :
     """
-    Generate a table of residues in interactions.
+    Generate a detailed table of residue-residue interactions for a protein-protein complex.
 
-    Parameters:
+    This function analyzes the structural model of a protein complex to identify residues at the interface between the bait and prey proteins. It considers both AlphaFold2 and 
+    AlphaFold3 outputs, using distance thresholds and predicted aligned error (PAE) to filter meaningful interactions. The function also prepares color-coding for interface 
+    residues for downstream visualization.
+
+    Parameters :
     ----------
     file : object of class File_proteins
-    path_int : string
-    bait : string
-    AF_verison : string
+    path_int : str
+    bait : str
+    AF_verison : str
 
-    Returns:
+    Returns :
     ----------
-    residues_at_interface[names_int] : list
-    proteins : string
-    path_int : string
+    residues_at_interface : list of lists or None
+    proteins : list of str
+    path_int : str
     color_res : dict
+
+    Notes :
+    ----------
+    - For AlphaFold2, interactions are extracted from the predicted aligned error (PAE) matrix and the distogram. Filtered by a distance cutoff (10 Å) and PAE threshold (7 Å).
+    - For AlphaFold3, interactions are extracted directly from the atomic coordinates in the PDB file, filtered by a distance cutoff (10 Å) and PAE threshold (10 Å). Only consider standard backbone and Cβ atoms for distance calculations.
     """
     parser = PDB.PDBParser(QUIET=True)
     names_int = path_int.split('/')[2]
@@ -503,15 +545,15 @@ def make_table_res_int (file, path_int, bait, AF_version) :
 
 def color_int_residues(pdb_path, residues_to_color, names) :
     """
-    Color residues in interaction in a PDB file.
+    Color residues involved in protein-protein interactions in a PDB file.
    
-    Parameters:
+    This function modifies the B-factor (temperature factor) column of a PDB file to indicate interface residues.
+
+    Parameters :
     ----------
-    pdb_path : string
+    pdb_path : str
     residues_to_color : dict
-    names : string
-    
-    ----------
+    names : str
     """
     names_int = pdb_path.split('/')[2]
     save_lines = list()
@@ -541,15 +583,18 @@ def color_int_residues(pdb_path, residues_to_color, names) :
 
 def define_interface (list_of_list_int, int, old_interface_dict) :
     """
-    Create a dictionary of all interacting residues.
+    Update a dictionary of interacting residues for a protein pair.
 
-    Parameters:
+    This function parses a list of interacting residue pairs and adds them to the existing interface dictionary. Each protein in the pair gets a list of residues 
+    that interact with the other protein. The second protein's name is also added to the list for reference.
+
+    Parameters :
     ----------
-    list_of_list_int : list
-    int : string
+    list_of_list_int : list of lists
+    int : list of str
     old_interface_dict : dict
 
-    Returns:
+    Returns :
     ----------
     old_interface_dict : dict
     """
@@ -577,17 +622,22 @@ def define_interface (list_of_list_int, int, old_interface_dict) :
 
 def cluster_interface (file, interface_dict, sorted_proteins) :
     """
-    Compare interface in function of smaller interface and classify them with a letter representing the interface.
-   
-    Parameters:
+    Cluster and classify protein interfaces based on residue overlap.
+    
+    This function analyzes all detected interaction interfaces for each protein and assigns a letter (a-z) to represent unique interfaces. Interfaces with significant 
+    overlap (Jaccard similarity ≥ 0.20) are considered the same and share the same letter. Small interfaces or those with low similarity get a new letter. The function also 
+    limits the number of interfaces per protein to 27 betters.
+
+    Parameters :
     ----------
     file : object of class File_proteins
     interface_dict : dict
     sorted_proteins : dict
 
-    Returns:
+    Returns :
     ----------
     interface_dict : dict
+        Updated dictionary where each interface list starts with a letter (a-z) representing the interface cluster. Interfaces with similar residues share the same letter.
     """
     alphabet = string.ascii_lowercase
     int_score = file.get_int_score()
@@ -631,15 +681,20 @@ def cluster_interface (file, interface_dict, sorted_proteins) :
 
 def plot_sequence_interface (file, dict_inter) :
     """
-    Generated figures for interface in one sequence.
+    Generate sequence-based interface diagrams for proteins.
 
-    Parameters:
+    This function visualizes interacting residues along a protein sequence. Residues involved in different interfaces are color-coded, and residues 
+    participating in multiple interfaces can show multiple colors. The output is a PNG figure for each protein, showing the sequence with interface annotations.
+
+    Parameters :
     ----------
     file : object of File_proteins class
     dict_inter : dict
 
-    Returns:
+    Notes :
     ----------
+    - Residues involved in multiple interfaces are displayed with stacked color blocks.
+    - Each line of the figure contains up to 150 residues (adjustable by `line_adjust`).
     """
     if not os.path.exists("./Interface_fig/") :
         os.makedirs("./Interface_fig/")

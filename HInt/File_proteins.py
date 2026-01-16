@@ -419,6 +419,22 @@ class File_proteins() :
                     int_score[protein] = dict() #remove int score
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
+                if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True and protein not in need_msa : #check sequence in msa file match with save dict
+                    with open(f"{Path_Pickle_Feature}/{protein}.a3m","r") as msa_file :
+                        index = 0
+                        for line in msa_file :
+                            if index == 1 :
+                                msa_seq = line.strip("\n")
+                                break
+                            if line[0] == ">" :
+                                index += 1
+                    if msa_seq != all_info["sequence_no_SP"][protein] : #if not match, remove pkl file and start at zero
+                        cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*"
+                        os.system(cmd)
+                        need_msa.append(protein)
+                        need_DeepLoc.append(protein)
+                        int_score[protein] = dict() #remove int score
+
             #Check is save score interaction are still valid or delete it
             for protein in all_info["int_score"].keys() :
                 for key in all_info["int_score"][protein].keys() :
@@ -450,6 +466,7 @@ class File_proteins() :
                     os.system(cmd)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
+                    
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
         self.set_result_dict(result_dict)

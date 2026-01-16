@@ -33,16 +33,23 @@ logger = logging.getLogger()
 
 
 #check if U, O, B, Z, J, X is not in a sequence
+
 def Define_informations() :
     """
-    Extract all paths from HInt.txt and store them in a dictionary.
-    
-    Parameters:
-    ----------
+    Parse the HInt.txt configuration file and collect all user-defined parameters into a single dictionary.
+
+    - Reads key : value pairs from HInt.txt (comments starting with # are ignored)
+    - Verifies the presence of mandatory parameters
+    - Assigns default values to optional or empty parameters
+    - Normalizes paths (removes trailing '/')
+    - Parses interaction definitions (including multimers and interaction regions)
+    - Validates biological constraints (DeepLoc, homo-oligomer, number of baits)
 
     Returns:
-    ----------
+    -------
     Informations_dict : dict
+        Dictionary containing all validated and formatted configuration parameters required by HInt.
+
     """
     logger.info("Defining informations")
     Informations_dict = dict()
@@ -60,6 +67,8 @@ def Define_informations() :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
             elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_lenght","Min_protein_lenght"] :
                 Informations_dict[info] = ""
+
+    ### Normalize all configuration values
     for informations_key in Informations_dict.keys() : #verify all informations and set default value
         if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
             Informations_dict[informations_key] = Informations_dict[informations_key][:-1]
@@ -90,6 +99,11 @@ def Define_informations() :
                 logger.info("Minimum lenght for prey protein set default 20 AA")
             elif informations_key == "Max_protein_lenght" :
                 Informations_dict[informations_key] = ""
+
+        ### Parse protein-protein interaction definitions
+        # Multiple baits
+        # Multimeric baits
+        # Region-specific interactions
         if informations_key == "Interact_with" :
             regions_dict = dict()
             new_baits_list = list()
@@ -122,11 +136,14 @@ def Define_informations() :
                     new_baits_list.append(prot.strip())
             Informations_dict["Regions"] = regions_dict
             Informations_dict["Interact_with"] = new_baits_list
+
+        ### Homo-oligomer check
         if informations_key == "Homo-oligomer" :
             if int(Informations_dict[informations_key]) == False :
                 raise ValueError(f"Homo-oligomer is not an integer")
             if Informations_dict[informations_key] == "0" :
                 Informations_dict[informations_key] = "1"
+        ### DeepLoc check
         if informations_key == "DeepLoc" :
             if Informations_dict["Organism"] == "euk" : #euk
                 for value in Informations_dict[informations_key].split(","):
@@ -136,6 +153,7 @@ def Define_informations() :
                 for value in Informations_dict[informations_key].split(","):
                     if value.strip()  not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
+
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
         logger.info("Need information to discriminate the potential homolog/interolog")
         exit()
@@ -143,17 +161,21 @@ def Define_informations() :
 
 def run_deeploc(file, org, need_DeepLoc, GPU) :
     """
-    Launch DeepLoc on sequence with Signal peptide and class protein in function.
+    Run DeepLoc (DeepLoc2 or DeepLocPro) to predict the subcellular localization of proteins requiring DeepLoc annotation.
+
+    - Extracts protein sequences (with signal peptide handling) from a File_proteins object
+    - Writes a temporary FASTA file containing only proteins needing DeepLoc prediction
+    - Runs the appropriate DeepLoc software depending on the organism type
+    - Parses the output CSV file
+    - Stores predicted localizations in the result dictionary
 
     Parameters :
     ----------
     file : object of class File_proteins
-    org : string
+    org : str
     need_DeepLoc : list
     GPU : list
 
-    Returns:
-    ----------
     """
     result_dict = file.get_result_dict()
     prot_seq = file.get_proteins_sequence_SP()
@@ -175,11 +197,11 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
         dp_file.write(dp_lines)
 
     if org == "euk" :
-        logger.info(" Start DeepLoc eucaryote")
+        logger.info("Start DeepLoc eucaryote")
         software = "deeploc2"
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} {software} -f log_file/{fasta_file} -o log_file/result_deeploc -d cuda"
     else :
-        logger.info(" Start DeepLocPro")
+        logger.info("Start DeepLocPro")
         software = "deeplocpro"
         if org == "gram-" :
             group = "negative"
@@ -220,17 +242,26 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
 
 def run_SP (file, Informations_dict, need_SP, need_msa) :
     """
-    Create a new FASTA file without the signal peptide using SignalP.
-    If protein have already msa but no sequence without SP don't return it.
+    Remove signal peptides from protein sequences using SignalP and generate new FASTA sequences without signal peptides.
 
-    Parameters:
+    - Runs SignalP on proteins requiring signal peptide (SP) detection
+    - Extracts cleavage positions from SignalP output
+    - Generates new sequences without signal peptides
+    - Updates internal sequence storage
+    - Returns the list of proteins still requiring MSA computation
+
+    If a protein already has an MSA but does not yet have a sequence without signal peptide, it will be processed here but not returned for MSA.
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dict
-    need_SP : list #proteins needing SP removal and MSA
-    need_msa : list #proteins needing MSA
+    need_SP : list 
+        List of protein identifiers requiring signal peptide detection/removal.
+    need_msa : list
+        List of protein identifiers requiring MSA generation.
 
-    Returns:
+    Returns :
     ----------
     new_need_msa : list
     """
@@ -243,8 +274,8 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     new_fasta_dict = file.get_proteins_sequence_no_SP()
 
     file.create_fasta_file(True, need_SP)
-    cmd1 = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
-    os.system(cmd1)
+    cmd = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
+    os.system(cmd)
 
     file_signalp = fasta_file.replace(".fasta","_summary.signalp5")
     with open(f"log_file/{file_signalp}","r") as fh :
@@ -252,6 +283,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
             new_line = line.split("\t")
             if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                 prot_SP[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
+
     with open(f"log_file/{fasta_file}", "r") as fa_file :
         for line2 in fa_file :
             new_line2 = line2
@@ -267,6 +299,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
                 if str(line2[1:len(line2)-1]) in prot_SP.keys() :
                     SP_signal = prot_SP[line2[1:len(line2)-1]]
             final_file = final_file + new_line2
+
     new_need_msa = list()
     for prot in need_msa : 
         if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == False :
@@ -276,19 +309,22 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     """
-    Launch command to generate MSA and feature pickle.
+    Generate MSAs and AlphaFold feature pickle files for a set of proteins.
 
-    Parameters:
+    - Searches for precomputed MSAs in the AlphaFold database
+    - Generates MSAs using ColabFold/MMseqs2 when missing
+    - Uses CPU parallelization and GPU acceleration
+    - Updates the lists of proteins requiring MSA or pickle generation
+
+    Parameters :
     ----------
     file : object of class File_proteins
     informations_dict : dict
     GPU : list
-    CPU : intS
+    CPU : int
     need_msa : list
     need_pkl : list
 
-    Returns:
-    ----------
     """
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
@@ -355,6 +391,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     if len(need_msa) < 1 :
         logger.info("All MSAs have already been generated")
 
+    file.create_fasta_file(False, need_msa, need_pkl)
+
     #Create MSA files with ColabFold mmseq2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
     if len(need_msa) > 0 and len(need_msa) <= 10 :
         if os.path.isfile(f"log_file/{msa_name}") == True :
@@ -390,20 +428,28 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
             
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
-    Found MSA on AFdb ,if signal peptide cut it an re align with mafft.
+    Retrieve a precomputed MSA from the AlphaFold database (AFdb), trim signal peptides if present, and realign the MSA using MAFFT.
 
-    Parameters:
+    - Checks whether an MSA exists for the given protein in AFdb
+    - Downloads the MSA in A3M format if available
+    - Removes signal peptide residues from all sequences when necessary
+    - Filters out excessively short or invalid sequences after trimming
+    - Realigns the trimmed MSA using MAFFT
+    - Reformats the alignment back to A3M format
+
+    Parameters :
     ----------
     protein : str
     Path_Pickle_Feature : str
     prot_SP : dict
     prot_no_SP : dict
 
-    Returns:
+    Returns :
     ----------
     protein : str
     bool
-
+        True if an MSA was successfully retrieved and processed.
+        False if no MSA was found in AFdb.
     """
     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
@@ -468,16 +514,21 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
 
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
-    Filter proteins based on the presence of a signal peptide using SignalP results, if not specified keep all proteins and just describe them in the result file.
+    Filter proteins based on the presence of a signal peptide using SignalP results.
 
-    Parameters:
+    - Checks the first amino acid of each protein sequence to determine if a signal peptide is present (assumes sequences without SP start with 'M')
+    - Updates the result dictionary with "Signal_peptide" status
+    - Filters proteins from MSA and feature generation lists based on the user-specified SignalP
+    - Keeps all proteins if no filtering criterion is specified
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dict
     need_msa : list
     need_pkl : list
 
-    Returns:
+    Returns :
     ----------
     need_msa : list
     need_pkl : list
@@ -510,13 +561,18 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
 
 def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
     """
-    Generating MSA coverage for all proteins and write shallow_MSA text file.
+    Generate MSA coverage plots for all proteins and create a shallow_MSA summary file.
 
-    Parameters:
+    - Computes sequence coverage and identity from the MSA
+    - Generates a coverage heatmap saved as PDF
+    - Determines if the MSA is "shallow" or missing (based on number of sequences)
+    - Updates the result dictionary and possible prey list accordingly
+    - Writes a summary of shallow MSAs to "log_file/shallow_MSA.txt"
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
-
     """
     shallow_MSA = str()
     result_dict = file.get_result_dict()
@@ -568,9 +624,15 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
 
 def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     """
-    Filter proteins based on their lenght and set new prey list.
+    Filter proteins based on their sequence length and update the list of possible preys.
 
-    Parameters:
+    - Uses the full sequence (including signal peptide) to evaluate protein length
+    - Filters proteins that are either too short or too long according to user-defined thresholds
+    - Updates the result dictionary with a reason for filtering
+    - Removes filtered proteins from MSA, pickle, and DeepLoc processing lists
+    - Updates the File_proteins object with the new prey list
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dict
@@ -578,8 +640,11 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     need_pkl : list
     need_DeepLoc : list
 
-    Returns:
+    Returns :
     ----------
+    need_msa : list
+    need_pkl : list
+    need_DeepLoc : list
     """
     result_dict = file.get_result_dict()
     sequence_dict = file.get_proteins_sequence_SP() #use sequence with SP for lenght filtering
@@ -609,16 +674,21 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
 
 def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     """
-    Filter proteins based on cellular localisation and set new prey list and new need_msa/need_pkl list.
+    Filter proteins based on predicted cellular localization and update the prey list as well as the MSA and pickle processing lists.
 
-    Parameters:
+    - Compares each protein's predicted DeepLoc localization(s) with the user-specified allowed localizations
+    - Keeps proteins matching at least one allowed localization
+    - Marks proteins that do not match as filtered in the result dictionary
+    - Updates the need_msa and need_pkl lists to include only proteins that pass the filter or are baits
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dict
     need_msa : list
     need_pkl : list
 
-    Returns:
+    Returns :
     ----------
     new_need_msa : list
     new_need_pkl : list
@@ -650,23 +720,27 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     return(new_need_msa, new_need_pkl)
 
 
-def Generate_scripts(file, Informations_dict, Interaction_file, bait):
+def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     """
-    Prepare the list of interaction jobs for AlphaPullDown based on protein length
-    and GPU VRAM constraints.
+    Prepare the list of interaction jobs, taking into account protein lengths and GPU VRAM constraints to avoid out-of-memory (OOM) errors.
 
-    Parameters:
+    - Estimates the maximum number of amino acids allowed based on available GPU VRAM
+    - Builds interaction jobs (PPI or homo-oligomeric) only if they fit in memory
+    - Skips interactions already computed
+    - Records interactions that are too large for the GPU in a log file
+
+    Parameters :
     ----------
     file : object of class File_proteins
     Informations_dict : dict
     Interaction_file : str
     bait : str
 
-    Returns:
+    Returns :
     ----------
-    job_list : list of str
+    job_with_length : dict
     """
-    job_list = []
+    job_with_length = [] # [(job_str, int_length)]
     OOM_int = ""
     result_dict = file.get_result_dict()
     AF_version = Informations_dict["AlphaFold"]
@@ -680,7 +754,6 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     vram = (mem_info.total / 1024**2) * 0.001  # GiB
     max_aa = int(vram * 120)  # 120 AA per GiB VRAM
-    print(max_aa)
     pynvml.nvmlShutdown()
 
     # Determine bait length and region
@@ -688,14 +761,13 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
     if complexe :
         save_multimer = bait
         bait_file = save_multimer.replace(",", "_and_")
+        bait_for_job = save_multimer.replace(",", ";")
         lenght = sum(lenght_prot[prot] for prot in save_multimer.split(","))
         for prot in save_multimer.split(",") :
             if regions[prot] != "0-0":
                 start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
                 bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
                 bait_for_job = bait_for_job.replace(prot, f"{prot},{start}-{end}")
-            else :
-                bait_for_job = save_multimer.replace(",", ";")
     else :
         lenght = lenght_prot[bait]
         if regions[bait] != "0-0" :
@@ -722,7 +794,8 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
             if len(path1) == 0 and len(path2) == 0 :
                 if int_lenght <= max_aa:
                     job_str = f"{bait_for_job};{prey}\n"
-                    job_list.append(job_str)
+                    #job_list.append(job_str)
+                    job_with_length.append((job_str, int_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions: AF OOM"
@@ -735,10 +808,13 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
             if len(path) == 0 :
                 if int_lenght <= max_aa :
                     job_str = f"{prey}:{nbr_oligo}\n"
-                    job_list.append(job_str)
+                    job_with_length.append((job_str, int_lenght))
                 else :
                     OOM_int += f"{prey}:{nbr_oligo}\n"
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
+
+    # Classify job_list in function of int lenght
+    job_with_length.sort(key=lambda x: x[1], reverse=True)
 
 
     # Save OOM interactions
@@ -747,10 +823,10 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait):
 
     file.set_result_dict(result_dict)
 
-    return job_list
+    return job_with_length
 
 
-def Generate_3D_model(Informations_dict, interaction_type, job_list, GPU) :
+def Generate_3D_model(Informations_dict, interaction_type, job_with_length, GPU) :
     """
     Genrerate 3D models using multiple GPUs and multiprocessing.
 
@@ -758,13 +834,14 @@ def Generate_3D_model(Informations_dict, interaction_type, job_list, GPU) :
     ----------
     Informations_dict : dict
     interaction_files : str
-    job_list : list
+    job_list : dict
     GPU : list
     """
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
 
+    job_list = [job for job, _ in job_with_length]
     if job_list == [] :
         return
 
@@ -777,9 +854,15 @@ def Generate_3D_model(Informations_dict, interaction_type, job_list, GPU) :
     processes = []
     start_time = datetime.now()
 
+    monitor = multiprocessing.Process(
+        target=monitor_vram,
+        args=(GPU, stop_flag, 1)
+    )
+    monitor.start()
+
     try:
         for gpu_id in GPU:
-            p = multiprocessing.Process(target=gpu_worker, args=(gpu_id, job_queue,Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, stop_flag))
+            p = multiprocessing.Process(target=gpu_worker, args=(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, stop_flag))
             p.start()
             processes.append(p)
 
@@ -837,50 +920,51 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
     while not stop_flag.is_set() :
         try :
             interaction_file = job_queue.get(timeout=5)
+
+
+            logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
+            with open(f"log_file/{interaction_type}_GPU_{gpu_id}.txt", "w") as int_file :
+                int_file.write(interaction_file)
+
+            if AF_version == "2" :
+                cmd = (f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{interaction_type} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False")
+
+
+            elif AF_version == "3" :
+                cmd = (
+                    "run_multimer_jobs.py --mode=custom "
+                    f"--output_path=./result_{interaction_type} "
+                    f"--data_dir={Path_AlphaFold_Data} "
+                    f"--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt "
+                    f"--monomer_objects_dir={Path_Pickle_Feature} "
+                    "--fold_backend=alphafold3"
+                )
+
+
+            current_process = subprocess.Popen(cmd,shell=True, env=env, preexec_fn=os.setsid)
+            try :
+                while True :
+                    if stop_flag.is_set() :
+                        os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
+                        logger.warning(f"[GPU {gpu_id}] Interrupted — killing AlphaFold")
+                        return
+                    retcode = current_process.poll()
+                    if retcode is not None :
+                        break
+                    time.sleep(0.5)
+
+
+            except KeyboardInterrupt :
+                os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
+                logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
+                return
+
+            cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
+            os.system(cmd_rm)
+            logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
+
         except queue.Empty :
             break  #all jobs are done
-
-        logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
-        with open(f"log_file/{interaction_type}_GPU_{gpu_id}.txt", "w") as int_file :
-            int_file.write(interaction_file)
-
-        if AF_version == "2" :
-            cmd = (f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{interaction_type} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False")
-
-
-        elif AF_version == "3" :
-            cmd = (
-                "run_multimer_jobs.py --mode=custom "
-                f"--output_path=./result_{interaction_type} "
-                f"--data_dir={Path_AlphaFold_Data} "
-                f"--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt "
-                f"--monomer_objects_dir={Path_Pickle_Feature} "
-                "--fold_backend=alphafold3"
-            )
-
-
-        current_process = subprocess.Popen(cmd,shell=True, env=env, preexec_fn=os.setsid)
-        try :
-            while True :
-                if stop_flag.is_set() :
-                    os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-                    logger.warning(f"[GPU {gpu_id}] Interrupted — killing AlphaFold")
-                    return
-                retcode = current_process.poll()
-                if retcode is not None :
-                    break
-                time.sleep(0.5)
-
-
-        except KeyboardInterrupt :
-            os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-            logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
-            return
-
-        cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
-        os.system(cmd_rm)
-    logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
-
 
 
 
@@ -904,3 +988,37 @@ def run_cmd(cmd, env=None):
         logger.info("Interrupt detected, subprocess stopped…")
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         stdout, stderr = p.communicate()
+
+
+
+
+
+
+
+import time
+import pynvml
+import logging
+
+def monitor_vram(GPU, stop_flag, interval=1):
+    """
+    Monitor VRAM usage for given GPUs every `interval` seconds.
+    """
+    
+    pynvml.nvmlInit()
+    handles = {int(gpu): pynvml.nvmlDeviceGetHandleByIndex(int(gpu)) for gpu in GPU}
+
+    try:
+        while not stop_flag.is_set():
+            lines = []
+            for gpu, handle in handles.items():
+                mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                used = mem.used / 1024**3
+                total = mem.total / 1024**3
+                pct = (used / total) * 100
+                lines.append(f"GPU {gpu}: {used:.1f}/{total:.1f} GiB ({pct:.0f}%)")
+
+            logging.info(" | ".join(lines))
+            time.sleep(interval)
+
+    finally:
+        pynvml.nvmlShutdown()

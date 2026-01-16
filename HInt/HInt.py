@@ -174,8 +174,8 @@ if __name__ == "__main__" :
 
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Multimer_bait"] :
-            job_list = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            Generate_3D_model(Informations_dict, "PPI_int", job_list, GPU)
+            job_with_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
+            Generate_3D_model(Informations_dict, "PPI_int", job_with_length, GPU)
             Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait)
             HInt_object.Make_save_dict()  # Save interaction scores
 
@@ -186,8 +186,8 @@ if __name__ == "__main__" :
 
 
     if int(Informations_dict["Homo-oligomer"]) > 1 :
-        job_list = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
-        Generate_3D_model(Informations_dict, "homo_int", job_list, GPU)
+        job_with_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
+        Generate_3D_model(Informations_dict, "homo_int", job_with_length, GPU)
         Score_interaction(HInt_object, Informations_dict, "homo_int")
 
 
