@@ -6,6 +6,7 @@ HInt enables the identification of homologous proteins that may exhibit substant
 # 1.Instalations
 ```bash
 conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
+conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
 pip install -U "jax[cuda12]"==0.5.3
@@ -20,14 +21,13 @@ wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh ./mmseq_database
 ```
-
 mmseqs databases UniRef90 ./UniRef90 tmp <br>
 mmseqs createdb examples/DB.fasta targetDB <br>
 mmseqs makepaddedseqdb targetDB targetDB_gpu <br>
 mmseqs rmdb targetDB <br>
 or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
-colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
+test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
 ### Install deeplocpro
 
@@ -35,6 +35,11 @@ git clone https://github.com/Jaimomar99/deeplocpro <br>
 cd deeplocpro <br>
 pip install .
 DeepLocPro : pro https://services.healthtech.dtu.dk/services/DeepLocPro-1.0/
+
+### Install deeploc
+
+https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
+
 
 # 2.Example 
 ## Folder structure
