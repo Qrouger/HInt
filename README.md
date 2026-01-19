@@ -5,7 +5,7 @@
 HInt enables the identification of homologous proteins that may exhibit substantial sequence and structural divergence, while preserving similar functional interactions. This allows researchers to uncover conserved interaction networks that are not apparent from sequence or structural similarity alone.
 # 1.Instalations
 ```bash
-conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
+conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
 conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
@@ -14,8 +14,8 @@ pip install -U "jax[cuda12]"==0.5.3
 
 
 ```
-### Download MMseqs2 database GPU indexed
-To speed up all the steps, it is recommended to put the databases on nvme or ssd disks.<br>
+### Download MMseqs2 database GPU indexed (2 hours, 1.5T)
+To speed up MSA generation, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
@@ -28,6 +28,14 @@ mmseqs rmdb targetDB <br>
 or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
+
+### Download AlphaFold database
+```bash
+sudo apt install aria2
+git clone https://github.com/deepmind/alphafold.git
+cd alphafold
+scripts/download_all_data.sh /<Directory> > download.log 2> download_all.log
+```
 
 ### Install deeplocpro
 
