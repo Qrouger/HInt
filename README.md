@@ -25,7 +25,7 @@ mmseqs databases UniRef90 ./UniRef90 tmp <br>
 mmseqs createdb examples/DB.fasta targetDB <br>
 mmseqs makepaddedseqdb targetDB targetDB_gpu <br>
 mmseqs rmdb targetDB <br>
-or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
+or GPU=1 ./setup_databases.sh </path/to/db_folder> <br>
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
@@ -34,7 +34,7 @@ test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mod
 sudo apt install aria2
 git clone https://github.com/deepmind/alphafold.git
 cd alphafold
-scripts/download_all_data.sh /<Directory> > download.log 2> download_all.log
+scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
 
 ### C.1. Install deeplocpro (Prokaryote)
