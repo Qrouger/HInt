@@ -14,7 +14,7 @@ pip install -U "jax[cuda12]"==0.5.3
 
 
 ```
-### Download MMseqs2 database GPU indexed (2 hours, 1.5T)
+### A. Download MMseqs2 database GPU indexed (2 hours, 1.5T)
 To speed up MSA generation, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
@@ -29,7 +29,7 @@ or GPU=1 ./setup_databases.sh /path/to/db_folder <br>
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-### Download AlphaFold database
+### B. Download AlphaFold database
 ```bash
 sudo apt install aria2
 git clone https://github.com/deepmind/alphafold.git
@@ -37,17 +37,17 @@ cd alphafold
 scripts/download_all_data.sh /<Directory> > download.log 2> download_all.log
 ```
 
-### Install deeplocpro (Prokaryote)
+### C.1 Install deeplocpro (Prokaryote)
 
 git clone https://github.com/Jaimomar99/deeplocpro <br>
 cd deeplocpro <br>
 pip install .
 
-### Install deeploc (Eukaryote)
+### C.2 Install deeploc (Eukaryote)
 
 https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 
-### SignalP5 installation
+### D. SignalP5 installation
 
 [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
