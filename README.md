@@ -29,7 +29,7 @@ or GPU=1 ./setup_databases.sh </path/to/db_folder> <br>
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-### B. Download AlphaFold database
+### B. Download AlphaFold database (3 hours, 2.7T)
 ```bash
 sudo apt install aria2
 git clone https://github.com/deepmind/alphafold.git
