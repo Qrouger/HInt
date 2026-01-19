@@ -5,7 +5,7 @@
 HInt enables the identification of homologous proteins that may exhibit substantial sequence and structural divergence, while preserving similar functional interactions. This allows researchers to uncover conserved interaction networks that are not apparent from sequence or structural similarity alone.
 # 1.Instalations
 ```bash
-conda create -n HInt -c conda-forge python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
+conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2
 conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 numpy==1.26.4 ihm scipy==1.16.0
