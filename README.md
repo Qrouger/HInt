@@ -49,7 +49,7 @@ https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 
 ### SignalP5 installation
 
-https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php<br>
+[https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
 tar -xvzf signalp-5.0b.Linux.tar.gz
 cd signalp-5.0b/
