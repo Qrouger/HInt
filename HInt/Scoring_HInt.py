@@ -278,6 +278,8 @@ def Resume_file(file, Informations_dict) :
         for info in informations :
             if info in result_dict[prot].keys() :
                 big_csv_lines += "," + str(result_dict[prot][info])
+            if info == "Signal_peptide" :
+                big_csv_lines += "," + str(result_dict[info][prot])
             else :
                 big_csv_lines += ","
         if "Reason_for_filtering" in result_dict[prot].keys() :

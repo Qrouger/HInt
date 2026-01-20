@@ -163,7 +163,7 @@ if __name__ == "__main__" :
     # --------------------------------------------------------------
 
 
-    logger.info("%s - Generating MSA depth figures", datetime.now())
+    logger.info("Generating MSA depth figures")
     Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"])
 
 

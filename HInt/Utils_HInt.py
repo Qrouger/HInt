@@ -249,6 +249,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     - Generates new sequences without signal peptides
     - Updates internal sequence storage
     - Returns the list of proteins still requiring MSA computation
+    - Updates the result dictionary with signal peptide presence/absence
 
     If a protein already has an MSA but does not yet have a sequence without signal peptide, it will be processed here but not returned for MSA.
 
@@ -272,6 +273,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     fasta_file = file_name.replace(".txt","_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
     new_fasta_dict = file.get_proteins_sequence_no_SP()
+    result_dict = file.get_result_dict()
 
     file.create_fasta_file(True, need_SP)
     cmd = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
@@ -283,7 +285,9 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
             new_line = line.split("\t")
             if new_line[1] != "OTHER" and new_line[0][0] != "#" :
                 prot_SP[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
-
+                result_dict["Signal_peptide"][new_line[0]] = "Yes"
+            elif new_line[1] == "OTHER" and new_line[0][0] != "#" :
+                result_dict["Signal_peptide"][new_line[0]] = "No"
     with open(f"log_file/{fasta_file}", "r") as fa_file :
         for line2 in fa_file :
             new_line2 = line2
@@ -305,6 +309,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
         if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == False :
             new_need_msa.append(prot)
     file.set_proteins_sequence_no_SP(new_fasta_dict)
+    file.set_result_dict(result_dict)
     return new_need_msa
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
@@ -426,6 +431,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
             
+
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
     Retrieve a precomputed MSA from the AlphaFold database (AFdb), trim signal peptides if present, and realign the MSA using MAFFT.
@@ -511,7 +517,7 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     return protein, True
 
 
-
+#save SignalP in result dict and filter with it
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
@@ -539,15 +545,11 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     new_possible_prey = list()
     SignalP = Informations_dict["Signal_peptide"]
     for protein in possible_prey :
-        if seq_dict[protein][0] == "M" :
-            result_dict[protein]["Signal_peptide"] = "No"
-        else :
-            result_dict[protein]["Signal_peptide"] = "Yes"
         if SignalP == "None" :
             new_possible_prey.append(protein)
-        elif SignalP == result_dict[protein]["Signal_peptide"] :
+        elif SignalP == result_dict["Signal_peptide"][protein] :
             new_possible_prey.append(protein)
-        elif SignalP != result_dict[protein]["Signal_peptide"] :
+        elif SignalP != result_dict["Signal_peptide"][protein] :
             result_dict[protein]["Reason_for_filtering"] = "Signal peptide : SignalP"
             if protein in need_msa :
                 need_msa.remove(protein)
@@ -579,9 +581,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
     for prot in possible_prey :
-        if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() :
-            pass
-        else :
+        if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() == False :
             pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
             feature_dict = pre_feature_dict.feature_dict
             msa = feature_dict['msa']
@@ -845,6 +845,10 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_length, GPU)
     if job_list == [] :
         return
 
+    with open("log_file/All_PPI_jobs.txt", "w") as total_file :
+        for interaction in job_list :
+            total_file.write(interaction)
+
     stop_flag = multiprocessing.Event()
     job_queue = multiprocessing.Queue()
 
@@ -869,7 +873,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_length, GPU)
         for p in processes:
             p.join()
 
-    except KeyboardInterrupt:
+    except KeyboardInterrupt :
         logger.warning("Ctrl+C detected — stopping all GPU workers")
         stop_flag.set() 
         for p in processes:
@@ -913,7 +917,6 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
-
 
     stop_flag = multiprocessing.Event()
 
@@ -995,11 +998,7 @@ def run_cmd(cmd, env=None):
 
 
 
-import time
-import pynvml
-import logging
-
-def monitor_vram(GPU, stop_flag, interval=1):
+def monitor_vram(GPU, stop_flag, interval=30):
     """
     Monitor VRAM usage for given GPUs every `interval` seconds.
     """
@@ -1018,7 +1017,7 @@ def monitor_vram(GPU, stop_flag, interval=1):
                 lines.append(f"GPU {gpu}: {used:.1f}/{total:.1f} GiB ({pct:.0f}%)")
 
             logging.info(" | ".join(lines))
-            time.sleep(interval)
+            time.sleep(60)
 
     finally:
         pynvml.nvmlShutdown()

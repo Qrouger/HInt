@@ -264,18 +264,30 @@ class File_proteins() :
 
     def set_all_att (self, path_txt) :
         """
-        Set all values for all attribut for one txt file.
-        
-        Parameters:
+        Initialize and populate all attributes from a protein input text file.
+
+        This method parses a text file containing protein identifiers and/or FASTA sequences, cleans NCBI-formatted headers, validates protein uniqueness,
+        checks sequence validity, and initializes all internal data structures required for downstream analyses.
+
+        The input file may contain :
+        - Comma-separated protein identifiers
+        - FASTA-formatted protein sequences
+        - NCBI-style headers, which are automatically cleaned and normalized
+
+        Parameters :
         ----------
         path_txt : string
-        
-        Returns:
+
+        Notes :
         ----------
+        - Protein identifiers are converted to uppercase for consistency.
+        - FASTA headers are simplified by extracting protein identifiers from NCBI annotations.
+        - Sequences containing non-standard amino acids are rejected to ensure compatibility with MSA generation and peptid signal.
         """
         new_proteins = list()
         sequence_SP = dict()
         result_dict = dict()
+        result_dict["Signal_peptide"] = dict()
         already_fasta = dict()
         int_score = dict()
         save_prot = ""
@@ -312,7 +324,7 @@ class File_proteins() :
                     int_score[save_prot] = dict()
                 elif len(line) > 1 and save_prot != "" :
                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n")
-                    for aa in ["U", "O", "B", "Z", "J", "X"] :
+                    for aa in ["O", "B", "Z", "J", "X"] :
                         if aa in line.strip("\n") :
                             raise ValueError(f"Sequence {save_prot} contains {aa}.")
         self.set_file_name(path_txt)
@@ -324,18 +336,33 @@ class File_proteins() :
     
     def check_save_dict (self, Path_Pickle_Feature, regions_dict) :
         """
-        Check in the save dictionary which step for which protein have already been done. Take the sequence from it and return a list of proteins that do not have a MSA, pkl file or DeepLoc informations.
+        Inspect previously saved computation states and determine missing features for each protein.
 
-        Parameters:
+        This method compares the current protein set and sequences with the persistent save dictionary (save_dict.pkl) in order to identify which
+        computational steps must be recomputed. It verifies the presence and consistency of :
+        - Multiple sequence alignments (MSA, .a3m files)
+        - Feature pickle files (.pkl)
+        - DeepLoc subcellular localization predictions
+        - Signal peptide annotations
+        - Interaction scores
+
+        Parameters :
         ----------
-        Path_Pickle_Feature : string
+        Path_Pickle_Feature : str
         regions_dict : dictionary
 
-        Returns:
+        Returns :
         ----------
         need_msa : list
         need_pkl : list
         need_DeepLoc : list
+
+        Notes :
+        ----------
+        - Sequence mismatches between MSAs and cached data trigger a full reset for the affected protein.
+        - Interaction scores are invalidated if the corresponding structural models are missing.
+        - UniProt sequences are retrieved using the API and cleaned to remove formatting artifacts.
+        - The save dictionary is always updated at the end of the procedure.
         """
         need_msa = list()
         need_pkl = list()
@@ -356,13 +383,9 @@ class File_proteins() :
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
             int_score.update(copy.deepcopy(all_info["int_score"]))
+            result_dict["Signal_peptide"] = all_info["Signal_peptide"]
             for protein in proteins :
                 result_dict[protein] = dict()
-                if protein in all_info["sequence_no_SP"].keys() : #if protein in sequence_no_SP of save dict
-                    if all_info["sequence_no_SP"][protein][0] != "M" :
-                        result_dict[protein]["Signal_peptide"] = "No"
-                    else :
-                        result_dict[protein]["Signal_peptide"] = "Yes"
                 if protein in deeploc_prot.keys() : #if protein in deeploc of save dict
                     result_dict[protein]["DeepLoc"] = deeploc_prot[protein]
                 if protein in all_info["sequence_SP"].keys() : #if protein in sequence_SP of save dict
@@ -480,31 +503,24 @@ class File_proteins() :
 
     def Make_save_dict (self) :
         """
-        Save all important information in a pickle file to avoid to redo some step.
-
-        Parameters:
-        ----------
-        Returns:
-        ----------
+        Save all relevant intermediate results into a pickle file in order to avoid recomputing completed steps in future runs.
         """
         pkl_dict = dict()
         pkl_dict["sequence_SP"] = self.get_proteins_sequence_SP()
         pkl_dict["sequence_no_SP"] = self.get_proteins_sequence_no_SP()
         pkl_dict["deeploc"] = self.get_deeploc()
         pkl_dict["int_score"] = self.get_int_score()
-        with open('log_file/save_dict.pkl', 'wb') as out_file:
+        pkl_dict["Signal_peptide"] = self.get_result_dict()["Signal_peptide"]
+        with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)
 
     def find_prot_lenght (self, prot_dict = None) :
         """
-        Set the lenght for all proteins from a dictionary of amino acid sequence.
+        Compute and store the length (number of amino acids) of each protein based on sequences without signal peptides.
 
-        Parameters:
+        Parameters :
         ----------
-        prot_dict = dictionary
-        
-        Returns:
-        ----------
+        prot_dict = dict or None
         """
         if prot_dict == None :
             proteins = self.get_proteins()
@@ -519,17 +535,13 @@ class File_proteins() :
 
     def create_fasta_file (self, with_SP, need_msa=[], need_pkl=[]) :
         """
-        Generate a FASTA file for protein who don't have MSA.
-        Generate a FASTA file for protein who don't have pkl.
+        Generate FASTA files for proteins requiring MSA or pkl generation.
 
-        Parameters:
+        Parameters :
         ----------
         with_SP : boolean
         need_msa : list
         need_pkl : list
-
-        Returns:
-        ----------
         """
         line_msa = str()
         sequences_SP = self.get_proteins_sequence_SP()
