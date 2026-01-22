@@ -56,6 +56,8 @@ cd signalp-5.0b/
 sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
+### E. Install ccp4
+https://www.ccp4.ac.uk/download/#os=linux
 
 # 2.Example 
 ## Folder structure
