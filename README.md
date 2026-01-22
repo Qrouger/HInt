@@ -21,11 +21,6 @@ wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh ./mmseq_database
 ```
-mmseqs databases UniRef90 ./UniRef90 tmp <br>
-mmseqs createdb examples/DB.fasta targetDB <br>
-mmseqs makepaddedseqdb targetDB targetDB_gpu <br>
-mmseqs rmdb targetDB <br>
-or GPU=1 ./setup_databases.sh </path/to/db_folder> <br>
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
