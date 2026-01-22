@@ -32,7 +32,6 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 
-#check if U, O, B, Z, J, X is not in a sequence
 
 def Define_informations() :
     """
@@ -96,7 +95,7 @@ def Define_informations() :
                 logger.info("Set AlphaFold version by default on AlphaFold2")
             elif informations_key == "Min_protein_lenght" :
                 Informations_dict[informations_key] = "20"
-                logger.info("Minimum lenght for prey protein set default 20 AA")
+                logger.info("Minimum lenght for prey protein set by default 20 to AA")
             elif informations_key == "Max_protein_lenght" :
                 Informations_dict[informations_key] = ""
 
@@ -184,7 +183,7 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
-    file_name = file.get_file_name()
+    file_name = file.get_file_name().split("/")[-1]
     fasta_file = file_name.replace(".txt","_msa.fasta")
 
 
@@ -268,12 +267,13 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     """
     final_file = str()
     SP_signal = 0
-    prot_SP = dict()
-    file_name = file.get_file_name()
+    file_name = file.get_file_name().split("/")[-1]
     fasta_file = file_name.replace(".txt","_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
     new_fasta_dict = file.get_proteins_sequence_no_SP()
     result_dict = file.get_result_dict()
+    if_prot_SP = file.get_prot_SP()
+    prot_SP_len = dict()
 
     file.create_fasta_file(True, need_SP)
     cmd = f"signalp -fasta log_file/{fasta_file} -org {Informations_dict['Organism']} -prefix log_file/{output_file}"
@@ -284,10 +284,12 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
         for line in fh :
             new_line = line.split("\t")
             if new_line[1] != "OTHER" and new_line[0][0] != "#" :
-                prot_SP[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
-                result_dict["Signal_peptide"][new_line[0]] = "Yes"
+                prot_SP_len[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
+                result_dict[new_line[0]]["Signal_peptide"] = "Yes"
+                if_prot_SP[new_line[0]] = "Yes"
             elif new_line[1] == "OTHER" and new_line[0][0] != "#" :
-                result_dict["Signal_peptide"][new_line[0]] = "No"
+                result_dict[new_line[0]]["Signal_peptide"] = "No"
+                if_prot_SP[new_line[0]] = "No"
     with open(f"log_file/{fasta_file}", "r") as fa_file :
         for line2 in fa_file :
             new_line2 = line2
@@ -300,8 +302,8 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
                 SP_signal = 0
             if line2[0] == ">" :
                 save_key = line2[1:len(line2)-1]
-                if str(line2[1:len(line2)-1]) in prot_SP.keys() :
-                    SP_signal = prot_SP[line2[1:len(line2)-1]]
+                if str(line2[1:len(line2)-1]) in prot_SP_len.keys() :
+                    SP_signal = prot_SP_len[line2[1:len(line2)-1]]
             final_file = final_file + new_line2
 
     new_need_msa = list()
@@ -310,6 +312,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
             new_need_msa.append(prot)
     file.set_proteins_sequence_no_SP(new_fasta_dict)
     file.set_result_dict(result_dict)
+    file.set_prot_SP(if_prot_SP)
     return new_need_msa
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
@@ -517,7 +520,6 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     return protein, True
 
 
-#save SignalP in result dict and filter with it
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
@@ -547,9 +549,9 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     for protein in possible_prey :
         if SignalP == "None" :
             new_possible_prey.append(protein)
-        elif SignalP == result_dict["Signal_peptide"][protein] :
+        elif SignalP == result_dict[protein]["Signal_peptide"] :
             new_possible_prey.append(protein)
-        elif SignalP != result_dict["Signal_peptide"][protein] :
+        elif SignalP != result_dict[protein]["Signal_peptide"] :
             result_dict[protein]["Reason_for_filtering"] = "Signal peptide : SignalP"
             if protein in need_msa :
                 need_msa.remove(protein)
@@ -602,9 +604,8 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
-        a3m_file = open(f'{Path_Pickle_Feature}/{prot}.a3m', 'r')
-        msa = subprocess.run(['wc', '-l', f'{Path_Pickle_Feature}/{prot}.a3m'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        line_msa = int(msa.stdout.split()[0])
+        with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f:
+            line_msa = sum(1 for _ in msa_f)
         if line_msa/2 <= 100 :
             if line_msa/2 <= 2 :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
@@ -799,6 +800,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions: AF OOM"
+                    possible_prey.remove(prey)
 
     elif Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
@@ -812,6 +814,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 else :
                     OOM_int += f"{prey}:{nbr_oligo}\n"
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
+                    possible_prey.remove(prey)
 
     # Classify job_list in function of int lenght
     job_with_length.sort(key=lambda x: x[1], reverse=True)
@@ -821,6 +824,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     with open("log_file/OOM_interactions.txt", "w") as OOM_file :
         OOM_file.write(OOM_int)
 
+    file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
     return job_with_length

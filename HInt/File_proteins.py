@@ -142,6 +142,19 @@ class File_proteins() :
         """
         self.int_score = int_score
 
+    def set_prot_SP (self, dict_SP) :
+        """
+        Sets a dict indicating whether each protein has a signal peptide (SP) or not.
+        
+        Parameters:
+        ----------
+        int_score : dictionary
+        
+        Returns:
+        ----------
+        """
+        self.prot_SP = dict_SP
+
     def get_proteins_sequence_SP (self) :
         """
         Return the new amino acid sequence dictionary with SP.
@@ -259,6 +272,18 @@ class File_proteins() :
         """
         return self.int_score
 
+    def get_prot_SP (self) :
+        """
+        Return a dict indicating whether each protein has a signal peptide (SP) or not.
+        
+        Parameters:
+        ----------
+        int_score : dictionary
+        
+        Returns:
+        ----------
+        """
+        return self.prot_SP
 
 ### Generating of features and pre-file to run multimer
 
@@ -287,7 +312,7 @@ class File_proteins() :
         new_proteins = list()
         sequence_SP = dict()
         result_dict = dict()
-        result_dict["Signal_peptide"] = dict()
+        prot_SP = dict()
         already_fasta = dict()
         int_score = dict()
         save_prot = ""
@@ -333,7 +358,8 @@ class File_proteins() :
         self.set_proteins_sequence_SP(sequence_SP)
         self.set_int_score(int_score)
         self.set_result_dict(result_dict)
-    
+        self.set_prot_SP(prot_SP)
+
     def check_save_dict (self, Path_Pickle_Feature, regions_dict) :
         """
         Inspect previously saved computation states and determine missing features for each protein.
@@ -383,11 +409,13 @@ class File_proteins() :
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
             int_score.update(copy.deepcopy(all_info["int_score"]))
-            result_dict["Signal_peptide"] = all_info["Signal_peptide"]
+            prot_SP = copy.deepcopy(all_info["Signal_peptide"])
             for protein in proteins :
                 result_dict[protein] = dict()
                 if protein in deeploc_prot.keys() : #if protein in deeploc of save dict
                     result_dict[protein]["DeepLoc"] = deeploc_prot[protein]
+                if protein in prot_SP.keys() : #if protein in SP of save dict
+                    result_dict[protein]["Signal_peptide"] = prot_SP[protein]
                 if protein in all_info["sequence_SP"].keys() : #if protein in sequence_SP of save dict
                     if protein in sequences_SP.keys() : #check if two sequence match
                         if sequences_SP[protein] != all_info["sequence_SP"][protein] : #if not match, remove MSA files and start at zero
@@ -463,9 +491,10 @@ class File_proteins() :
                 for key in all_info["int_score"][protein].keys() :
                     bait = key.split("iQ_score_vs_")[1]
                     if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
-                        del int_score[protein][f"iQ_score_vs_{bait}"]
-
-
+                        if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
+                            del int_score[protein][f"iQ_score_vs_{bait}"]
+                        else :
+                            del int_score[protein]["iQ_score"]
 
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
@@ -510,7 +539,7 @@ class File_proteins() :
         pkl_dict["sequence_no_SP"] = self.get_proteins_sequence_no_SP()
         pkl_dict["deeploc"] = self.get_deeploc()
         pkl_dict["int_score"] = self.get_int_score()
-        pkl_dict["Signal_peptide"] = self.get_result_dict()["Signal_peptide"]
+        pkl_dict["Signal_peptide"] = self.get_prot_SP()
         with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)
 
@@ -547,7 +576,7 @@ class File_proteins() :
         sequences_SP = self.get_proteins_sequence_SP()
         sequences_no_SP = self.get_proteins_sequence_no_SP()
         proteins = self.get_proteins()
-        file_name = self.get_file_name()
+        file_name = self.get_file_name().split("/")[-1]
         file_msa = file_name.replace(".txt","_msa.fasta")
         file_pkl = file_name.replace(".txt","_pkl.fasta")
         if os.path.isfile(f"log_file/{file_msa}") == True :

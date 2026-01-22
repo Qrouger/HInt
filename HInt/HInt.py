@@ -126,7 +126,7 @@ if __name__ == "__main__" :
 
     need_SP = list()
     for protein in need_msa :
-        if protein not in HInt_object.get_proteins_sequence_no_SP().keys() : #protein need MSA but can already have sequence without SP
+        if protein not in HInt_object.get_proteins_sequence_no_SP().keys() or protein not in HInt_object.get_prot_SP().keys() : #protein need MSA but can already have sequence without SP
             need_SP.append(protein)
     if len(need_SP) > 0 : # Run SignalP for proteins without signal peptide annotation
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)

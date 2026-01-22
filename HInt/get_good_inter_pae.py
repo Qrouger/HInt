@@ -118,35 +118,76 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
         if not csv_files or not pi_score_files:
             print(f"Warning: missing CSV or pi_score files for {name_job}")
             continue
+        for csv_f in csv_files:
+            filtered_df = pd.read_csv(os.path.join(subdir, csv_f))
 
-        filtered_df = pd.read_csv(os.path.join(subdir, csv_files[0]))
+            if filtered_df.shape[0] == 0:
+                for column in filtered_df.columns:
+                    filtered_df[column] = ["None"]
+                filtered_df['jobs'] = str(name_job)
+                filtered_df['pi_score'] = "No interface detected"
+                output_df = pd.concat([output_df, filtered_df])
+                continue
 
+            interface_id = csv_f.split("filter_intf_features_")[-1].replace(".csv", "")
 
-        if filtered_df.shape[0] == 0:
-            for column in filtered_df.columns:
-                filtered_df[column] = ["None"]
-            filtered_df['jobs'] = str(name_job)
-            filtered_df['pi_score'] = "No interface detected"
-        else:
-            with open(os.path.join(subdir, pi_score_files[0]), 'r') as f:
-                lines = [l for l in f.readlines() if "#" not in l]
-            if len(lines) > 0:
-                pi_score = pd.read_csv(os.path.join(subdir, pi_score_files[0]))
-                pi_score['jobs'] = str(name_job)
+            pi_f = [f for f in pi_score_files if interface_id in f]
+            if not pi_f:
+                print(f"Warning: no pi_score file for interface {interface_id}")
+                continue
+
+            pi_score = pd.read_csv(os.path.join(subdir, pi_f[0]))
+            pi_score['jobs'] = str(name_job)
+
+            # interface propre
+            if 'chains' in pi_score.columns:
+                pi_score['interface'] = pi_score['chains']
             else:
-                pi_score = pd.DataFrame.from_dict({"pi_score": ['SC:  mds: too many atoms']})
+                pi_score['interface'] = interface_id
 
-            pi_score['interface'] = pi_score.get('chains', None)
             filtered_df['jobs'] = str(name_job)
+            last_chain = get_last_chain_from_pdb(os.path.join(job, "ranked_0.pdb"))
+            last_chain = get_last_chain_from_pdb(os.path.join(job, "ranked_0.pdb"))
 
-            filtered_df = pd.merge(filtered_df, pi_score, on=['jobs', 'interface'], how='left')
+            filtered_df = filtered_df[filtered_df['interface'].apply(lambda x: last_chain in x)]
+            pi_score = pi_score.drop(columns=["#PDB", "pdb", "pvalue", "chains", "predicted_class"],errors="ignore")
 
-            try:
-                filtered_df = filtered_df.drop(columns=["#PDB", "pdb", "pvalue", "chains", "predicted_class"])
-            except:
-                pass
+            filtered_df = pd.merge(
+                filtered_df,
+                pi_score,
+                on=['jobs', 'interface'],
+                how='left'
+            )
 
-        output_df = pd.concat([output_df, filtered_df])
+            output_df = pd.concat([output_df, filtered_df])
+#        filtered_df = pd.read_csv(os.path.join(subdir, csv_files[0]))
+
+
+ #       if filtered_df.shape[0] == 0:
+ #           for column in filtered_df.columns:
+ #               filtered_df[column] = ["None"]
+ #           filtered_df['jobs'] = str(name_job)
+  #          filtered_df['pi_score'] = "No interface detected"
+  #      else:
+  #          with open(os.path.join(subdir, pi_score_files[0]), 'r') as f:
+  #              lines = [l for l in f.readlines() if "#" not in l]
+   #         if len(lines) > 0:
+    #            pi_score = pd.read_csv(os.path.join(subdir, pi_score_files[0]))
+     #           pi_score['jobs'] = str(name_job)
+      #      else:
+       #         pi_score = pd.DataFrame.from_dict({"pi_score": ['SC:  mds: too many atoms']})
+
+        #    pi_score['interface'] = pi_score.get('chains', None)
+         #   filtered_df['jobs'] = str(name_job)
+
+          #  filtered_df = pd.merge(filtered_df, pi_score, on=['jobs', 'interface'], how='left')
+
+           # try:
+            #    filtered_df = filtered_df.drop(columns=["#PDB", "pdb", "pvalue", "chains", "predicted_class"])
+            #except:
+            #    pass
+            #print(filtered_df)
+        #output_df = pd.concat([output_df, filtered_df])
 
     subprocess.run(f"rm -rf {tmp_dir}", shell=True, executable='/bin/bash')
     return output_df
@@ -229,7 +270,6 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
         "iptm":iptm,
         "mpDockQ/pDockQ":mpDockq_scores})
 
-        
     if good_jobs!=[] :
         pi_score_df = run_and_summarise_pi_score(output_dir,good_jobs,surface_thres,ccp4_setup)
         pi_score_df = pd.merge(pi_score_df,other_measurements_df,on="jobs")
@@ -241,3 +281,13 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     else :
         return None
 
+
+
+def get_last_chain_from_pdb(pdb_file):
+    last_chain = None
+    with open(pdb_file, 'r') as f:
+        for line in f:
+            if line.startswith(('ATOM', 'HETATM')):
+                chain = line[21]  # colonne 22 dans PDB (index 21)
+                last_chain = chain
+    return last_chain
