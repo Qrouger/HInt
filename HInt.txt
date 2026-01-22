@@ -10,10 +10,13 @@ Min_protein_lenght :
 AlphaFold : 2 #version 3 or 2
 
 
-###Paths #All paths are mandatory except Path_MMseqs2_Data
-Path_Uniprot_ID : sequence.txt
+###Database Paths #All paths are mandatory except Path_MMseqs2_Data
 Path_AlphaFold_Data : /data/alphadata_v2
-Path_Pickle_Feature : ./feature_mmseq
 Path_ccp4 : /opt/xtal/ccp4-9
 Path_MMseqs2_Data : /data/mmseq_database
 
+###Input Path
+Path_Uniprot_ID : sequence.txt
+
+###Output Path
+Path_Pickle_Feature : ./feature_mmseq
