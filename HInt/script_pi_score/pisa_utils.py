@@ -26,7 +26,6 @@ def run_pisa(pdbfile=None):
         #with open(log_file, 'w') as f:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT,close_fds=True)
         proc.wait() 
-
     return outfle
 
 

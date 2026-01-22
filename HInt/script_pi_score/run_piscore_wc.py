@@ -143,7 +143,9 @@ def main():
         
         #print ('*****Iterating over interfaces in structure*****')
         #Iterating over all the interfaces
+        index = 0
         for k in dict_intf:
+            index+=1
             ch1 = k.split('_')[0]
             ch2 = k.split('_')[-1]
             flag = False
@@ -175,7 +177,7 @@ def main():
                 intf_outfle_name = intf_outfle_prefix + '_interface_properties_dict.json'
                 with open(intf_outfle_name,'w') as outfle:
                     json.dump(dict_intf_prop,outfle)     
-                
+
                 #print ('*****Calculating shape complementarity*****')
                 #calculate shape complementarity
                 scriptfile = write_sc_script(chain_lst=k.split('_'),
@@ -188,12 +190,13 @@ def main():
         #calculate features using pisa
         outfle_name = run_pisa(clean_pdbfile)
         pisa_out = parse_pisa_xml_outfle(outfle_name)
-    
+
     os.chdir(working_path)
+
     #print ('*****Writing CSV file with features *****')
     # # Write the CSV file with interface features
-    write_csv_with_features_wc(indir=args.out, 
-                            outfle=args.csv)
+    
+    write_csv_with_features_wc(indir=args.out, outfle=args.csv)
     # 
     # 
     # #filter CSV and have only interfaces where all features were computed successfully

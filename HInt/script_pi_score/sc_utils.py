@@ -76,6 +76,7 @@ def parse_sc_output(outfle):
                 #pdb = lne.split()[-1][0:4]
                 #for em challenge targets
                 pdb = lne.split()[-1].split('_clean')[0]
+
             if 'Shape complementarity statistic Sc' in lne:
                 sc = lne.split('=')[-1].strip()
         try:
@@ -85,6 +86,10 @@ def parse_sc_output(outfle):
                 dict_out[pdb] = {'_'.join(ch_lst):sc}
         except:
             pass
+
         with open(new_name,'w') as sec_outfle:
             json.dump(dict_out,sec_outfle)
-    
+
+
+
+
