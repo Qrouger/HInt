@@ -52,7 +52,11 @@ sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
 ### E. Install ccp4
-https://www.ccp4.ac.uk/download/#os=linux
+Download ccp4 package : https://www.ccp4.ac.uk/download/#os=linux
+```bash
+tar xvzf ccp4-9-setup.tar.gz
+./ccp4-9-setup
+```
 
 # 2.Example 
 ## Folder structure
