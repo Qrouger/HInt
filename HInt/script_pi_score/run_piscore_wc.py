@@ -87,10 +87,10 @@ def main():
 
 
     #list of directories where to run conservation
-    dir_infiles = []
-    all_conslst = []
-    all_consdir = []
-    ch_lst = []
+    #dir_infiles = []
+    #all_conslst = []
+    #all_consdir = []
+    #ch_lst = []
 
     #print ('*****Iterating over each structure to assess*****')
     for pdb in pdblist:

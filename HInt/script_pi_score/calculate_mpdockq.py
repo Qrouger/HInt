@@ -1,10 +1,7 @@
 #Adapted from calculate_mpdockq.py (https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/analysis_pipeline/alpha_analysis_jax0.4.def)
 
-import os
 import numpy as np
 import pandas as pd
-import pickle,gzip
-import json
 from collections import defaultdict
 import math
 

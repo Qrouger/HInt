@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 #Adapted from pisa_utils.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
 
-import os
 import json
 import uuid
 import subprocess
@@ -29,8 +28,7 @@ def run_pisa(pdbfile=None):
     return outfle
 
 
-def parse_pisa_xml_outfle(xml_fle,
-                         outfle_name=None):
+def parse_pisa_xml_outfle(xml_fle,outfle_name=None):
     import xml.etree.ElementTree as ET
     intf_area = ''
     pvalue = ''

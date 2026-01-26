@@ -3,13 +3,12 @@
 import os
 import json
 import pandas as pd
+import numpy as np
 import pickle
 import sys
-import shutil 
 
 def write_csv_with_features_wc_2(indir,outfle):
     out_csv = outfle
-    lst_json_fles = []
     lst_features = ['Num_intf_residues', 'Polar', 'Hydrophobhic', 'Charged']
     outfle = open(out_csv,'w')
     #writing header in csv file
@@ -249,10 +248,6 @@ def filter_csv(csvfile,outfile):
     out.close() 
 
 def make_predictions(saved_sc, csvfile, saved_model, outfle, session_id):
-    import numpy as np
-    import pickle
-    import pandas as pd
-    import sys
     with open(saved_model,'rb') as file:
         clf_m = pickle.load(file)
 

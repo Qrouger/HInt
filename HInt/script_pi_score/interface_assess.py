@@ -3,8 +3,6 @@
 from Bio.PDB.MMCIFParser import MMCIFParser
 import sys
 from Bio.PDB import Selection, NeighborSearch, PDBParser, PDBIO, Select
-import os
-import collections
 import json
 
 dict_aa = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
