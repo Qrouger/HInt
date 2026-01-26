@@ -61,6 +61,12 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     ppi_list = list()
     already_done = list()
 
+    result = subprocess.run(["conda", "env", "list", "--json"],capture_output=True, text=True, check=True)
+    envs = json.loads(result.stdout)["envs"]
+    exists = any("pi_score" in env for env in envs)
+    if not exists :
+        subprocess.run(["conda", "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
+
     if bait is not None : #setup bait name
         bait_name = bait.replace(",","_and_")
         for prot in bait.split(",") :
@@ -226,8 +232,8 @@ def run_scoring (args) :
     result : pandas.DataFrame
     """
     interaction, output_dir, Path_ccp4, seq_no_SP, AF_version = args
-    try:
-        result = get_good_inter_pae.main(interaction, output_dir, 100, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
+    try :
+        result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
@@ -262,13 +268,10 @@ def Resume_file(file, Informations_dict) :
     sorted_proteins : list of tuples
     """
     logger.info("Create result table for all preys")
-    iQ_score_dict = dict()
     list_name_baits = list()
     result_dict = file.get_result_dict()
-    possible_prey = file.get_possible_prey()
     possible_baits = Informations_dict["Multimer_bait"]
     regions = Informations_dict["Regions"]
-    proteins = file.get_proteins()
     informations = ["DeepLoc","Signal_peptide"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
     small_csv_lines = "Name,Reason_for_filtering\n"
@@ -668,7 +671,6 @@ def cluster_interface (file, interface_dict, sorted_proteins) :
         Updated dictionary where each interface list starts with a letter (a-z) representing the interface cluster. Interfaces with similar residues share the same letter.
     """
     alphabet = string.ascii_lowercase
-    int_score = file.get_int_score()
 
     for proteins in interface_dict.keys() :
         if len(interface_dict[proteins]) >= 27 : #Limit to 27 interfaces per protein

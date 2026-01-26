@@ -12,7 +12,6 @@ from Scoring_HInt import Score_interaction, Resume_file, Create_figures
 
 import sys
 import logging
-from datetime import datetime
 import argparse
 
 
@@ -92,7 +91,7 @@ if __name__ == "__main__" :
 
 
     # need_msa also includes proteins that only require signal peptide information
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["Regions"])
+    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
 
 
     # Remove bait proteins from the prey list

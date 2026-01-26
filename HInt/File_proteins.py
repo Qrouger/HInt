@@ -360,7 +360,7 @@ class File_proteins() :
         self.set_result_dict(result_dict)
         self.set_prot_SP(prot_SP)
 
-    def check_save_dict (self, Path_Pickle_Feature, regions_dict) :
+    def check_save_dict (self, Path_Pickle_Feature) :
         """
         Inspect previously saved computation states and determine missing features for each protein.
 
@@ -375,7 +375,6 @@ class File_proteins() :
         Parameters :
         ----------
         Path_Pickle_Feature : str
-        regions_dict : dictionary
 
         Returns :
         ----------
@@ -448,7 +447,8 @@ class File_proteins() :
                         try:
                             urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                         except Exception as e :
-                            raise Exception(f"{protein} is not a compliant UniprotID")  # ou break selon ton contexte
+                            raise Exception(f"{protein} is not a compliant UniprotID")
+                            break
                         with open("log_file/temp_file.txt","r") as in_file:
                             for seq in re.finditer(pattern, in_file.read()) :
                                 sequences_SP[protein] = seq.group(1)
@@ -575,7 +575,6 @@ class File_proteins() :
         line_msa = str()
         sequences_SP = self.get_proteins_sequence_SP()
         sequences_no_SP = self.get_proteins_sequence_no_SP()
-        proteins = self.get_proteins()
         file_name = self.get_file_name().split("/")[-1]
         file_msa = file_name.replace(".txt","_msa.fasta")
         file_pkl = file_name.replace(".txt","_pkl.fasta")

@@ -14,7 +14,6 @@ import glob
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from numpy import load
 from Bio import SeqIO
 import time
 import queue
@@ -336,8 +335,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     """
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    baits = Informations_dict["Interact_with"]
-    regions = Informations_dict["Regions"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
@@ -368,8 +365,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     start = time.time()
 
     futures_list = []
-    found = []
-    not_found = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor : #CPU parallelization
         for protein in generated_msa : #check if prot have an MSA in alphafold database
             l_p = len(protein)
@@ -542,7 +537,6 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     need_pkl : list
     """
     result_dict = file.get_result_dict()
-    seq_dict = file.get_proteins_sequence_no_SP()
     possible_prey = file.get_possible_prey()
     new_possible_prey = list()
     SignalP = Informations_dict["Signal_peptide"]
@@ -780,26 +774,27 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             bait_for_job = bait
 
     # Build job list
+    copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
     if Interaction_file == "PPI_int" :
-        for prey in possible_prey :
+        for prey in copy_possible_prey :
             int_lenght = lenght + lenght_prot[prey]
 
             # Check if model already exists
             if AF_version == "3":
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0_model.cif")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0_model.cif")
-            else:  # AF_version == "2"
+            else : # AF_version == "2"
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
 
             if len(path1) == 0 and len(path2) == 0 :
-                if int_lenght <= max_aa:
+                if int_lenght <= max_aa :
                     job_str = f"{bait_for_job};{prey}\n"
                     #job_list.append(job_str)
                     job_with_length.append((job_str, int_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
-                    result_dict[prey][f"iQ_score_vs_{bait}"] = "Too big interactions: AF OOM"
+                    result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
 
     elif Interaction_file == "homo_int" :
@@ -864,7 +859,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_length, GPU)
 
     monitor = multiprocessing.Process(
         target=monitor_vram,
-        args=(GPU, stop_flag, 1)
+        args=(GPU, stop_flag)
     )
     monitor.start()
 
@@ -922,12 +917,13 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-    stop_flag = multiprocessing.Event()
+    try :
+        while not stop_flag.is_set() :
+            try :
+                interaction_file = job_queue.get(timeout=5)
 
-    while not stop_flag.is_set() :
-        try :
-            interaction_file = job_queue.get(timeout=5)
-
+            except queue.Empty :
+                return  #all jobs are done
 
             logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
             with open(f"log_file/{interaction_type}_GPU_{gpu_id}.txt", "w") as int_file :
@@ -949,29 +945,37 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
 
 
             current_process = subprocess.Popen(cmd,shell=True, env=env, preexec_fn=os.setsid)
-            try :
-                while True :
-                    if stop_flag.is_set() :
-                        os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-                        logger.warning(f"[GPU {gpu_id}] Interrupted — killing AlphaFold")
-                        return
-                    retcode = current_process.poll()
-                    if retcode is not None :
-                        break
-                    time.sleep(0.5)
-
-
-            except KeyboardInterrupt :
-                os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-                logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
-                return
-
+ 
+            while True :
+                if stop_flag.is_set() :
+                    os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
+                    logger.warning(f"[GPU {gpu_id}] Interrupted — killing AlphaFold")
+                    return
+                retcode = current_process.poll()
+                if retcode is not None :
+                    if retcode != 0 :
+                        raise RuntimeError(f"AlphaFold crashed (exitcode={retcode}) on {interaction_file}")
+                    break
+                time.sleep(0.5)
             cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
             os.system(cmd_rm)
             logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
-        except queue.Empty :
-            break  #all jobs are done
+    except KeyboardInterrupt :
+        os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
+        logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
+        stop_flag.set()
+        return
+    except Exception as e:
+        logger.exception(f"[GPU {gpu_id}] Fatal error")
+        stop_flag.set()
+
+        if current_process is not None:
+            try:
+                os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
+            except Exception:
+                pass
+        sys.exit(1)
 
 
 
@@ -1002,7 +1006,7 @@ def run_cmd(cmd, env=None):
 
 
 
-def monitor_vram(GPU, stop_flag, interval=30):
+def monitor_vram(GPU, stop_flag):
     """
     Monitor VRAM usage for given GPUs every `interval` seconds.
     """

@@ -4,8 +4,7 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "script_pi_score"))
-from datetime import datetime
-from absl import flags,app,logging
+from absl import logging
 from calculate_mpdockq import *
 import pickle
 import json
@@ -14,7 +13,6 @@ import pandas as pd
 import subprocess
 import gzip
 from Bio.PDB import MMCIFParser, PDBIO
-import shutil
 import gzip
 
 def examine_inter_pae(pae_mtx,seqs,cutoff) :
@@ -74,16 +72,6 @@ def run_and_summarise_pi_score(work_dir, jobs, surface_thres, ccp4_setup) :
     A function to calculate all predicted models' pi_scores and make a pandas df of the results.
     Instrumented to log timing per major step.
     """
-    result = subprocess.run(["conda", "env", "list", "--json"],
-                            capture_output=True, text=True, check=True)
-    envs = json.loads(result.stdout)["envs"]
-    exists = any("pi_score" in env for env in envs)
-    if not exists:
-        subprocess.run([
-            "conda", "create", "-y", "-n", "pi_score",
-            "python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"
-        ], check=True)
-
     direc = jobs[0].split("/")[len(jobs[0].split("/"))-1]
     if os.path.isdir("/scratch") :
         tmp_dir = f"/scratch/tmp/{direc}"
