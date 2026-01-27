@@ -20,7 +20,8 @@ from scipy.special import softmax
 from Bio import PDB
 import copy
 import string
-from pathlib import Path
+import subprocess
+from multiprocessing import Pool
 
 # Configure global logger
 logging.basicConfig(
@@ -60,6 +61,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     AF_version = Informations_dict["AlphaFold"]
     ppi_list = list()
     already_done = list()
+    already_dict = dict()
 
     result = subprocess.run(["conda", "env", "list", "--json"],capture_output=True, text=True, check=True)
     envs = json.loads(result.stdout)["envs"]
@@ -120,23 +122,25 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             if "," in bait : #multimer bait
                                 if row['pi_score'] == 'No interface detected' :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score
-                                        last_line = all_lines.strip('\n').split('\n')[-1]
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
-                                        mean_pi_score = (-2.63 + float(last_line.split(",")[1])) / 2
+                                        already_dict[job].append(float(-2.63))
+                                        mean_pi_score = (sum(already_dict[job]) + float(-2,63)) / len(already_dict[job])
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'\n{row["jobs"]},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
+                                        already_dict[job] = [float(-2,63)]
                                         iQ_score = float(row['iptm_ptm'])*30#pi_score don't detect interface so it's set on -2.63
                                         line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
                                 else :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score
-                                        last_line = all_lines.strip('\n').split('\n')[-1]
-                                        all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line 
-                                        mean_pi_score =  (float(row['pi_score']) + float(last_line.split(",")[1])) / 2
+                                        all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
+                                        already_dict[job].append(float(row['pi_score']))
+                                        mean_pi_score = (sum(already_dict[job]) + float(row['pi_score'])) / len(already_dict[job])
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'\n{row["jobs"]},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
+                                        already_dict[job] = [float(row['pi_score'])]
                                         iQ_score = ((float(row['pi_score'])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
@@ -325,9 +329,9 @@ def Resume_file(file, Informations_dict) :
 
 
 #Generate figures
-def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
+def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     """
-    Generate structural and sequence-level figures for validated prey proteins.
+    Generate structural and sequence-level figures for validated prey proteins, parrallelized across multiple CPU cores.
 
     This function produces figures only for :
     - Monomeric baits (single protein only)
@@ -345,12 +349,14 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
     Informations_dict : dict
     AF_version : str
     sorted_proteins : list
+    CPU : int
     """
     logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
     interface_dict = dict()
+    tasks = []
     for bait in Informations_dict["Multimer_bait"] :
         if len(bait.split(",")) > 1 or bait == "" : #No figures for multimers bait
             pass
@@ -363,14 +369,37 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins) :
                 bait_file = bait
             for prey in possible_prey :
                 if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
-                    if AF_version == "2" :
-                        plot_Distogram (f"./result_PPI_int/{bait_file}_and_{prey}")
-                    residues_at_interface,proteins,path_int,color_res = make_table_res_int(file, f"./result_PPI_int/{bait_file}_and_{prey}", bait, AF_version)
-                    if residues_at_interface is not None :
-                        color_int_residues(path_int, color_res, proteins) #color residue in interaction on the pdb
-                        interface_dict = define_interface(residues_at_interface, [bait,prey], interface_dict)
+                    tasks.append((AF_version,bait_file,prey,file,bait,{}))
+            with Pool(processes=CPU) as pool:
+                results_res_int = pool.map(postprocess_interaction, tasks)
+
+
+            for d in results_res_int :
+                interface_dict.update(d)
             interface_dict = cluster_interface(file, interface_dict, sorted_proteins)
             plot_sequence_interface(file,interface_dict)
+
+def postprocess_interaction (args) :
+    """
+    Post-process a single AlphaFold interaction to generate structural figures and interface residue tables.
+
+    Parameters :
+    ----------
+    args : tuple
+    """
+    (AF_version,bait_file,prey,file,bait,interface_dict) = args
+    outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
+
+    if AF_version == "2":
+        plot_Distogram(outdir)
+
+    residues_at_interface, proteins, path_int, color_res = make_table_res_int(file,outdir,bait,AF_version)
+
+    if residues_at_interface is not None:
+        color_int_residues(path_int, color_res, proteins)
+        interface_dict = define_interface(residues_at_interface,[bait, prey],interface_dict)
+
+    return interface_dict
 
 def plot_Distogram (job) :
     """

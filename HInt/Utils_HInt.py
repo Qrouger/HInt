@@ -644,11 +644,11 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     result_dict = file.get_result_dict()
     sequence_dict = file.get_proteins_sequence_SP() #use sequence with SP for lenght filtering
     possible_prey = file.get_possible_prey()
-    if Informations_dict["Max_protein_lenght"] == "" : #no set by default, depend of GPU memory
+    if Informations_dict["Max_protein_lenght"] == "" : #not set by default, depend of GPU memory
         max_lenght = 100000
     else :
         max_lenght = int(Informations_dict["Max_protein_lenght"])
-    min_lenght = int(Informations_dict["Min_protein_lenght"]) #set by default to 30
+    min_lenght = int(Informations_dict["Min_protein_lenght"]) #set by default to 20
     new_possible_prey = list()
     for protein in possible_prey :
         if len(sequence_dict[protein]) < max_lenght and len(sequence_dict[protein]) > min_lenght :

@@ -189,12 +189,12 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     mpDockq_scores = list()
     logging.info(f"Scoring {job}")
     result_subdir = os.path.join(job)
+    interaction = job.split("/")[-1]
+    bait = interaction.split("_and_")[0]
+    if "-" in bait :
+        bait = bait.split("_")[-1]
+    prey = interaction.split("_and_")[1]
     if AF_version == "3" : #for alphafold3
-        interaction = job.split("/")[-1]
-        bait = interaction.split("_and_")[0]
-        if "-" in bait :
-            bait = bait.split("_")[-1]
-        prey = interaction.split("_and_")[1]
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)
             structure = parser.get_structure('model', os.path.join(result_subdir,'ranked_0_model.cif'))
@@ -241,7 +241,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
                     check_dict = pickle.load(pkl)
             else :
                 logging.info(f"Cannot find result pickle for {job}, skipping.")
-            seqs = check_dict['seqs']
+            seqs = [seq_no_SP[bait],seq_no_SP[prey]]
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
