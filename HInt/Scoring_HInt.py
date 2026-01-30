@@ -124,11 +124,11 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
                                         already_dict[job].append(float(-2.63))
-                                        mean_pi_score = (sum(already_dict[job]) + float(-2,63)) / len(already_dict[job])
+                                        mean_pi_score = (sum(already_dict[job]) + float(-2.63)) / len(already_dict[job])
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'\n{row["jobs"]},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
-                                        already_dict[job] = [float(-2,63)]
+                                        already_dict[job] = [float(-2.63)]
                                         iQ_score = float(row['iptm_ptm'])*30#pi_score don't detect interface so it's set on -2.63
                                         line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)

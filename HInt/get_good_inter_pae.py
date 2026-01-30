@@ -15,6 +15,7 @@ import gzip
 from Bio.PDB import MMCIFParser, PDBIO
 import gzip
 
+
 def examine_inter_pae(pae_mtx,seqs,cutoff) :
     """A function that checks inter-pae values in multimer prediction jobs"""
     lens = [len(seq) for seq in seqs]
@@ -190,10 +191,11 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     logging.info(f"Scoring {job}")
     result_subdir = os.path.join(job)
     interaction = job.split("/")[-1]
-    bait = interaction.split("_and_")[0]
-    if "-" in bait :
-        bait = bait.split("_")[-1]
-    prey = interaction.split("_and_")[1]
+    seqs = list()
+    for prot in interaction.split("_and_") :
+        if "-" in prot :
+           prot = prot.split("_")[0]
+        seqs.append(seq_no_SP[prot])
     if AF_version == "3" : #for alphafold3
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)
@@ -212,7 +214,6 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
                 json_data = json.load(json_f)
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
-            seqs = [seq_no_SP[bait],seq_no_SP[prey]]
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job))
             check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
@@ -241,7 +242,6 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
                     check_dict = pickle.load(pkl)
             else :
                 logging.info(f"Cannot find result pickle for {job}, skipping.")
-            seqs = [seq_no_SP[bait],seq_no_SP[prey]]
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
