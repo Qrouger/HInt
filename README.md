@@ -41,6 +41,10 @@ pip install .
 ### C.2. Install deeploc (Eukaryote)
 
 https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
+```bash
+cd  deeploc2_package<br>
+pip install .
+```
 
 ### D. Install SignalP5
 
