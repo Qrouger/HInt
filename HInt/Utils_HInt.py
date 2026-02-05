@@ -18,11 +18,12 @@ from Bio import SeqIO
 import time
 import queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import math
 
 
 # Configure global logger
 logging.basicConfig(
-    filename="HInt.log",  # Log file name
+    filename="./log_file/HInt.log",  # Log file name
     level=logging.INFO,  # Log level
     format="%(asctime)s - %(levelname)s - %(message)s"  # Log format
 )
@@ -71,7 +72,7 @@ def Define_informations() :
         if type(Informations_dict[informations_key]) is str and Informations_dict[informations_key].endswith("/") : #avoid error in path
             Informations_dict[informations_key] = Informations_dict[informations_key][:-1]
         if len(Informations_dict[informations_key]) == 0 :
-            logger.info(f'Informations : {informations_key} is empty')
+            logger.info(f'{informations_key} is empty')
             if informations_key == "Path_ccp4" :
                 logger.info("Set ccp4 path by default on ./opt/xtal/ccp4-9")
                 Informations_dict[informations_key] = "./opt/xtal/ccp4-9"
@@ -336,6 +337,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
+    baits = Informations_dict["Interact_with"]
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
@@ -355,6 +357,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
 
     #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
+    for bait in baits :
+        generated_msa.remove(bait) #Always made mmseqs2 for baits even if MSA in AFdb
     logger.info(f"Search MSA in AlphaFold database")
 
     # ThreadPool to parallelise
@@ -557,7 +561,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
 
-def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
+def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
     """
     Generate MSA coverage plots for all proteins and create a shallow_MSA summary file.
 
@@ -571,12 +575,15 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
     ----------
     file : object of class File_proteins
     Path_Pickle_Feature : string
+    baits : list
     """
     shallow_MSA = str()
     result_dict = file.get_result_dict()
-    possible_prey = file.get_possible_prey()
+    all_prot = file.get_possible_prey()
+    for bait in baits :   
+        all_prot.append(bait)
     new_possible_prey = list()
-    for prot in possible_prey :
+    for prot in all_prot :
         if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() == False :
             pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
             feature_dict = pre_feature_dict.feature_dict
@@ -600,7 +607,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
             plt.close()
         with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f:
             line_msa = sum(1 for _ in msa_f)
-        if line_msa/2 <= 100 :
+        if line_msa/2 <= 100 and prot not in baits :
             if line_msa/2 <= 2 :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "No MSA"
@@ -609,8 +616,10 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature) :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "Shallow MSA"
                new_possible_prey.append(prot)
-        else :
+        if line_msa/2 > 100 and prot not in baits :
             new_possible_prey.append(prot)
+        if line_msa/2 <= 100 and prot in baits :
+            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be false negative.")
     with open("log_file/shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(new_possible_prey)
@@ -733,9 +742,9 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
     Returns :
     ----------
-    job_with_length : dict
+    job_with_vram_length : list of tuple
     """
-    job_with_length = [] # [(job_str, int_length)]
+    job_with_vram_length = [] # [(job_str, int_length)]
     OOM_int = ""
     result_dict = file.get_result_dict()
     AF_version = Informations_dict["AlphaFold"]
@@ -748,9 +757,9 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     vram = (mem_info.total / 1024**2) * 0.001  # GiB
-    max_aa = int(vram * 120)  # 120 AA per GiB VRAM
-    pynvml.nvmlShutdown()
+    max_aa=int((-0.00262+math.sqrt((0.00262**2)-4*0.00000228*(3-vram)))/(2*0.00000228))
 
+    pynvml.nvmlShutdown()
     # Determine bait length and region
     complexe = "," in bait
     if complexe :
@@ -790,8 +799,8 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             if len(path1) == 0 and len(path2) == 0 :
                 if int_lenght <= max_aa :
                     job_str = f"{bait_for_job};{prey}\n"
-                    #job_list.append(job_str)
-                    job_with_length.append((job_str, int_lenght))
+                    vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
+                    job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
@@ -805,14 +814,15 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             if len(path) == 0 :
                 if int_lenght <= max_aa :
                     job_str = f"{prey}:{nbr_oligo}\n"
-                    job_with_length.append((job_str, int_lenght))
+                    vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
+                    job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{prey}:{nbr_oligo}\n"
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
                     possible_prey.remove(prey)
 
     # Classify job_list in function of int lenght
-    job_with_length.sort(key=lambda x: x[1], reverse=True)
+    job_with_vram_length.sort(key=lambda x: x[1], reverse=True)
 
 
     # Save OOM interactions
@@ -822,94 +832,138 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     file.set_possible_prey(possible_prey)
     file.set_result_dict(result_dict)
 
-    return job_with_length
+    return job_with_vram_length
 
 
-def Generate_3D_model(Informations_dict, interaction_type, job_with_length, GPU) :
+
+
+
+def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, allow_multi_job_per_gpu) :
     """
-    Genrerate 3D models using multiple GPUs and multiprocessing.
+    Generate 3D models using multiple GPUs and multiprocessing.
 
-    Parameters:
+    Parameters :
     ----------
     Informations_dict : dict
     interaction_files : str
-    job_list : dict
+    job_with_vram_length : list of tuple
     GPU : list
+    allow_multi_job_per_gpu : str
     """
+    if not job_with_vram_length :
+        return
+
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
+    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    max_vram = mem_info.total / 1024**3 #Gb
+    pynvml.nvmlShutdown()
+
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
 
-    job_list = [job for job, _ in job_with_length]
-    if job_list == [] :
-        return
+    with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
+        for job, _ in job_with_vram_length :
+            f.write(job + "\n")
 
-    with open("log_file/All_PPI_jobs.txt", "w") as total_file :
-        for interaction in job_list :
-            total_file.write(interaction)
-
-    stop_flag = multiprocessing.Event()
-    job_queue = multiprocessing.Queue()
-
-    for interaction in job_list :
-        job_queue.put(interaction)
-
-    processes = []
-    start_time = datetime.now()
-
-    monitor = multiprocessing.Process(
-        target=monitor_vram,
-        args=(GPU, stop_flag)
-    )
-    monitor.start()
-
-    try:
-        for gpu_id in GPU:
-            p = multiprocessing.Process(target=gpu_worker, args=(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, stop_flag))
-            p.start()
-            processes.append(p)
-
-        for p in processes:
-            p.join()
-
-    except KeyboardInterrupt :
-        logger.warning("Ctrl+C detected — stopping all GPU workers")
-        stop_flag.set() 
-        for p in processes:
-            if p.is_alive():
-                p.terminate()
-
-        for p in processes:
-            p.join(timeout=5)
-
-        sys.exit(1)
-
-    logger.info("Time modelisation : %s", datetime.now() - start_time)
+    manager(jobs_pending=list(job_with_vram_length),
+            GPU=GPU,
+            max_vram=max_vram,
+            Path_AlphaFold_Data=Path_AlphaFold_Data,
+            Path_Pickle_Feature=Path_Pickle_Feature,
+            interaction_type=interaction_type,
+            AF_version=AF_version,
+            allow_multi_job_per_gpu=allow_multi_job_per_gpu
+        )
 
 
-def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, stop_flag) :
+
+def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, allow_multi_job_per_gpu) :
     """
-    Run the AlphaFold script on a specific GPU, allows parallel processing of jobs on multiple GPUs.
-    A new jobs is fetched from the job_queue when the current one is finished.
+    Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
-    Parameters:
+    Parameters :
     ----------
-    gpu_id : str
-    job_queue : list
+    jobs_pending : list
+    GPU : list
+    max_vram : float
     Path_AlphaFold_Data : str
     Path_Pickle_Feature : str
     interaction_type : str
     AF_version : str
-    stop_flag : multiprocessing.Event
+    allow_multi_job_per_gpu : str
     """
-    #for H100, cluster ?
-    # JAX-specific optimizations
-    #export JAX_ENABLE_X64=0  # Use float32 to save memory
-    #export JAX_DEFAULT_MATMUL_PRECISION="high"
-    #export JAX_TRACEBACK_FILTERING=off  # Better debugging
-    #export TF_FORCE_UNIFIED_MEMORY=1
-    #export XLA_PYTHON_CLIENT_PREALLOCATE=false
-    #export XLA_CLIENT_MEM_FRACTION=4.0  # Allow oversubscription
+    manager_proc = multiprocessing.Manager()
+    result_queue = manager_proc.Queue()
+    allow_multi_job_per_gpu = False if allow_multi_job_per_gpu == "False" else True
+    gpu_vram_used = {gpu: 0.0 for gpu in GPU}
+    jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
+
+    try :
+        while (jobs_pending or jobs_running) :
+
+            while not result_queue.empty() :
+                msg = result_queue.get()
+                status, job, gpu_id, vram = msg[:4]
+                gpu_vram_used[gpu_id] -= vram
+                if job in jobs_running[gpu_id]:
+                    jobs_running[gpu_id].remove(job)
+                print(f"[GPU {gpu_id}] {status} {job}")
+
+                print(f"[GPU {gpu_id}] {status} {job}")
+
+            launched = False
+
+            for interaction, job_vram in list(jobs_pending) :
+                for gpu_id in GPU :
+
+                    free = max_vram - gpu_vram_used[gpu_id]
+                    
+                    if job_vram <= free and (allow_multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
+                        p = multiprocessing.Process(target=gpu_job_runner,
+                            args=(gpu_id,
+                                interaction,
+                                job_vram,
+                                result_queue,
+                                Path_AlphaFold_Data,
+                                Path_Pickle_Feature,
+                                interaction_type,
+                                AF_version,
+                            ),
+                        )
+
+                        p.start()
+
+                        gpu_vram_used[gpu_id] += job_vram
+                        jobs_running[gpu_id].append((interaction, p))
+                        jobs_pending.remove((interaction, job_vram))
+                        launched = True
+                        break
+
+                if launched :
+                    break
+            if not launched :
+                time.sleep(1)
+
+    except KeyboardInterrupt :
+        kill_hint_processes()
+
+def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version) :
+    """
+    Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
+
+    Parameters :
+    ----------
+    gpu_id : int
+    interaction_file : str
+    vram : float
+    result_queue : multiprocessing.Queue
+    Path_AlphaFold_Data : str
+    Path_Pickle_Feature : str
+    interaction_type : str
+    AF_version : str
+    """
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
@@ -917,96 +971,62 @@ def gpu_worker(gpu_id, job_queue, Path_AlphaFold_Data, Path_Pickle_Feature, inte
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
+    prot_int = interaction_file.strip("\n").replace(";", "_and_")
+    file_name = f"{interaction_type}_GPU_{prot_int}.txt"
+
     try :
-        while not stop_flag.is_set() :
-            try :
-                interaction_file = job_queue.get(timeout=5)
+        with open(f"log_file/{file_name}", "w") as f :
+            f.write(interaction_file)
 
-            except queue.Empty :
-                return  #all jobs are done
+        if AF_version == "2" :
+            cmd = (
+                "run_multimer_jobs.py --mode=custom "
+                "--num_cycle=3 "
+                "--num_predictions_per_model=1 "
+                "--compress_result_pickles=True "
+                f"--output_path=./result_{interaction_type} "
+                f"--data_dir={Path_AlphaFold_Data} "
+                f"--protein_lists=log_file/{file_name} "
+                f"--monomer_objects_dir={Path_Pickle_Feature} "
+                "--remove_keys_from_pickles=False"
+            )
+        else :
+            cmd = (
+                "run_multimer_jobs.py --mode=custom "
+                f"--output_path=./result_{interaction_type} "
+                f"--data_dir={Path_AlphaFold_Data} "
+                f"--protein_lists=log_file/{file_name} "
+                f"--monomer_objects_dir={Path_Pickle_Feature} "
+                "--fold_backend=alphafold3"
+            )
+        logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
+        proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            env=env,
+            preexec_fn=os.setsid
+        )
 
-            logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
-            with open(f"log_file/{interaction_type}_GPU_{gpu_id}.txt", "w") as int_file :
-                int_file.write(interaction_file)
+        while True :
 
-            if AF_version == "2" :
-                cmd = (f"run_multimer_jobs.py --mode=custom \--num_cycle=3 \--num_predictions_per_model=1 \--compress_result_pickles=True \--output_path=./result_{interaction_type} \--data_dir={Path_AlphaFold_Data} \--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt \--monomer_objects_dir={Path_Pickle_Feature} \--remove_keys_from_pickles=False")
+            ret = proc.poll()
+            if ret is not None:
+                if ret != 0 :
+                    raise RuntimeError(f"Crash ({ret})")
+                break
 
+            time.sleep(0.5)
 
-            elif AF_version == "3" :
-                cmd = (
-                    "run_multimer_jobs.py --mode=custom "
-                    f"--output_path=./result_{interaction_type} "
-                    f"--data_dir={Path_AlphaFold_Data} "
-                    f"--protein_lists=log_file/{interaction_type}_GPU_{gpu_id}.txt "
-                    f"--monomer_objects_dir={Path_Pickle_Feature} "
-                    "--fold_backend=alphafold3"
-                )
+        result_queue.put(("done", interaction_file, gpu_id, vram))
+        os.system(f"rm log_file/{file_name}")
+        logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
-
-            current_process = subprocess.Popen(cmd,shell=True, env=env, preexec_fn=os.setsid)
- 
-            while True :
-                if stop_flag.is_set() :
-                    os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-                    logger.warning(f"[GPU {gpu_id}] Interrupted — killing AlphaFold")
-                    return
-                retcode = current_process.poll()
-                if retcode is not None :
-                    if retcode != 0 :
-                        raise RuntimeError(f"AlphaFold crashed (exitcode={retcode}) on {interaction_file}")
-                    break
-                time.sleep(0.5)
-            cmd_rm = f"rm log_file/{interaction_type}_GPU_{gpu_id}.txt"
-            os.system(cmd_rm)
-            logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
-
-    except KeyboardInterrupt :
-        os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-        logger.warning(f"[GPU {gpu_id}] Ctrl+C detected — killing AlphaFold")
-        stop_flag.set()
-        return
-    except Exception as e:
-        logger.exception(f"[GPU {gpu_id}] Fatal error")
-        stop_flag.set()
-
-        if current_process is not None:
-            try:
-                os.killpg(os.getpgid(current_process.pid), signal.SIGTERM)
-            except Exception:
-                pass
-        sys.exit(1)
+    except Exception as e :
+        result_queue.put(("Crash", interaction_file, gpu_id, vram, str(e)))
 
 
 
-@staticmethod
-def run_cmd(cmd, env=None):
-    """
-    Run a shell command and handle KeyboardInterrupt to terminate the process group.
-
-    Parameters:
-    ----------
-    cmd : str
-    env : dict
-
-    Returns:
-    ----------
-    """
-    p = subprocess.Popen(cmd, shell=True, env=env, preexec_fn=os.setsid)
-    try:
-        stdout, stderr = p.communicate()
-    except KeyboardInterrupt:
-        logger.info("Interrupt detected, subprocess stopped…")
-        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-        stdout, stderr = p.communicate()
-
-
-
-
-
-
-
-def monitor_vram(GPU, stop_flag):
+def monitor_vram(GPU, stop_flag) :
     """
     Monitor VRAM usage for given GPUs every `interval` seconds.
     """
@@ -1024,8 +1044,28 @@ def monitor_vram(GPU, stop_flag):
                 pct = (used / total) * 100
                 lines.append(f"GPU {gpu}: {used:.1f}/{total:.1f} GiB ({pct:.0f}%)")
 
-            logging.info(" | ".join(lines))
+            logger.info(" | ".join(lines))
             time.sleep(60)
 
     finally:
         pynvml.nvmlShutdown()
+
+
+@staticmethod
+def kill_hint_processes() :
+    """
+    Kill all processes related to the current Python executable, typically used to terminate any remaining AlphaFold jobs after a KeyboardInterrupt (Ctrl+C).
+    """
+    logger.info("Ctrl+C detected")
+    python_path = sys.executable
+    try :
+        output = subprocess.check_output(f"pgrep -f '{python_path}'", shell=True).decode().split() #list all PID
+    except subprocess.CalledProcessError :
+        output = []
+
+    for pid_str in output :
+        pid = int(pid_str)
+        try :
+            os.killpg(os.getpgid(pid), signal.SIGKILL) #kill all PID
+        except ProcessLookupError :
+            pass

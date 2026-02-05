@@ -54,6 +54,7 @@ def add_arguments(parser) :
     N_CPU = multiprocessing.cpu_count()
     default_cpu = N_CPU // 2  # by default, use half of the available CPUs
     parser.add_argument("--cpu", help="Number of CPUs available for computation", required=False, default=default_cpu, type=int)
+    parser.add_argument("--allow_multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default=True)
 
 
 # ------------------------------------------------------------------
@@ -68,7 +69,10 @@ if __name__ == "__main__" :
 
     GPU = [gpu for gpu in args.gpu.split(",")]
     CPU = args.cpu
-
+    allow_multi_job_per_gpu = args.allow_multi_job_per_gpu
+    if allow_multi_job_per_gpu not in ["True", "False"] :
+        raise ValueError("Invalid value for --allow_multi_job_per_gpu.")
+        
     Informations_dict = Define_informations()
 
     logger.info("GPUs set to: %s", GPU)
@@ -83,7 +87,7 @@ if __name__ == "__main__" :
     
     for bait in Informations_dict["Interact_with"] : # Check that all bait proteins exist in the protein list
         if bait not in HInt_object.get_proteins() and bait != "" :
-            raise Exception(f"Bait {bait} not found in the protein list {Informations_dict['Path_Uniprot_ID']})")
+            raise Exception(f"Bait {bait} not found in the protein list {Informations_dict['Path_Uniprot_ID']}")
 
     # --------------------------------------------------------------
     # Checkpointing: determine which features need to be computed
@@ -163,7 +167,7 @@ if __name__ == "__main__" :
 
 
     logger.info("Generating MSA depth figures")
-    Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"])
+    Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"])
 
 
     # --------------------------------------------------------------
@@ -173,8 +177,8 @@ if __name__ == "__main__" :
 
     if Informations_dict["Interact_with"] != [""] :
         for bait in Informations_dict["Multimer_bait"] :
-            job_with_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            Generate_3D_model(Informations_dict, "PPI_int", job_with_length, GPU)
+            job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
+            Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
             Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait)
             HInt_object.Make_save_dict()  # Save interaction scores
 
@@ -185,8 +189,8 @@ if __name__ == "__main__" :
 
 
     if int(Informations_dict["Homo-oligomer"]) > 1 :
-        job_with_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
-        Generate_3D_model(Informations_dict, "homo_int", job_with_length, GPU)
+        job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
+        Generate_3D_model(Informations_dict, "homo_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
         Score_interaction(HInt_object, Informations_dict, "homo_int")
 
 
