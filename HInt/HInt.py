@@ -6,14 +6,10 @@ Author: Quentin Rouger
 This script orchestrates the full HInt pipeline, from input parsing to final results generation.
 """
 
-from Utils_HInt import *
-from File_proteins import *
-from Scoring_HInt import Score_interaction, Resume_file, Create_figures
-
 import sys
 import logging
 import argparse
-
+import os
 
 # ------------------------------------------------------------------
 # Logging configuration
@@ -24,6 +20,11 @@ log_filename = "./log_file/HInt.log"
 # Create log directory if it does not exist
 if not os.path.exists("log_file") :
     os.system("mkdir log_file")
+
+from Utils_HInt import *
+from File_proteins import *
+from Scoring_HInt import Score_interaction, Resume_file, Create_figures
+
 # Reset existing handlers to avoid duplicated logs
 logging.getLogger().handlers.clear()
 logger = logging.getLogger()
@@ -54,7 +55,7 @@ def add_arguments(parser) :
     N_CPU = multiprocessing.cpu_count()
     default_cpu = N_CPU // 2  # by default, use half of the available CPUs
     parser.add_argument("--cpu", help="Number of CPUs available for computation", required=False, default=default_cpu, type=int)
-    parser.add_argument("--allow_multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default=True)
+    parser.add_argument("--allow_multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default="True")
 
 
 # ------------------------------------------------------------------
@@ -175,7 +176,7 @@ if __name__ == "__main__" :
     # --------------------------------------------------------------
 
 
-    if Informations_dict["Interact_with"] != [""] :
+    if Informations_dict["Interact_with"] != [''] :
         for bait in Informations_dict["Multimer_bait"] :
             job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
             Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
@@ -200,4 +201,5 @@ if __name__ == "__main__" :
 
 
     sorted_protein = Resume_file(HInt_object, Informations_dict)
-    Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"], sorted_protein, CPU)
+    if Informations_dict["Interact_with"] != [''] :
+        Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"], sorted_protein, CPU)

@@ -104,8 +104,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
             pool.close()
             pool.join()
 
-        if results != [] :
-            merged_df = pd.concat(results, ignore_index=True) #write an empty dataframe if no result
+        merged_df = pd.concat(results, ignore_index=True) if results else pd.DataFrame() #write an empty dataframe if no result
         merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
         if ppi_list : #Add result in dict result if there is new ppi scored
             #Resume all score and set new possible prey

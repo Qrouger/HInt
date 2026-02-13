@@ -165,7 +165,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     interaction = job.split("/")[-1]
     seqs = list()
     for prot in interaction.split("_and_") :
-        if "-" in prot :
+        if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
            prot = prot.split("_")[0]
         seqs.append(seq_no_SP[prot])
     if AF_version == "3" : #for alphafold3
@@ -175,10 +175,10 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             io = PDBIO()
             io.set_structure(structure)
             io.save(os.path.join(result_subdir,'ranked_0.pdb'))
-        if os.path.isfile(os.path.join(job,'ranked_0_summary_confidences.json')):
+        if os.path.isfile(os.path.join(job,'ranked_0_summary_confidences.json')) :
             with open(os.path.join(result_subdir,'ranked_0_summary_confidences.json'),'rb') as json_sum_f :
                 json_sum = json.load(json_sum_f)
-            if "iptm" in json_sum.keys() and "ptm" in json_sum.keys():
+            if "iptm" in json_sum.keys() and "ptm" in json_sum.keys() :
                 iptm_score = json_sum['iptm']
                 ptm_score = json_sum['ptm']
                 iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score

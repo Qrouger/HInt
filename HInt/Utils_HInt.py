@@ -357,8 +357,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
 
     #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
-    for bait in baits :
-        generated_msa.remove(bait) #Always made mmseqs2 for baits even if MSA in AFdb
     logger.info(f"Search MSA in AlphaFold database")
 
     # ThreadPool to parallelise
@@ -390,7 +388,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     if len(need_msa) > 10 :
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
             GPU_str = GPU_str[:-2]
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 1 --gpu 1"  #-e 0.1
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1"  #-e 0.1
         os.system(cmd)
         need_pkl.extend(need_msa)
         need_msa = list()
@@ -580,8 +578,9 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
     shallow_MSA = str()
     result_dict = file.get_result_dict()
     all_prot = file.get_possible_prey()
-    for bait in baits :   
-        all_prot.append(bait)
+    if baits != [''] :
+        for bait in baits :
+            all_prot.append(bait)
     new_possible_prey = list()
     for prot in all_prot :
         if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() == False :
@@ -901,17 +900,17 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
 
     try :
-        while (jobs_pending or jobs_running) :
+        while jobs_pending or any(jobs_running.values()):
 
             while not result_queue.empty() :
-                msg = result_queue.get()
-                status, job, gpu_id, vram = msg[:4]
+                status, job, gpu_id, vram = result_queue.get()[:4]
                 gpu_vram_used[gpu_id] -= vram
-                if job in jobs_running[gpu_id]:
-                    jobs_running[gpu_id].remove(job)
-                print(f"[GPU {gpu_id}] {status} {job}")
+                for i, (j, p) in enumerate(jobs_running[gpu_id]):
+                    if j == job:
+                        p.join() 
+                        jobs_running[gpu_id].pop(i)
+                        break
 
-                print(f"[GPU {gpu_id}] {status} {job}")
 
             launched = False
 
