@@ -542,7 +542,6 @@ class File_proteins() :
         pkl_dict["deeploc"] = self.get_deeploc()
         pkl_dict["int_score"] = self.get_int_score()
         pkl_dict["Signal_peptide"] = self.get_prot_SP()
-        print(pkl_dict)
         with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)
 

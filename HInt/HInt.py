@@ -192,7 +192,7 @@ if __name__ == "__main__" :
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
         Generate_3D_model(Informations_dict, "homo_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
-        Score_interaction(HInt_object, Informations_dict, "homo_int")
+        Score_interaction(HInt_object, Informations_dict, CPU, "homo_int")
 
 
     # --------------------------------------------------------------

@@ -934,7 +934,9 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
             launched = False
 
             for interaction, job_vram in list(jobs_pending) :
-                for gpu_id in GPU :
+                sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[gpu_id]) #make PPI on GPU with minimum vram use
+
+                for gpu_id in sorted_gpus :
 
                     free = max_vram - gpu_vram_used[gpu_id]
                     
