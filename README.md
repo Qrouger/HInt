@@ -27,7 +27,7 @@ test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mod
 ### B. Download AlphaFold database (3 hours, 2.7T)
 ```bash
 sudo apt install aria2
-git clone https://github.com/deepmind/alphafold.git
+git clone https://github.com/KosinskiLab/alphafold.git
 cd alphafold
 scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
