@@ -394,6 +394,7 @@ class File_proteins() :
         need_DeepLoc = list()
         protein_sequence_no_SP = dict()
         deeploc_prot = dict()
+        prot_SP = dict()
         int_score = self.get_int_score()
         result_dict = self.get_result_dict()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
@@ -521,6 +522,7 @@ class File_proteins() :
                     
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
+        self.set_prot_SP(prot_SP)
         self.set_result_dict(result_dict)
         self.set_deeploc(deeploc_prot)
         self.set_proteins_sequence_no_SP(protein_sequence_no_SP)
@@ -540,6 +542,7 @@ class File_proteins() :
         pkl_dict["deeploc"] = self.get_deeploc()
         pkl_dict["int_score"] = self.get_int_score()
         pkl_dict["Signal_peptide"] = self.get_prot_SP()
+        print(pkl_dict)
         with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)
 

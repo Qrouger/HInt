@@ -74,11 +74,17 @@ def Define_informations() :
         if len(Informations_dict[informations_key]) == 0 :
             logger.info(f'{informations_key} is empty')
             if informations_key == "Path_ccp4" :
-                logger.info("Set ccp4 path by default on ./opt/xtal/ccp4-9")
-                Informations_dict[informations_key] = "./opt/xtal/ccp4-9"
+                if os.path.isdir("/opt/xtal/ccp4-9") == True :
+                    logger.info("Set ccp4 path by default on /opt/xtal/ccp4-9")
+                    Informations_dict[informations_key] = "/opt/xtal/ccp4-9"
+                else :
+                    raise ValueError("Path_ccp4 is empty and ccp4 is not found in /opt/xtal/ccp4-9. You need to install ccp4 or set the path of ccp4 in HInt.txt")
             elif informations_key == "Path_AlphaFold_Data" :
-                logger.info("Set AlphaFold data by default on ./alphadata")
-                Informations_dict[informations_key] = "./alphadata"
+                if os.path.isdir("./alphadata") == True :
+                    logger.info("Set AlphaFold data by default on ./alphadata")
+                    Informations_dict[informations_key] = "./alphadata"
+                else :
+                    raise ValueError("Path_AlphaFold_Data is empty and AlphaFold data is not found in ./alphadata. You need to download AlphaFold data or set the path of AlphaFold data in HInt.txt")
             elif informations_key == "Path_Pickle_Feature" :
                 logger.info("Set pickle feature path by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
@@ -98,7 +104,16 @@ def Define_informations() :
                 logger.info("Minimum lenght for prey protein set by default 20 to AA")
             elif informations_key == "Max_protein_lenght" :
                 Informations_dict[informations_key] = ""
-
+        if len(Informations_dict[informations_key]) == 1 :
+            if informations_key == "Path_AlphaFold_Data" :
+                if os.path.isdir(Informations_dict[informations_key]) == False :
+                    raise ValueError(f"Path set for AlphaFold database doesn't exist : {Informations_dict[informations_key]}")
+            elif informations_key == "Path_MMseqs2_Data" :
+                if os.path.isdir(Informations_dict[informations_key]) == False :
+                    raise ValueError (f"Path set for MMseq database doesn't exist : {Informations_dict[informations_key]}")
+            elif informations_key == "Path_ccp4" :
+                if os.path.isdir(Informations_dict[informations_key]) == False :
+                    raise ValueError (f"Path set for ccp4 doesn't exist : {Informations_dict[informations_key]}")
         ### Parse protein-protein interaction definitions
         # Multiple baits
         # Multimeric baits
@@ -469,6 +484,9 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
 
     subprocess.run(["wget", "-q", "-O", msa_in, url], check=True)
 
+    nbr_line = sum(1 for _ in open(msa_in))
+    if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
+        return protein, False
 
     SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
     if SP > 0 : #if no SP don't modify the MSA
@@ -759,31 +777,32 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     max_aa=int((-0.00262+math.sqrt((0.00262**2)-4*0.00000228*(3-vram)))/(2*0.00000228))
 
     pynvml.nvmlShutdown()
-    # Determine bait length and region
-    complexe = "," in bait
-    if complexe :
-        save_multimer = bait
-        bait_file = save_multimer.replace(",", "_and_")
-        bait_for_job = save_multimer.replace(",", ";")
-        lenght = sum(lenght_prot[prot] for prot in save_multimer.split(","))
-        for prot in save_multimer.split(",") :
-            if regions[prot] != "0-0":
-                start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
-                bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
-                bait_for_job = bait_for_job.replace(prot, f"{prot},{start}-{end}")
-    else :
-        lenght = lenght_prot[bait]
-        if regions[bait] != "0-0" :
-            start, end = int(regions[bait].split("-")[0]), int(regions[bait].split("-")[1])
-            bait_file = f"{bait}_{start}-{end}"
-            bait_for_job = f"{bait},{start}-{end}"
-        else: 
-            bait_file = bait
-            bait_for_job = bait
-
-    # Build job list
-    copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
+    
     if Interaction_file == "PPI_int" :
+        # Determine bait length and region
+        complexe = "," in bait
+        if complexe :
+            save_multimer = bait
+            bait_file = save_multimer.replace(",", "_and_")
+            bait_for_job = save_multimer.replace(",", ";")
+            lenght = sum(lenght_prot[prot] for prot in save_multimer.split(","))
+            for prot in save_multimer.split(",") :
+                if regions[prot] != "0-0":
+                    start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
+                    bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
+                    bait_for_job = bait_for_job.replace(prot, f"{prot},{start}-{end}")
+        else :
+            lenght = lenght_prot[bait]
+            if regions[bait] != "0-0" :
+                start, end = int(regions[bait].split("-")[0]), int(regions[bait].split("-")[1])
+                bait_file = f"{bait}_{start}-{end}"
+                bait_for_job = f"{bait},{start}-{end}"
+            else: 
+                bait_file = bait
+                bait_for_job = bait
+
+        # Build job list
+        copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
         for prey in copy_possible_prey :
             int_lenght = lenght + lenght_prot[prey]
 
