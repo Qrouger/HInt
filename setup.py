@@ -22,7 +22,7 @@ setup(
         'ihm',
         'scipy==1.16.0',
         'setuptools==80.9.0',
-        'colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold',
+        #'colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold',
         'jax[cuda12]==0.5.3',
         'numpy==1.26.4',
         'torchdata==0.9.0',
