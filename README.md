@@ -59,10 +59,13 @@ tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
 ```
 
+<br>
+
 # 2.Input parameters
-<br>
 ## Setup HInt.txt
+
 <br>
+
 ### The First part of HInt.txt file contains all a priori information about the query protein.
 
 **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
@@ -110,9 +113,11 @@ And you can mixed up all of theses examples ! <br>
 
 >[!TIP]
 >If you don’t know the information or want to skip it, you can leave this field blank.
+
 <br>
+
 ### Second part of HInt.txt are paths.
-<br>
+
 **Path_AlphaFold_Data** : Path of AlphaFold databse (string).
 
 **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
@@ -125,6 +130,8 @@ And you can mixed up all of theses examples ! <br>
 
 **Path_Pickle_Feature** : Path where MSA files will be saved (string).
 
+<br>
+
 ## Setup protein file
 The protein file must contain all UniProt IDs or all sequences in FASTA format for both preys and baits. <br>
 This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
@@ -132,6 +139,8 @@ This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combin
 
 >[!TIP]
 >The use of UniprotIDs is recommended for pipeline speed.
+
+<br>
 
 ## Run HInt
 You need to be in the directory with HInt.txt file.
@@ -143,6 +152,8 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 --gpu : Index(es) of GPU(s) you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
 --multi_job_per_gpu : Allows multiple jobs to run on a single GPU, reducing time of modelisation. By default set on True. <br>
 
+<br>
+
 ## Folder structure
 
-# 4.Results
+# 3.Example
