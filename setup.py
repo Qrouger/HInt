@@ -3,7 +3,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 setup(
-    name='HInt',
+    name='HInt-ppi',
     version='0.1',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
