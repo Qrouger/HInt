@@ -12,7 +12,7 @@ pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://
 pip install -U "jax[cuda12]"==0.5.3 numpy==1.26.4
 ```
 
-### A. Download MMseqs2 database GPU indexed (2 hours, 1.5T)
+## A. Download MMseqs2 database GPU indexed (2 hours, 1.5T)
 To speed up MSA generation, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
@@ -22,7 +22,7 @@ GPU=1 ./setup_databases.sh ./mmseq_database
 
 test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
 
-### B. Download AlphaFold database (3 hours, 2.7T)
+## B. Download AlphaFold database (3 hours, 2.7T)
 ```bash
 sudo apt install aria2
 git clone https://github.com/KosinskiLab/alphafold.git
@@ -30,13 +30,13 @@ cd alphafold
 scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
 
-### C.1. Install deeplocpro (Prokaryote)
+## C.1. Install deeplocpro (Prokaryote)
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
 ```
-### C.2. Install deeploc (Eukaryote)
+## C.2. Install deeploc (Eukaryote)
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
@@ -44,7 +44,7 @@ cd  deeploc2_package
 pip install .
 ```
 
-### D. Install SignalP5
+## D. Install SignalP5
 
 Download SignalP5 here : [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
@@ -53,22 +53,23 @@ cd signalp-5.0b/
 sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
-### E. Install ccp4
+## E. Install ccp4
 Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
 ```
 
-# 2.Example 
-## Folder structure
+# 2.Example
+## Start folder structure
 ## Setup HInt.txt
 ## Setup protein file
 The bait protein need to be in this file <br>
 The use of UniprotIDs is recommended for pipeline speed
 ## Run HInt
 
-# 3.All parameters
+# 2.Input parameters
+## Setup HInt.txt
 **Signal_peptide** : No, Yes or None. <br>
 
 **Homo-oligomer** : Oligomerization (integer : 1-20). <br>
@@ -107,6 +108,11 @@ And you can mixed up all of theses examples ! <br>
 
 - Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
 - Procaryote: Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
-
+## Setup protein file
+This can be protein ncbi fasta file, classic fasta file, uniprotID list file or a combination of all. <br>
+The bait protein need to be in this file <br>
+The use of UniprotIDs is recommended for pipeline speed
+## Run HInt
+## Folder structure
 
 # 4.Results
