@@ -62,9 +62,12 @@ tar xvzf ccp4-9-setup.tar.gz
 
 # 2.Input parameters
 ## Setup HInt.txt
-**Signal_peptide** : No, Yes or None. <br>
 
-**Homo-oligomer** : Oligomerization (integer : 1-20). <br>
+First part of HInt.txt file is all a priori informations of the search protein.
+
+**Signal_peptide** : If the protein you search have a signal peptide. No, Yes or None. <br>
+
+**Homo-oligomer** : If the protein you search is know to be homo-oligomerize. Homo-oligomerisation (integer : 1-20). <br>
 
 **Interact_with** : Proteins names expected to be interacting with (UniprotID or protein fasta name)
 <details>
@@ -87,7 +90,7 @@ Interact_with : UniprotID1, UniprotID2
 
 Multimer bait : # Create a unique bait with multiple proteins
 ```
-Interact_with : [Uniprot1,Uniprot2]
+Interact_with : [Uniprot1, Uniprot2]
 ```
 
 And you can mixed up all of theses examples ! <br>
@@ -101,6 +104,9 @@ And you can mixed up all of theses examples ! <br>
 - Eukaryote : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
 - Prokaryote : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
+>[!TIP]
+>If you don't want or know an informations you can laeve the information blank.
+
 ## Setup protein file
 Protein file need to contains all UniprotID or all sequences in fasta format of preys and baits. <br>
 This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
@@ -113,7 +119,7 @@ This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combin
 You need to be in the directory with HInt.txt file.
 
 ```bash
-HInt --cpu integer --gpu integer --multi_job_per_gpu Boolean
+HInt --cpu Integer --gpu Integer --multi_job_per_gpu Boolean
 ```
 --cpu : Number of CPUs available for computation, allow CPU parallelisation. By default set on half of available CPU. <br>
 --gpu : Index of GPUs you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
