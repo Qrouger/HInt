@@ -60,9 +60,10 @@ tar xvzf ccp4-9-setup.tar.gz
 ```
 
 # 2.Input parameters
+<br>
 ## Setup HInt.txt
-
-The First part of HInt.txt file contains all a priori information about the query protein.
+<br>
+### The First part of HInt.txt file contains all a priori information about the query protein.
 
 **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
@@ -109,9 +110,9 @@ And you can mixed up all of theses examples ! <br>
 
 >[!TIP]
 >If you don’t know the information or want to skip it, you can leave this field blank.
-
-Second part of HInt.txt are paths.
-
+<br>
+### Second part of HInt.txt are paths.
+<br>
 **Path_AlphaFold_Data** : Path of AlphaFold databse (string).
 
 **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
