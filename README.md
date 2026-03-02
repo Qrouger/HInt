@@ -2,7 +2,7 @@
 
 HInt is an optimized and scalable pipeline designed for high-throughput identification of homologous proteins that retain conserved functional interactions despite substantial sequence and structural divergence. By combining efficient MSA reuse, parallelized structure prediction, and automated interaction scoring, HInt significantly accelerates large-scale interaction screening while maintaining high predictive accuracy. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
 
-# 1.Instalations
+# 1. Installation
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
 conda activate HInt
@@ -61,7 +61,7 @@ tar xvzf ccp4-9-setup.tar.gz
 
 <br>
 
-# 2.Input parameters
+# 2. Input parameters
 ## Setup HInt.txt
 
 <br>
@@ -142,7 +142,7 @@ This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combin
 
 <br>
 
-## Run HInt
+# 3. Run HInt
 You need to be in the directory with HInt.txt file.
 
 ```bash
@@ -154,6 +154,7 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 
 <br>
 
-## Folder structure
+# 4. Results
 
-# 3.Example
+# 5. Example
+## Folder structure
