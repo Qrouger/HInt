@@ -10,10 +10,8 @@ conda activate HInt
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 ihm scipy==1.16.0 setuptools==80.9.0
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install -U "jax[cuda12]"==0.5.3 numpy==1.26.4
-
-
-
 ```
+
 ### A. Download MMseqs2 database GPU indexed (2 hours, 1.5T)
 To speed up MSA generation, it is recommended to put the databases on nvme or ssd disks.<br>
 ```bash
@@ -34,21 +32,21 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 
 ### C.1. Install deeplocpro (Prokaryote)
 ```bash
-git clone https://github.com/Jaimomar99/deeplocpro <br>
-cd deeplocpro <br>
+git clone https://github.com/Jaimomar99/deeplocpro
+cd deeplocpro
 pip install .
 ```
 ### C.2. Install deeploc (Eukaryote)
 
-https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
+Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
-cd  deeploc2_package<br>
+cd  deeploc2_package
 pip install .
 ```
 
 ### D. Install SignalP5
 
-[https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
+Download SignalP5 here : [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
 tar -xvzf signalp-5.0b.Linux.tar.gz
 cd signalp-5.0b/
@@ -56,7 +54,7 @@ sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
 ### E. Install ccp4
-Download ccp4 package : https://www.ccp4.ac.uk/download/#os=linux
+Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
@@ -77,7 +75,7 @@ The use of UniprotIDs is recommended for pipeline speed
 
 **Interact_with** : Proteins names expected to be interacting with (UniprotID or protein fasta name)
 <details>
-<summary>Advanced uses and examples </summary>
+<summary>Advanced bait uses and examples </summary>
 
 One bait :
 ```
