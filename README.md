@@ -60,14 +60,6 @@ tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
 ```
 
-# 2.Example
-## Start folder structure
-## Setup HInt.txt
-## Setup protein file
-The bait protein need to be in this file <br>
-The use of UniprotIDs is recommended for pipeline speed
-## Run HInt
-
 # 2.Input parameters
 ## Setup HInt.txt
 **Signal_peptide** : No, Yes or None. <br>
@@ -110,7 +102,10 @@ And you can mixed up all of theses examples ! <br>
 - Procaryote: Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 ## Setup protein file
 This can be protein ncbi fasta file, classic fasta file, uniprotID list file or a combination of all. <br>
-The bait protein need to be in this file <br>
+[!CAUTION]
+Bait proteins need to be in this file <br>
+
+[!TIP]
 The use of UniprotIDs is recommended for pipeline speed
 ## Run HInt
 ## Folder structure
