@@ -94,20 +94,30 @@ And you can mixed up all of theses examples ! <br>
 /!\ HInt don't support multiple regions for baits proteins
 </details>
 
-**Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP. <br>
+**Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP5 and DeepLoc. <br>
 
 **DeepLoc** : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
 
-- Eucaryote: Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
-- Procaryote: Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
+- Eukaryote : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
+- Prokaryote : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
+
 ## Setup protein file
+Protein file need to contains all UniprotID or all sequences in fasta format of preys and baits. <br>
 This can be protein ncbi fasta file, classic fasta file, uniprotID list file or a combination of all. <br>
->[!CAUTION]
->Bait proteins need to be in this file <br>
+>Protein file exemple
 
 >[!TIP]
-The use of UniprotIDs is recommended for pipeline speed
+>The use of UniprotIDs is recommended for pipeline speed.
+
 ## Run HInt
+You need to be in the directory with HInt.txt file.
+
+```bash
+HInt --cpu integer --gpu integer --multi_job_per_gpu Boolean
+```
+--cpu
+--gpu
+--multi_job_per_gpu
 ## Folder structure
 
 # 4.Results
