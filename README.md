@@ -102,10 +102,10 @@ And you can mixed up all of theses examples ! <br>
 - Procaryote: Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 ## Setup protein file
 This can be protein ncbi fasta file, classic fasta file, uniprotID list file or a combination of all. <br>
-[!CAUTION]
-Bait proteins need to be in this file <br>
+>[!CAUTION]
+>Bait proteins need to be in this file <br>
 
-[!TIP]
+>[!TIP]
 The use of UniprotIDs is recommended for pipeline speed
 ## Run HInt
 ## Folder structure
