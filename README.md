@@ -29,13 +29,13 @@ cd alphafold
 scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
 
-## C.1. Install deeplocpro (Prokaryote)
+## C.1. DeepLoc Pro Installation (Prokaryote)
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
 ```
-## C.2. Install deeploc (Eukaryote)
+## C.2. DeepLoc2 Installation (Eukaryote)
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
