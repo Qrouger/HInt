@@ -1,8 +1,7 @@
 # <img src="https://github.com/user-attachments/assets/f4701588-b624-4afa-aa8f-9a3352a6572c" alt="HInt logo" width="200"/><br>
 
+HInt is an optimized and scalable pipeline designed for high-throughput identification of homologous proteins that retain conserved functional interactions despite substantial sequence and structural divergence. By combining efficient MSA reuse, parallelized structure prediction, and automated interaction scoring, HInt significantly accelerates large-scale interaction screening while maintaining high predictive accuracy. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
 
-
-HInt enables the identification of homologous proteins that may exhibit substantial sequence and structural divergence, while preserving similar functional interactions. This allows researchers to uncover conserved interaction networks that are not apparent from sequence or structural similarity alone.
 # 1.Instalations
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
@@ -12,8 +11,8 @@ pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://
 pip install -U "jax[cuda12]"==0.5.3 numpy==1.26.4
 ```
 
-## A. Download MMseqs2 database GPU indexed (2 hours, 1.5T)
-To speed up MSA generation, it is recommended to put the databases on nvme or ssd disks.<br>
+## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
+To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
@@ -63,13 +62,22 @@ tar xvzf ccp4-9-setup.tar.gz
 # 2.Input parameters
 ## Setup HInt.txt
 
-First part of HInt.txt file is all a priori informations of the search protein.
+The First part of HInt.txt file contains all a priori information about the query protein.
 
-**Signal_peptide** : If the protein you search have a signal peptide. No, Yes or None. <br>
+**Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
-**Homo-oligomer** : If the protein you search is know to be homo-oligomerize. Homo-oligomerisation (integer : 1-20). <br>
+**DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. <br>
 
-**Interact_with** : Proteins names expected to be interacting with (UniprotID or protein fasta name)
+- Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
+- Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
+
+**Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
+
+**Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
+
+**Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
+
+**Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
 <details>
 <summary>Advanced bait uses and examples </summary>
 
@@ -97,18 +105,27 @@ And you can mixed up all of theses examples ! <br>
 /!\ HInt don't support multiple regions for baits proteins
 </details>
 
-**Organism** : Organism of interest: arch, gram+, gram-, or euk for SignalP5 and DeepLoc. <br>
-
-**DeepLoc** : Cellular localisation of your research. It's possible to select multiple localisation with coma. <br>
-
-- Eukaryote : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
-- Prokaryote : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
+**Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, or euk). <br>
 
 >[!TIP]
->If you don't want or know an informations you can laeve the information blank.
+>If you don’t know the information or want to skip it, you can leave this field blank.
+
+Second part of HInt.txt are paths.
+
+**Path_AlphaFold_Data** : Path of AlphaFold databse (string).
+
+**Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
+
+**Path_MMseqs2_Data** : Path of GPU-indexed MMseqs2 database (string).
+>[!NOTE]
+>This Path is not mandatory. If not set also MMseqs2-GPU will no be used.
+
+**Path_Uniprot_ID** : Path to the protein sequence file (string).
+
+**Path_Pickle_Feature** : Path where MSA files will be saved (string).
 
 ## Setup protein file
-Protein file need to contains all UniprotID or all sequences in fasta format of preys and baits. <br>
+The protein file must contain all UniProt IDs or all sequences in FASTA format for both preys and baits. <br>
 This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
 >Protein file exemple
 
@@ -119,11 +136,12 @@ This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combin
 You need to be in the directory with HInt.txt file.
 
 ```bash
-HInt --cpu Integer --gpu Integer --multi_job_per_gpu Boolean
+HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 ```
---cpu : Number of CPUs available for computation, allow CPU parallelisation. By default set on half of available CPU. <br>
---gpu : Index of GPUs you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
---multi_job_per_gpu : Allows multiple launched of jobs in on GPU, reduced time modelisation. By default set on True. <br>
+--cpu : Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs. <br>
+--gpu : Index(es) of GPU(s) you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
+--multi_job_per_gpu : Allows multiple jobs to run on a single GPU, reducing time of modelisation. By default set on True. <br>
+
 ## Folder structure
 
 # 4.Results
