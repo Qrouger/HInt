@@ -103,7 +103,7 @@ And you can mixed up all of theses examples ! <br>
 
 ## Setup protein file
 Protein file need to contains all UniprotID or all sequences in fasta format of preys and baits. <br>
-This can be protein ncbi fasta file, classic fasta file, uniprotID list file or a combination of all. <br>
+This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
 >Protein file exemple
 
 >[!TIP]
@@ -115,9 +115,9 @@ You need to be in the directory with HInt.txt file.
 ```bash
 HInt --cpu integer --gpu integer --multi_job_per_gpu Boolean
 ```
---cpu
---gpu
---multi_job_per_gpu
+--cpu : Number of CPUs available for computation, allow CPU parallelisation. By default set on half of available CPU. <br>
+--gpu : Index of GPUs you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
+--multi_job_per_gpu : Allows multiple launched of jobs in on GPU, reduced time modelisation. By default set on True. <br>
 ## Folder structure
 
 # 4.Results
