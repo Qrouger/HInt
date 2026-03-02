@@ -6,7 +6,7 @@ setup(
     name='HInt',
     version='0.1',
     description=(
-        'Interaction homolog search tool'
+        'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
     author='Quentin Rouger',
     author_email='quentin.rouger@univ-rennes.fr',
@@ -16,10 +16,15 @@ setup(
     packages=find_packages(),
     install_requires=[
         'alphapulldown',
- #       'seaborn',
- #       'urllib3',
         'matplotlib',
-#        'scipy',
+        'nvidia-ml-py',
+        'torch==2.4.0',
+        'ihm',
+        'scipy==1.16.0',
+        'setuptools==80.9.0',
+        'colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold',
+        'jax[cuda12]==0.5.3',
+        'numpy==1.26.4',
         'torchdata==0.9.0',
         'pandas',
         'pydantic',
