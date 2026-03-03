@@ -18,6 +18,7 @@ pip install hint-ppi
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
+git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
 pip install . --no-deps
 pip install -r dev-requirements.txt
 build_data
