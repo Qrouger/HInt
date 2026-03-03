@@ -9,6 +9,11 @@ conda activate HInt
 pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 ihm scipy==1.16.0 setuptools==80.9.0
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install -U "jax[cuda12]"==0.5.3 numpy==1.26.4
+
+conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
+conda activate HInt
+pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
+pip install hint-ppi
 ```
 
 ## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
@@ -78,6 +83,8 @@ tar xvzf ccp4-9-setup.tar.gz
 **Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
 
 **Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
+
+**AlphaFold** : AlphaFold version (Options : 2 or 3).
 
 **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
 
