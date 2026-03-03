@@ -398,7 +398,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     logger.info("MSA search in AlphaFold database complete")
 
     file.create_fasta_file(False, need_msa, need_pkl)
-
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
     if len(need_msa) > 10 :
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
@@ -419,7 +418,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
             cmd = ["create_individual_features.py",
             f"--fasta_paths=./log_file/{msa_name}",
             f"--data_dir={Path_AlphaFold_Data}",
-            "--save_msa_files=False",
+            "--save_msa_files=True",
             f"--output_dir={Path_Pickle_Feature}",
             "--max_template_date=2024-05-02",
             "--skip_existing=True",
@@ -437,7 +436,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
         f"--data_dir={Path_AlphaFold_Data}",
-        "--save_msa_files=False",
+        "--save_msa_files=True",
         f"--output_dir={Path_Pickle_Feature}",
         "--max_template_date=2024-05-02",
         "--skip_existing=True",
@@ -625,7 +624,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
         with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f:
             line_msa = sum(1 for _ in msa_f)
         if line_msa/2 <= 100 and prot not in baits :
-            if line_msa/2 <= 2 :
+            if line_msa/2 < 2 :
                shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "No MSA"
                result_dict[prot]["Reason_for_filtering"] = "No MSA"
@@ -856,7 +855,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
 
 
-def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, allow_multi_job_per_gpu) :
+def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -866,7 +865,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     interaction_files : str
     job_with_vram_length : list of tuple
     GPU : list
-    allow_multi_job_per_gpu : str
+    multi_job_per_gpu : str
     """
     if not job_with_vram_length :
         return
@@ -876,6 +875,13 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     max_vram = mem_info.total / 1024**3 #Gb
     pynvml.nvmlShutdown()
+
+    stop_flag = multiprocessing.Event()
+    monitor = multiprocessing.Process(
+        target=monitor_vram,
+        args=(GPU, stop_flag)
+    )
+    monitor.start()
 
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
@@ -892,12 +898,12 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
             Path_Pickle_Feature=Path_Pickle_Feature,
             interaction_type=interaction_type,
             AF_version=AF_version,
-            allow_multi_job_per_gpu=allow_multi_job_per_gpu
+            multi_job_per_gpu=multi_job_per_gpu
         )
 
 
 
-def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, allow_multi_job_per_gpu) :
+def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
@@ -910,11 +916,11 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     Path_Pickle_Feature : str
     interaction_type : str
     AF_version : str
-    allow_multi_job_per_gpu : str
+    multi_job_per_gpu : str
     """
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
-    allow_multi_job_per_gpu = False if allow_multi_job_per_gpu == "False" else True
+    multi_job_per_gpu = False if multi_job_per_gpu == "False" else True
     gpu_vram_used = {gpu: 0.0 for gpu in GPU}
     jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
 
@@ -934,13 +940,13 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
             launched = False
 
             for interaction, job_vram in list(jobs_pending) :
-                sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[gpu_id]) #make PPI on GPU with minimum vram use
+                sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
 
                 for gpu_id in sorted_gpus :
 
                     free = max_vram - gpu_vram_used[gpu_id]
                     
-                    if job_vram <= free and (allow_multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
+                    if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
                         p = multiprocessing.Process(target=gpu_job_runner,
                             args=(gpu_id,
                                 interaction,
