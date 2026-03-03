@@ -6,6 +6,7 @@ import os
 import csv
 import logging
 import multiprocessing
+from multiprocessing import Pool
 from tqdm import tqdm
 from datetime import datetime
 import HInt.get_good_inter_pae
