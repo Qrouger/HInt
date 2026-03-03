@@ -80,7 +80,7 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 <br>
 
 # 3. Input parameters
-## Setup HInt.txt <br>
+## 3.1. Setup HInt.txt <br>
 
 ### A priori informations
 
@@ -99,7 +99,7 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
 
 **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
-<details>
+ <details>
 <summary>Advanced bait uses and examples </summary>
 
 One bait :
@@ -153,7 +153,7 @@ HInt don't support multiple regions for baits proteins
 
 <br>
 
-## Setup protein file
+## 3.2. Setup protein file
 The protein file must contain all UniProt IDs or all sequences in FASTA format for both preys and baits. <br>
 This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
 >Protein file exemple
