@@ -8,7 +8,7 @@ import logging
 import multiprocessing
 from tqdm import tqdm
 from datetime import datetime
-from .get_good_inter_pae import *
+import get_good_inter_pae
 import gc
 import pandas as pd
 import json
