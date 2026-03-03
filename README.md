@@ -84,21 +84,21 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 
 ### A priori informations
 
-**Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
+- **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
-**DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. <br>
-- Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
-- Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
+- **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. <br>
+  - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
+  - Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
-**Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
+- **Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
 
-**Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
+- **Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
 
-**AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
+- **AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
-**Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
+- **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
 
-**Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
+- **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
  <details>
 <summary>Advanced bait uses and examples </summary>
 
@@ -128,7 +128,7 @@ And you can mixed up all of theses examples ! <br>
 HInt don't support multiple regions for baits proteins
 </details>
 
-**Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, or euk). <br>
+- **Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, or euk). <br>
 
 <br>
 
@@ -139,17 +139,17 @@ HInt don't support multiple regions for baits proteins
 
 ### Paths
 
-**Path_AlphaFold_Data** : Path of AlphaFold databse (string).
+- **Path_AlphaFold_Data** : Path of AlphaFold databse (string).
 
-**Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
+- **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
 
-**Path_MMseqs2_Data** : Path of GPU-indexed MMseqs2 database (string).
+- **Path_MMseqs2_Data** : Path of GPU-indexed MMseqs2 database (string).
 >[!NOTE]
 >This Path is not mandatory. If not set also MMseqs2-GPU will no be used.
 
-**Path_Uniprot_ID** : Path to the protein sequence file (string).
+- **Path_Uniprot_ID** : Path to the protein sequence file (string).
 
-**Path_Pickle_Feature** : Path where MSA files will be saved (string).
+- **Path_Pickle_Feature** : Path where MSA files will be saved (string).
 
 <br>
 
