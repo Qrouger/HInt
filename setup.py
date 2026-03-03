@@ -15,7 +15,7 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
-        'alphapulldown',
+        'alphapulldown==2.1.8',
         'matplotlib',
         'nvidia-ml-py',
         'torch==2.4.0',
