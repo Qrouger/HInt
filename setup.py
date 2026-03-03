@@ -18,17 +18,15 @@ setup(
         'alphapulldown==2.1.8',
         'matplotlib',
         'nvidia-ml-py',
-        'torch==2.4.0',
         'ihm',
         'scipy==1.16.0',
         'jax[cuda12]==0.5.3',
         'numpy==1.26.4',
-        'torchdata==0.9.0',
         'pandas',
         'pydantic',
         'packaging',
         'opt_einsum',
-        'torch-geometric'
+        'rdkit==2024.3.5'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
