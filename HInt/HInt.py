@@ -21,9 +21,9 @@ log_filename = "./log_file/HInt.log"
 if not os.path.exists("log_file") :
     os.system("mkdir log_file")
 
-from Utils_HInt import *
-from File_proteins import *
-from Scoring_HInt import Score_interaction, Resume_file, Create_figures
+from .Utils_HInt import *
+from .File_proteins import *
+from .Scoring_HInt import Score_interaction, Resume_file, Create_figures
 
 # Reset existing handlers to avoid duplicated logs
 logging.getLogger().handlers.clear()
