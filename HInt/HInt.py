@@ -55,23 +55,24 @@ def add_arguments(parser) :
     N_CPU = multiprocessing.cpu_count()
     default_cpu = N_CPU // 2  # by default, use half of the available CPUs
     parser.add_argument("--cpu", help="Number of CPUs available for computation", required=False, default=default_cpu, type=int)
-    parser.add_argument("--allow_multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default="True")
+    parser.add_argument("--multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default="True")
 
 
 # ------------------------------------------------------------------
 # Main execution
 # ------------------------------------------------------------------
 
-def main() :
+if __name__ == "__main__" :
+
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
 
     GPU = [gpu for gpu in args.gpu.split(",")]
     CPU = args.cpu
-    allow_multi_job_per_gpu = args.allow_multi_job_per_gpu
-    if allow_multi_job_per_gpu not in ["True", "False"] :
-        raise ValueError("Invalid value for --allow_multi_job_per_gpu.")
+    multi_job_per_gpu = args.multi_job_per_gpu
+    if multi_job_per_gpu not in ["True", "False"] :
+        raise ValueError("Invalid value for --multi_job_per_gpu.")
         
     Informations_dict = Define_informations()
 
@@ -106,13 +107,12 @@ def main() :
     # --------------------------------------------------------------
 
     # Filter proteins based on sequence length
-    # (default: remove proteins shorter than 30 AA)
+    # (default: remove proteins shorter than 20 AA)
     need_msa, need_pkl, need_DeepLoc = filter_lenght(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
 
     # --------------------------------------------------------------
     # DeepLoc filtering
     # --------------------------------------------------------------
-
 
     if len(need_DeepLoc) > 0 : # Run DeepLoc only for proteins without localization information
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU)
@@ -178,7 +178,7 @@ def main() :
     if Informations_dict["Interact_with"] != [''] :
         for bait in Informations_dict["Multimer_bait"] :
             job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
+            Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu)
             Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait)
             HInt_object.Make_save_dict()  # Save interaction scores
 
@@ -190,7 +190,7 @@ def main() :
 
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
-        Generate_3D_model(Informations_dict, "homo_int", job_with_vram_length, GPU, allow_multi_job_per_gpu)
+        Generate_3D_model(Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu)
         Score_interaction(HInt_object, Informations_dict, CPU, "homo_int")
 
 
