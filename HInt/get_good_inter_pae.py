@@ -4,7 +4,6 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "script_pi_score"))
-from absl import logging
 from calculate_mpdockq import *
 import pickle
 import json
