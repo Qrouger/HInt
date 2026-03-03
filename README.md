@@ -3,44 +3,38 @@
 HInt is an optimized and scalable pipeline designed for high-throughput identification of homologous proteins that retain conserved functional interactions despite substantial sequence and structural divergence. By combining efficient MSA reuse, parallelized structure prediction, and automated interaction scoring, HInt significantly accelerates large-scale interaction screening while maintaining high predictive accuracy. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
 
 # 1. Installation
+
+## A. HInt
+
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
 conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install hint-ppi
 ```
-AlphaFold 3
+<details>
+<summary>AlphaFold 3 (optional) </summary>
+  
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 pip install . --no-deps
+pip install -r dev-requirements.txt
 build_data
 ```
-## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
-To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
-```bash
-wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
-chmod +x setup_databases.sh 
-GPU=1 ./setup_databases.sh ./mmseq_database
-```
 
-test : colabfold_search R388.fasta /data/colab_fold_data . --gpu 1 --db-load-mode 2 <br>
+⚠️ **Warning** <br>
+You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md)
 
-## B. Download AlphaFold database (3 hours, 2.7T)
-```bash
-sudo apt install aria2
-git clone https://github.com/KosinskiLab/alphafold.git
-cd alphafold
-scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
-```
+</details>
 
-## C.1. DeepLoc Pro Installation (Prokaryote)
+## B.1. DeepLoc Pro (Prokaryote)
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
 ```
-## C.2. DeepLoc2 Installation (Eukaryote)
+## B.2. DeepLoc2 (Eukaryote)
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
@@ -48,7 +42,7 @@ cd  deeploc2_package
 pip install .
 ```
 
-## D. Install SignalP5
+## C. SignalP5
 
 Download SignalP5 here : [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
@@ -57,16 +51,35 @@ cd signalp-5.0b/
 sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
-## E. Install ccp4
+## D. CCP4
 Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
 ```
-
 <br>
 
-# 2. Input parameters
+
+# 2. Download databases
+## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
+To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
+```bash
+wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
+chmod +x setup_databases.sh 
+GPU=1 ./setup_databases.sh ./mmseq_database
+```
+
+
+## B. Download AlphaFold database (3 hours, 2.7T)
+```bash
+sudo apt install aria2
+git clone https://github.com/KosinskiLab/alphafold.git
+cd alphafold
+scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
+```
+<br>
+
+# 3. Input parameters
 ## Setup HInt.txt <br>
 
 ### A priori informations
@@ -146,7 +159,7 @@ This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combin
 
 <br>
 
-# 3. Run HInt
+# 4. Run HInt
 You need to be in the directory with HInt.txt file.
 
 ```bash
@@ -158,7 +171,7 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 
 <br>
 
-# 4. Results
+# 5. Results
 
-# 5. Example
+# 6. Example
 ## Folder structure
