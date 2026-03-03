@@ -62,8 +62,7 @@ def add_arguments(parser) :
 # Main execution
 # ------------------------------------------------------------------
 
-if __name__ == "__main__" :
-
+def main() :
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
