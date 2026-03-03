@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.2.7',
+    version='0.2.8',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -31,5 +31,6 @@ setup(
         'opt_einsum',
         'torch-geometric'
     ],
+    py_modules=['HInt_entry'],
     entry_points={'console_scripts': ['HInt=HInt_entry:main',],}
 )
