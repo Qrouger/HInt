@@ -61,16 +61,13 @@ tar xvzf ccp4-9-setup.tar.gz
 <br>
 
 # 2. Input parameters
-## Setup HInt.txt
-
-<br>
+## Setup HInt.txt <br>
 
 ### A priori informations
 
 **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
 **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. <br>
-
 - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
 - Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
@@ -78,7 +75,7 @@ tar xvzf ccp4-9-setup.tar.gz
 
 **Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
 
-**AlphaFold** : AlphaFold version (Options : 2 or 3).
+**AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
 **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
 
