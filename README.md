@@ -6,12 +6,6 @@ HInt is an optimized and scalable pipeline designed for high-throughput identifi
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
 conda activate HInt
-pip install alphapulldown==2.1.4 nvidia-ml-py torch==2.4.0 ihm scipy==1.16.0 setuptools==80.9.0
-pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
-pip install -U "jax[cuda12]"==0.5.3 numpy==1.26.4
-
-conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
-conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install hint-ppi
 ```
