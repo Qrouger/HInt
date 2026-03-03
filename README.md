@@ -66,7 +66,7 @@ tar xvzf ccp4-9-setup.tar.gz
 
 <br>
 
-### The First part of HInt.txt file contains all a priori information about the query protein.
+### A priori informations
 
 **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
@@ -116,7 +116,7 @@ And you can mixed up all of theses examples ! <br>
 
 <br>
 
-### Second part of HInt.txt are paths.
+### Paths
 
 **Path_AlphaFold_Data** : Path of AlphaFold databse (string).
 
