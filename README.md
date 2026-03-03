@@ -99,8 +99,9 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 - **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
 
 - **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
- <details>
-<summary>Advanced bait uses and examples </summary>
+
+<details>
+<summary>Advanced Interact_with uses and examples </summary>
 
 One bait :
 ```
