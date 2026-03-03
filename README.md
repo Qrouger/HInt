@@ -9,7 +9,12 @@ conda activate HInt
 pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install hint-ppi
 ```
-
+AlphaFold 3
+```bash
+git clone https://github.com/google-deepmind/alphafold3.git
+cd alphafold3
+pip install . --no-deps
+```
 ## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
 To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
 ```bash
