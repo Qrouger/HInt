@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.2.9',
+    version='0.3.1',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -21,7 +21,6 @@ setup(
         'torch==2.4.0',
         'ihm',
         'scipy==1.16.0',
-        #'colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold',
         'jax[cuda12]==0.5.3',
         'numpy==1.26.4',
         'torchdata==0.9.0',
