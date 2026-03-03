@@ -25,8 +25,7 @@ setup(
         'pandas',
         'pydantic',
         'packaging',
-        'opt_einsum',
-        'rdkit==2024.3.5'
+        'opt_einsum'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
