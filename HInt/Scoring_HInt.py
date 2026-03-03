@@ -21,7 +21,6 @@ from Bio import PDB
 import copy
 import string
 import subprocess
-from multiprocessing import Pool
 
 # Configure global logger
 logging.basicConfig(
