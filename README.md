@@ -14,6 +14,7 @@ AlphaFold 3
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 pip install . --no-deps
+build_data
 ```
 ## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
 To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
