@@ -4,7 +4,7 @@ HInt is an optimized and scalable pipeline designed for high-throughput identifi
 
 # 1. Installation
 
-## A. HInt
+## 1.1. HInt
 
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git
@@ -28,13 +28,13 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 
 </details>
 
-## B.1. DeepLoc Pro (Prokaryote)
+## 1.2.1. DeepLoc Pro (Prokaryote)
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
 ```
-## B.2. DeepLoc2 (Eukaryote)
+## 1.2.2. DeepLoc2 (Eukaryote)
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
@@ -42,7 +42,7 @@ cd  deeploc2_package
 pip install .
 ```
 
-## C. SignalP5
+## 1.3. SignalP5
 
 Download SignalP5 here : [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Darwin)<br>
 ```bash
@@ -51,7 +51,7 @@ cd signalp-5.0b/
 sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
-## D. CCP4
+## 1.4. CCP4
 Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
@@ -61,7 +61,7 @@ tar xvzf ccp4-9-setup.tar.gz
 
 
 # 2. Download databases
-## A. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
+## 2.1. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
 To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
@@ -70,7 +70,7 @@ GPU=1 ./setup_databases.sh ./mmseq_database
 ```
 
 
-## B. Download AlphaFold database (3 hours, 2.7T)
+## 2.2. Download AlphaFold database (3 hours, 2.7T)
 ```bash
 sudo apt install aria2
 git clone https://github.com/KosinskiLab/alphafold.git
