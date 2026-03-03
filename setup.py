@@ -32,5 +32,5 @@ setup(
         'opt_einsum',
         'torch-geometric'
     ],
-    entry_points={'console_scripts': ['PPIFold=PPIFold.PPIFold:main',],}
+    entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
