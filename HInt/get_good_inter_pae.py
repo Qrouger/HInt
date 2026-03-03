@@ -12,7 +12,7 @@ import pandas as pd
 import subprocess
 import gzip
 from Bio.PDB import MMCIFParser, PDBIO
-import gzip
+import logging
 
 
 def examine_inter_pae(pae_mtx,seqs,cutoff) :
