@@ -1078,6 +1078,10 @@ def monitor_vram(GPU, stop_flag) :
 def kill_hint_processes(proc) :
     """
     Kill all processes related to the current Python executable, typically used to terminate any remaining AlphaFold jobs after a KeyboardInterrupt (Ctrl+C).
+
+    Parameters :
+    ----------
+    proc : subprocess obj
     """
     logger.info("Ctrl+C detected")
     python_path = sys.executable
