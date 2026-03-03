@@ -924,56 +924,53 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     gpu_vram_used = {gpu: 0.0 for gpu in GPU}
     jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
 
-    try :
-        while jobs_pending or any(jobs_running.values()):
+    while jobs_pending or any(jobs_running.values()):
 
-            while not result_queue.empty() :
-                status, job, gpu_id, vram = result_queue.get()[:4]
-                gpu_vram_used[gpu_id] -= vram
-                for i, (j, p) in enumerate(jobs_running[gpu_id]):
-                    if j == job:
-                        p.join() 
-                        jobs_running[gpu_id].pop(i)
-                        break
-
-
-            launched = False
-
-            for interaction, job_vram in list(jobs_pending) :
-                sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
-
-                for gpu_id in sorted_gpus :
-
-                    free = max_vram - gpu_vram_used[gpu_id]
-                    
-                    if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
-                        p = multiprocessing.Process(target=gpu_job_runner,
-                            args=(gpu_id,
-                                interaction,
-                                job_vram,
-                                result_queue,
-                                Path_AlphaFold_Data,
-                                Path_Pickle_Feature,
-                                interaction_type,
-                                AF_version,
-                            ),
-                        )
-
-                        p.start()
-
-                        gpu_vram_used[gpu_id] += job_vram
-                        jobs_running[gpu_id].append((interaction, p))
-                        jobs_pending.remove((interaction, job_vram))
-                        launched = True
-                        break
-
-                if launched :
+        while not result_queue.empty() :
+            status, job, gpu_id, vram = result_queue.get()[:4]
+            gpu_vram_used[gpu_id] -= vram
+            for i, (j, p) in enumerate(jobs_running[gpu_id]):
+                if j == job:
+                    p.join() 
+                    jobs_running[gpu_id].pop(i)
                     break
-            if not launched :
-                time.sleep(1)
 
-    except KeyboardInterrupt :
-        kill_hint_processes()
+
+        launched = False
+
+        for interaction, job_vram in list(jobs_pending) :
+            sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
+
+            for gpu_id in sorted_gpus :
+
+                free = max_vram - gpu_vram_used[gpu_id]
+                    
+                if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
+                    p = multiprocessing.Process(target=gpu_job_runner,
+                        args=(gpu_id,
+                            interaction,
+                            job_vram,
+                            result_queue,
+                            Path_AlphaFold_Data,
+                            Path_Pickle_Feature,
+                            interaction_type,
+                            AF_version,
+                        ),
+                    )
+
+                    p.start()
+
+                    gpu_vram_used[gpu_id] += job_vram
+                    jobs_running[gpu_id].append((interaction, p))
+                    jobs_pending.remove((interaction, job_vram))
+                    launched = True
+                    break
+
+            if launched :
+                break
+        if not launched :
+            time.sleep(1)
+
 
 def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version) :
     """
@@ -1047,8 +1044,8 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         os.system(f"rm log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
-    except Exception as e :
-        result_queue.put(("Crash", interaction_file, gpu_id, vram, str(e)))
+    except KeyboardInterrupt :
+        kill_hint_processes(proc)
 
 
 
@@ -1078,20 +1075,13 @@ def monitor_vram(GPU, stop_flag) :
 
 
 @staticmethod
-def kill_hint_processes() :
+def kill_hint_processes(proc) :
     """
     Kill all processes related to the current Python executable, typically used to terminate any remaining AlphaFold jobs after a KeyboardInterrupt (Ctrl+C).
     """
     logger.info("Ctrl+C detected")
     python_path = sys.executable
     try :
-        output = subprocess.check_output(f"pgrep -f '{python_path}'", shell=True).decode().split() #list all PID
-    except subprocess.CalledProcessError :
-        output = []
-
-    for pid_str in output :
-        pid = int(pid_str)
-        try :
-            os.killpg(os.getpgid(pid), signal.SIGKILL) #kill all PID
-        except ProcessLookupError :
-            pass
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL) #kill all PID
+    except ProcessLookupError :
+        pass
