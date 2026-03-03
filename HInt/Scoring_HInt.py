@@ -8,7 +8,7 @@ import logging
 import multiprocessing
 from tqdm import tqdm
 from datetime import datetime
-import get_good_inter_pae
+import HInt.get_good_inter_pae
 import gc
 import pandas as pd
 import json
@@ -234,7 +234,7 @@ def run_scoring (args) :
     """
     interaction, output_dir, Path_ccp4, seq_no_SP, AF_version = args
     try :
-        result = get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
