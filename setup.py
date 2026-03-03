@@ -31,6 +31,5 @@ setup(
         'opt_einsum',
         'torch-geometric'
     ],
-    py_modules=['HInt_entry'],
-    entry_points={'console_scripts': ['HInt=HInt_entry:main',],}
+    entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
