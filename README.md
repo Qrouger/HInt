@@ -1,6 +1,6 @@
 # <img src="https://github.com/user-attachments/assets/f4701588-b624-4afa-aa8f-9a3352a6572c" alt="HInt logo" width="200"/><br>
 # HInt
-HInt is an optimized and scalable pipeline designed for high-throughput identification of homologous proteins that retain conserved functional interactions despite substantial sequence and structural divergence. By combining efficient MSA reuse, parallelized structure prediction, and automated interaction scoring, HInt significantly accelerates large-scale interaction screening while maintaining high predictive accuracy. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
+HInt accelerates AlphaFold by optimizing computations and parallelizing structure predictions. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
 
 # 1. Installation
 
