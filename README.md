@@ -20,7 +20,7 @@ git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 pip install . --no-deps
 build_data
-conda install nvidia/label/cuda-12.4.0::cuda -c nvidia/label/cuda-12.4.0 -y ????
+conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y ????
 conda install -y -c nvidia \
     cuda-toolkit=12.4.1 \
     cuda-cccl=12.4.127 \
