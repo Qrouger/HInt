@@ -22,6 +22,7 @@ git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
 pip install . --no-deps
 pip install -r dev-requirements.txt
 build_data
+pip install hint-ppi
 ```
 
 ⚠️ **Warning** <br>
