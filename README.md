@@ -18,11 +18,44 @@ pip install hint-ppi
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
-git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
 pip install . --no-deps
-pip install -r dev-requirements.txt
+pip install rdkit==2024.3.5 zstandard==0.23.0 jaxtyping==0.2.34 typeguard==2.13.3 jax_triton==0.2.0 triton==3.1.0
 build_data
-pip install hint-ppi
+conda install -c nvidia cuda-toolkit=11.8
+conda install -y -c nvidia \
+    cuda-toolkit=12.4.1 \
+    cuda-cccl=12.4.127 \
+    cuda-command-line-tools=12.4.1 \
+    cuda-cudart=12.4.127 \
+    cuda-cudart-dev=12.4.127 \
+    cuda-cudart-static=12.4.127 \
+    cuda-cuobjdump=12.4.127 \
+    cuda-cupti=12.4.127 \
+    cuda-cupti-static=12.4.127 \
+    cuda-cuxxfilt=12.4.127 \
+    cuda-demo-suite=12.4.127 \
+    cuda-documentation=12.4.127 \
+    cuda-driver-dev=12.4.127 \
+    cuda-gdb=12.4.127 \
+    cuda-libraries-static=12.4.1 \
+    cuda-nsight=12.4.127 \
+    cuda-nvcc=12.4.131 \
+    cuda-nvdisasm=12.4.127 \
+    cuda-nvml-dev=12.4.127 \
+    cuda-nvprof=12.4.127 \
+    cuda-nvprune=12.4.127 \
+    cuda-nvrtc=12.4.127 \
+    cuda-nvrtc-dev=12.4.127 \
+    cuda-nvrtc-static=12.4.127 \
+    cuda-nvtx=12.4.127 \
+    cuda-nvvp=12.4.127 \
+    cuda-opencl=12.4.127 \
+    cuda-opencl-dev=12.4.127 \
+    cuda-profiler-api=12.4.127 \
+    cuda-sanitizer-api=12.4.127 \
+    cuda-tools=12.4.1 \
+    cuda-toolkit=12.4.1 \
+    cuda-visual-tools=12.6.0
 ```
 
 ⚠️ **Warning** <br>
