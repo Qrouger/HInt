@@ -19,9 +19,7 @@ pip install hint-ppi
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 pip install . --no-deps
-pip install rdkit==2024.3.5 zstandard==0.23.0 jaxtyping==0.2.34 typeguard==2.13.3 jax_triton==0.2.0 triton==3.1.0
 build_data
-conda install -c nvidia cuda-toolkit=11.8
 conda install -y -c nvidia \
     cuda-toolkit=12.4.1 \
     cuda-cccl=12.4.127 \
@@ -116,7 +114,7 @@ scripts/download_all_data.sh /<Database Directory> > download.log 2> download_al
 
 # 3. Input parameters
 ## 3.1. Setup HInt.txt <br>
-
+You can download or copy HInt.txt file example. <br>
 ### A priori informations
 
 - **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
