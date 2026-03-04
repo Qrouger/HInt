@@ -25,7 +25,13 @@ setup(
         'pandas',
         'pydantic',
         'packaging',
-        'opt_einsum'
+        'opt_einsum',
+        'rdkit==2024.3.5', 
+        'zstandard==0.23.0', 
+        'jaxtyping==0.2.34', 
+        'typeguard==2.13.3', 
+        'jax_triton==0.2.0', 
+        'triton==3.1.0'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
