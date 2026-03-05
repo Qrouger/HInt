@@ -525,7 +525,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                     hori_index += 1
                     if hori_index < max_hori_index and hori_index >= min_hori_index :
                         if distance <= 10 :  #center of mass of the residue
-                            if pae_mtx[line][hori_index] < 7 :
+                            if pae_mtx[line][hori_index] <= 10 :
                                 real_hori_index = hori_index - min_hori_index
                                 res_in_tot_seq = real_hori_index
                                 if regions[bait] != "0-0" : #if region selected, need to ajust index
@@ -542,7 +542,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
-        len_chainA = file.get_lenght_prot()[proteins[0]]
+        len_chainA = file.get_lenght_prot()[baits]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
         dict_int = {}
@@ -551,9 +551,9 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
             chains = model.get_list()
             for i, chain1 in enumerate(chains) :
                 for chain2 in chains[i+1:] :
-                    interaction = chain1.get_id() + chain2.get_id()
+                    interaction = baits + "_and_" + proteins[-1]
                     if interaction not in dict_int :
-                        dict_int[interaction] = [[proteins[0], " " + proteins[1], " Distance_Å", " PAE_score"]]
+                        dict_int[interaction] = [[baits, " " + proteins[-1], " Distance_Å", " PAE_score"]]
                     for res1 in chain1:
                         if res1.id[0] != " " :
                             continue
@@ -584,8 +584,8 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                     if pae_score > PAE_CUTOFF:
                                         continue
                                     key = (f"{chain1.get_id()}:{res1.get_resname()} {res1.id[1]}",f"{chain2.get_id()}:{res2.get_resname()} {res2.id[1]}")
-                                    color_res[proteins[0]].add(str(res1.id[1]))
-                                    color_res[proteins[1]].add(str(res2.id[1]))
+                                    color_res[baits].add(str(res1.id[1]))
+                                    color_res[proteins[-1]].add(str(res2.id[1]))
                                     # Keep the interaction with the lowest distance
                                     if key in int_already_know:
                                         if dist < int_already_know[key][0]:
@@ -594,7 +594,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                         int_already_know[key] = (dist, pae_score)
 
         for (resA, resB), (dist, pae) in int_already_know.items():
-            interaction = resA[0] + resB[0]
+            interaction = baits + "_and_" + proteins[-1]
             dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
 
     residues_at_interface = dict()
