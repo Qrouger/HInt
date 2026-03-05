@@ -488,6 +488,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
     proteins = [bait for bait in baits.split(",")]
     proteins.append(names_int.split('_and_')[-1])
     color_res = dict()
+    lenght_prot = file.get_lenght_prot()
     for prot in proteins :
         color_res[prot] = set()
     if AF_version == "2" :
@@ -502,7 +503,6 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                 pickle_dict = pickle.load(gzip.open(inf_file))
             else :
                 pickle_dict = pickle.load(inf_file)
-        lenght_prot = file.get_lenght_prot()
         seq_prot = file.get_proteins_sequence_no_SP()
         dict_int = dict()
         pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
@@ -535,67 +535,75 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                 dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_lenght+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
                                 color_res[bait].add(str(res_in_tot_seq+1))
                                 color_res[proteins[-1]].add(str(line-complete_lenght+1))
-
+    
     if AF_version == "3" :
         with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f:
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
-        len_chainA = file.get_lenght_prot()[baits]
+
+        len_chain_last = lenght_prot[proteins[-1]]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
         dict_int = {}
         structure = parser.get_structure('protein',os.path.join(path_int, f"{names_int}_ranked_0.pdb"))
         for model in structure :
             chains = model.get_list()
-            for i, chain1 in enumerate(chains) :
-                for chain2 in chains[i+1:] :
-                    interaction = baits + "_and_" + proteins[-1]
-                    if interaction not in dict_int :
-                        dict_int[interaction] = [[baits, " " + proteins[-1], " Distance_Å", " PAE_score"]]
-                    for res1 in chain1:
-                        if res1.id[0] != " " :
+            last_chain = chains[-1]
+            baits = baits.split(",")
+            for i, chain1 in enumerate(chains[:-1]) :
+                chain2 = last_chain
+                interaction = baits[i] +"_and_"+ proteins[-1]
+
+                if interaction not in dict_int :
+                    dict_int[interaction] = [[baits[i], " " + proteins[-1], " Distance_Å", " PAE_score"]]
+                for res1 in chain1:
+                    if res1.id[0] != " " :
+                        continue
+                    for res2 in chain2:
+                        if res2.id[0] != " " :
                             continue
-                        for res2 in chain2:
-                            if res2.id[0] != " " :
+                        for atom1 in res1:
+                            if atom1.get_id() not in ATOM_CONTACT:
                                 continue
-                            for atom1 in res1:
-                                if atom1.get_id() not in ATOM_CONTACT:
+                            for atom2 in res2 :
+                                if atom2.get_id() not in ATOM_CONTACT:
                                     continue
-                                for atom2 in res2 :
-                                    if atom2.get_id() not in ATOM_CONTACT:
-                                        continue
-                                    dist = atom1 - atom2
-                                    if dist > DIST_CUTOFF:
-                                        continue
+                                dist = atom1 - atom2
+                                if dist > DIST_CUTOFF:
+                                    continue
 
-                                    r1 = res1.id[1] - 1
-                                    r2 = res2.id[1] - 1
-                                    if interaction[0] == "A" :  # bait = chain A
-                                        idx1 = r1
-                                        idx2 = len_chainA + r2
-                                    else:
-                                        idx1 = len_chainA + r1
-                                        idx2 = r2
-                                    if idx1 >= total_len or idx2 >= total_len :
-                                        continue
-                                    pae_score = float(pae_mtx[idx1, idx2])
-                                    if pae_score > PAE_CUTOFF:
-                                        continue
-                                    key = (f"{chain1.get_id()}:{res1.get_resname()} {res1.id[1]}",f"{chain2.get_id()}:{res2.get_resname()} {res2.id[1]}")
-                                    color_res[baits].add(str(res1.id[1]))
-                                    color_res[proteins[-1]].add(str(res2.id[1]))
-                                    # Keep the interaction with the lowest distance
-                                    if key in int_already_know:
-                                        if dist < int_already_know[key][0]:
-                                            int_already_know[key] = (dist, pae_score)
-                                    else:
+                                r1 = res1.id[1] - 1
+                                r2 = res2.id[1] - 1
+
+                                idx1 = r1
+                                idx2 = total_len - len_chain_last + r2
+
+                                if idx1 >= total_len or idx2 >= total_len:
+                                    continue
+
+                                pae_score = float(pae_mtx[idx1, idx2])
+
+                                if pae_score > PAE_CUTOFF:
+                                    continue
+
+                                key = (f"{chain1.get_id()}:{res1.get_resname()} {res1.id[1]}", f"{chain2.get_id()}:{res2.get_resname()} {res2.id[1]}")
+
+                                color_res[baits[i]].add(str(res1.id[1]))
+                                color_res[proteins[-1]].add(str(res2.id[1]))
+
+                                if key in int_already_know:
+                                    if dist < int_already_know[key][0]:
                                         int_already_know[key] = (dist, pae_score)
+                                else:
+                                    int_already_know[key] = (dist, pae_score)
 
-        for (resA, resB), (dist, pae) in int_already_know.items():
-            interaction = baits + "_and_" + proteins[-1]
-            dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
+
+                for (resA, resB), (dist, pae) in int_already_know.items():
+                   dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
+
+
 
     residues_at_interface = dict()
     for chains in dict_int.keys() :
