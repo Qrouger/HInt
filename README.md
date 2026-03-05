@@ -14,7 +14,9 @@ pip install hint-ppi
 ```
 <details>
 <summary>AlphaFold 3 (optional) </summary>
-  
+
+You need to run these commands with the HInt environment activated. <br>
+
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
