@@ -15,7 +15,6 @@ pip install hint-ppi
 <details>
 <summary>AlphaFold 3 (optional) </summary>
 
-You need to run these commands with the HInt conda environment activated. <br>
 
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
@@ -33,7 +32,6 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 
 ## 1.2.1. DeepLoc Pro (Prokaryote)
 
-You need to run these commands with the HInt conda environment activated. <br>
 
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
