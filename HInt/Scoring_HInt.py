@@ -537,7 +537,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                 color_res[proteins[-1]].add(str(line-complete_lenght+1))
     
     if AF_version == "3" :
-        with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f:
+        with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
@@ -585,25 +585,22 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
 
                                 pae_score = float(pae_mtx[idx1, idx2])
 
-                                if pae_score > PAE_CUTOFF:
+                                if pae_score > PAE_CUTOFF :
                                     continue
 
                                 key = (f"{chain1.get_id()}:{res1.get_resname()} {res1.id[1]}", f"{chain2.get_id()}:{res2.get_resname()} {res2.id[1]}")
-
                                 color_res[baits[i]].add(str(res1.id[1]))
                                 color_res[proteins[-1]].add(str(res2.id[1]))
 
                                 if key in int_already_know:
-                                    if dist < int_already_know[key][0]:
+                                    if dist < int_already_know[key][0] :
                                         int_already_know[key] = (dist, pae_score)
                                 else:
                                     int_already_know[key] = (dist, pae_score)
 
 
-                for (resA, resB), (dist, pae) in int_already_know.items():
+                for (resA, resB), (dist, pae) in int_already_know.items() :
                    dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
-
-
 
     residues_at_interface = dict()
     for chains in dict_int.keys() :
