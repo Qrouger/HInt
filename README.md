@@ -32,6 +32,9 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 </details>
 
 ## 1.2.1. DeepLoc Pro (Prokaryote)
+
+You need to run these commands with the HInt conda environment activated. <br>
+
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
@@ -40,10 +43,13 @@ pip install triton==3.1.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
+You need to run these commands with the HInt conda environment activated. <br>
+
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
 cd  deeploc2_package
 pip install .
+pip install triton==3.1.0
 ```
 
 ## 1.3. SignalP5
@@ -55,14 +61,15 @@ cd signalp-5.0b/
 sudo cp bin/signalp /usr/local/bin
 sudo cp -r lib/* /usr/local/lib
 ```
+
 ## 1.4. CCP4
+
 Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
 ```
 <br>
-
 
 # 2. Download databases
 ## 2.1. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
