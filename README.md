@@ -15,48 +15,15 @@ pip install hint-ppi
 <details>
 <summary>AlphaFold 3 (optional) </summary>
 
-You need to run these commands with the HInt environment activated. <br>
+You need to run these commands with the HInt conda environment activated. <br>
 
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
+git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
 pip install . --no-deps
 build_data
-conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y ????
-conda install -y -c nvidia \
-    cuda-toolkit=12.4.1 \
-    cuda-cccl=12.4.127 \
-    cuda-command-line-tools=12.4.1 \
-    cuda-cudart=12.4.127 \
-    cuda-cudart-dev=12.4.127 \
-    cuda-cudart-static=12.4.127 \
-    cuda-cuobjdump=12.4.127 \
-    cuda-cupti=12.4.127 \
-    cuda-cupti-static=12.4.127 \
-    cuda-cuxxfilt=12.4.127 \
-    cuda-demo-suite=12.4.127 \
-    cuda-documentation=12.4.127 \
-    cuda-driver-dev=12.4.127 \
-    cuda-gdb=12.4.127 \
-    cuda-libraries-static=12.4.1 \
-    cuda-nsight=12.4.127 \
-    cuda-nvcc=12.4.131 \
-    cuda-nvdisasm=12.4.127 \
-    cuda-nvml-dev=12.4.127 \
-    cuda-nvprof=12.4.127 \
-    cuda-nvprune=12.4.127 \
-    cuda-nvrtc=12.4.127 \
-    cuda-nvrtc-dev=12.4.127 \
-    cuda-nvrtc-static=12.4.127 \
-    cuda-nvtx=12.4.127 \
-    cuda-nvvp=12.4.127 \
-    cuda-opencl=12.4.127 \
-    cuda-opencl-dev=12.4.127 \
-    cuda-profiler-api=12.4.127 \
-    cuda-sanitizer-api=12.4.127 \
-    cuda-tools=12.4.1 \
-    cuda-toolkit=12.4.1 \
-    cuda-visual-tools=12.6.0
+conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 ```
 
 ⚠️ **Warning** <br>
@@ -69,6 +36,7 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
+pip install triton==3.1.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
