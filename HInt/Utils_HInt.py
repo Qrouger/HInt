@@ -1020,7 +1020,8 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 f"--data_dir={Path_AlphaFold_Data} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
-                "--fold_backend=alphafold3"
+                "--fold_backend=alphafold3 "
+                "--use_ap_style=True "
             )
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         proc = subprocess.Popen(
