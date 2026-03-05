@@ -15,15 +15,21 @@ from Bio.PDB import MMCIFParser, PDBIO
 import logging
 
 
-def examine_inter_pae(pae_mtx,seqs,cutoff) :
-    """A function that checks inter-pae values in multimer prediction jobs"""
+def examine_inter_pae_last(pae_mtx, seqs, cutoff) :
+    """Check inter-chain PAE only between the last chain and the others"""
+
+    pae = pae_mtx.copy()
+
     lens = [len(seq) for seq in seqs]
-    old_lenth=0
-    for length in lens:
-        new_length = old_lenth + length
-        pae_mtx[old_lenth:new_length,old_lenth:new_length] = 50
-        old_lenth = new_length
-    check = np.where(pae_mtx<cutoff)[0].size !=0
+    start_last = sum(lens[:-1])
+
+    # mask all 
+    pae[:] = 50
+
+    # restore only inter-PAE with prey
+    pae[start_last:, :start_last] = pae_mtx[start_last:, :start_last]
+    pae[:start_last, start_last:] = pae_mtx[:start_last, start_last:]
+    check = np.where(pae < cutoff)[0].size != 0
 
     return check
 
