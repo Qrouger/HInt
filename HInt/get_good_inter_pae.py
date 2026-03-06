@@ -15,7 +15,7 @@ from Bio.PDB import MMCIFParser, PDBIO
 import logging
 
 
-def examine_inter_pae_last(pae_mtx, seqs, cutoff) :
+def examine_inter_pae(pae_mtx, seqs, cutoff) :
     """Check inter-chain PAE only between the last chain and the others"""
 
     pae = pae_mtx.copy()
