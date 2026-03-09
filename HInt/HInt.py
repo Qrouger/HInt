@@ -72,7 +72,7 @@ def main() :
     CPU = args.cpu
     multi_job_per_gpu = args.multi_job_per_gpu
     if multi_job_per_gpu not in ["True", "False"] :
-        raise ValueError("Invalid value for --multi_job_per_gpu.")
+        raise ValueError("Invalid value for --multi_job_per_gpu. Need True or False.")
         
     Informations_dict = Define_informations()
 
