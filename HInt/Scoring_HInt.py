@@ -154,7 +154,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                                     already_done.append(job)
                             int_score[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
                             result_dict[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                            new_possible_prey.append(job.split("_and_")[-1])
+                            if job.split("_and_")[-1] not in new_possible_prey :
+                                new_possible_prey.append(job.split("_and_")[-1])
                             all_lines = all_lines + line
                             name_int = job.split("/")[-1]
                             os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
@@ -196,7 +197,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                             line =f'{key},{str(float(all_homo[key][0])/all_homo[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
                             all_lines += line
-                        new_possible_prey.append(prot_name)
+                        if prot_name not in new_possible_prey :
+                            new_possible_prey.append(prot_name)
                         result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
                         name_int = key.split("/")[-1]
                         os.system(f"cp {key}/ranked_0.pdb {key}/{name_int}_ranked_0.pdb") #rename pdb file
@@ -370,9 +372,9 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
             results_res_int = pool.map(postprocess_interaction, tasks)
 
 
-        for d in results_res_int:
-            for key, list_int in d.items():
-                if key in interface_dict:
+        for d in results_res_int :
+            for key, list_int in d.items() :
+                if key in interface_dict :
                     interface_dict[key] += list_int
                 else:
                     interface_dict[key] = list_int.copy()
