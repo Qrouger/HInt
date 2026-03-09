@@ -86,6 +86,8 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
     print (f"Creating temporary directory {tmp_dir} for pi_score outputs")
     subprocess.run(f"rm -rf {tmp_dir} && mkdir -p {tmp_dir}/pi_score_outputs", shell=True, executable="/bin/bash", check=True)
     pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
+    
+    cwd = os.path.dirname(os.path.abspath(__file__))
 
     for job in jobs:
         if not os.path.isfile(os.path.join(job, "ranked_0.pdb")):
@@ -96,7 +98,7 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
         output_dir = os.path.join(pi_score_outputs)
         cmd = (
             f"source {ccp4_setup}/bin/ccp4.setup-sh && "
-            f"conda run -n pi_score python ./script_pi_score/run_piscore_wc.py "
+            f"conda run -n pi_score python {cwd}/script_pi_score/run_piscore_wc.py "
             f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10"
         )
 
