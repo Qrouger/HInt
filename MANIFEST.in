@@ -1,1 +1,1 @@
-include script_pi_score/svm_model/*.sav
+include HInt/script_pi_score/svm_model/*.sav
