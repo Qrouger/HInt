@@ -15,13 +15,12 @@ from Bio.PDB import MMCIFParser, PDBIO
 import logging
 
 
-def examine_inter_pae(pae_mtx, seqs, cutoff) :
+def examine_inter_pae(pae_mtx, lenght, cutoff) :
     """Check inter-chain PAE only between the last chain and the others"""
 
     pae = pae_mtx.copy()
 
-    lens = [len(seq) for seq in seqs]
-    start_last = sum(lens[:-1])
+    start_last = sum(lenght[:-1])
 
     # mask all 
     pae[:] = 50
@@ -162,7 +161,7 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
     
     
 
-def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_version) :
+def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_version, prot_lenght) :
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
@@ -170,11 +169,11 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
     logging.info(f"Scoring {job}")
     result_subdir = os.path.join(job)
     interaction = job.split("/")[-1]
-    seqs = list()
+    lenght = list()
     for prot in interaction.split("_and_") :
         if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
            prot = prot.split("_")[0]
-        seqs.append(seq_no_SP[prot])
+        lenght.append(prot_lenght[prot])
     if AF_version == "3" : #for alphafold3
         if os.path.isfile(os.path.join(result_subdir,'ranked_0.pdb')) == False : #create ranked_0.pdb for AF3
             parser = MMCIFParser(QUIET=True)
@@ -194,7 +193,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job))
-            check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+            check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
             if check:
                 good_jobs.append(str(job))
@@ -224,7 +223,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
-            check = examine_inter_pae(pae_mtx,seqs,cutoff=cutoff)
+            check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
             if check:
                 good_jobs.append(str(job))
