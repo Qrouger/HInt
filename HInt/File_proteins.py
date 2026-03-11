@@ -480,7 +480,7 @@ class File_proteins() :
                                 break
                             if line[0] == ">" :
                                 index += 1
-                    if msa_seq != all_info["sequence_no_SP"][protein] : #if not match, remove pkl file and start at zero
+                    if msa_seq != all_info["sequence_no_SP"][protein] and 'X' not in msa_seq : #if not match, remove pkl file and start at zero
                         cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*"
                         os.system(cmd)
                         need_msa.append(protein)
