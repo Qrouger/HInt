@@ -36,7 +36,9 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
-pip install . triton==3.1.0 torch==2.4.0
+pip install . \
+pip install triton==3.1.0 \
+pip install torch==2.4.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
