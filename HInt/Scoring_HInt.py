@@ -55,6 +55,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     possible_prey = file.get_possible_prey()
     int_score = file.get_int_score() #save scores
     seq_no_SP = file.get_proteins_sequence_no_SP()
+    prot_lenght = file.get_lenght_prot()
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     regions = Informations_dict["Regions"]
@@ -96,7 +97,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
 
         results = []
         with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
-            tasks = [(ppi, "./", Path_ccp4, seq_no_SP, AF_version) for ppi in ppi_list]
+            tasks = [(ppi, "./", Path_ccp4, seq_no_SP, AF_version, prot_lenght) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
                 if df is not None and not df.empty :
@@ -235,9 +236,9 @@ def run_scoring (args) :
     ----------
     result : pandas.DataFrame
     """
-    interaction, output_dir, Path_ccp4, seq_no_SP, AF_version = args
+    interaction, output_dir, Path_ccp4, seq_no_SP, AF_version, prot_lenght = args
     try :
-        result = HInt.get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, output_dir, 10, 2, Path_ccp4, seq_no_SP, AF_version, prot_lenght) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
