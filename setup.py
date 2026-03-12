@@ -15,7 +15,7 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
-        'alphapulldown==2.1.8',
+        'alphapulldown==2.1.9',
         'matplotlib',
         'nvidia-ml-py',
         'ihm',
