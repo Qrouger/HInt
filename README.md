@@ -36,8 +36,7 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
-pip install . \
-#pip install triton==3.1.0 \
+pip install .
 pip install torch==2.4.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
@@ -48,7 +47,7 @@ Download deeploc2 package here : https://services.healthtech.dtu.dk/services/Dee
 ```bash
 cd  deeploc2_package
 pip install .
-pip install triton==3.1.0
+pip install torch==2.4.0
 ```
 
 ## 1.3. SignalP5
@@ -180,13 +179,50 @@ You need to be in the directory with HInt.txt file.
 ```bash
 HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 ```
---cpu : Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs. <br>
---gpu : Index(es) of GPU(s) you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. <br>
---multi_job_per_gpu : Allows multiple jobs to run on a single GPU, reducing time of modelisation. By default set on True. <br>
+<details>
+<summary>Flags description </summary>
 
-<br>
+```yaml
+  
+# Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs.
+  --cpu : Integer
+
+# Index(es) of GPU(s) you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. 
+  --gpu : Integer(s)
+  
+# Allows multiple jobs to run on a single GPU, reducing time of modelisation. By default set on True. 
+  --multi_job_per_gpu : Boolean
+```
+</details>
+
+<details>
+<summary>Inital folder structure example </summary>
+  
+```yaml
+HInt_screen/
+  HInt.txt
+  sequences.txt
+```
+
+</details>
 
 # 5. Results
 
-# 6. Example
-## Folder structure
+<details>
+<summary>Final folder structure example </summary>
+  
+```yaml
+HInt_screen/
+  HInt.txt
+  sequences.txt
+  result_PPI_int/
+  msa_feature/
+  Interface_fig/
+  log_file/
+    HInt.log
+  Summary_result_HInt.csv
+  All_Final_result_HInt.csv
+```
+
+</details>
+
