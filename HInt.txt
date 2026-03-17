@@ -17,7 +17,7 @@ Path_ccp4 : /opt/xtal/ccp4-9
 Path_MMseqs2_Data : /data/mmseq_database
 
 ###Input Path
-Path_Uniprot_ID : sequence.txt
+Path_Uniprot_ID : sequences.txt
 
 ###Output Path
-Path_Pickle_Feature : ./feature_mmseq
+Path_Pickle_Feature : ./msa_feature
