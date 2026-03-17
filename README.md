@@ -197,7 +197,7 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 <details>
 <summary>Inital folder structure example </summary>
   
-```yaml
+```
 HInt_screen/
   HInt.txt
   sequences.txt
@@ -210,7 +210,7 @@ HInt_screen/
 <details>
 <summary>Final folder structure example </summary>
   
-```yaml
+```
 HInt_screen/
   HInt.txt
   sequences.txt
