@@ -183,7 +183,6 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 <summary>Flags description </summary>
 
 ```yaml
-  
 # Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs.
   --cpu : Integer
 
@@ -215,13 +214,16 @@ HInt_screen/
 HInt_screen/
   HInt.txt
   sequences.txt
-  result_PPI_int/
-  msa_feature/
-  Interface_fig/
-  log_file/
-    HInt.log
   Summary_result_HInt.csv
   All_Final_result_HInt.csv
+  result_PPI_int/
+
+  msa_feature/
+
+  Interface_fig/
+
+  log_file/
+    HInt.log
 ```
 
 </details>
