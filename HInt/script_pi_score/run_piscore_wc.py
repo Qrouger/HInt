@@ -182,7 +182,7 @@ def main():
                 #calculate shape complementarity
                 scriptfile = write_sc_script(chain_lst=k.split('_'),
                                             pdbfile=clean_pdbfile)
-                sc_dir = args.out+"/ranked_0/"+scriptfile
+                sc_dir = args.out+"/"+pd+"/"+scriptfile
                 run_sc(sc_dir)
                 #parse_sc_output('tmp_sc.out')
                 
