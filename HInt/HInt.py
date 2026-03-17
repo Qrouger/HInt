@@ -96,7 +96,7 @@ def main() :
 
 
     # need_msa also includes proteins that only require signal peptide information
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
+    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["AlphaFold"])
 
 
     # Remove bait proteins from the prey list
@@ -156,7 +156,7 @@ def main() :
 
 
     if len(need_msa) > 0 or len(need_pkl) > 0 :
-        create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, need_pkl)
+        create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, need_pkl, Informations_dict["AlphaFold"])
 
     HInt_object.Make_save_dict()  # Save SignalP and feature results
 

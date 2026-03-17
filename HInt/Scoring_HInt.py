@@ -158,8 +158,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             if job.split("_and_")[-1] not in new_possible_prey :
                                 new_possible_prey.append(job.split("_and_")[-1])
                             all_lines = all_lines + line
-                            name_int = job.split("/")[-1]
-                            os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                     for protein in possible_prey :
                         if protein not in new_possible_prey :
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
@@ -540,7 +538,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                 color_res[proteins[-1]].add(str(line-complete_lenght+1))
     
     if AF_version == "3" :
-        with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f :
+        with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
