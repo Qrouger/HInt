@@ -155,7 +155,7 @@ HInt don't support multiple regions for baits proteins
 
 - **Path_MMseqs2_Data** : Path of GPU-indexed MMseqs2 database (string).
 >[!NOTE]
->This Path is not mandatory. If not set also MMseqs2-GPU will no be used.
+>This path is not mandatory. If not set also MMseqs2-GPU will not be used.
 
 - **Path_Uniprot_ID** : Path to the protein sequence file (string).
 
