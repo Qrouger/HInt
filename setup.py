@@ -31,7 +31,7 @@ setup(
         'jaxtyping==0.2.34', 
         'typeguard==2.13.3', 
         'jax_triton==0.2.0', 
-        'torch'==2.4.0
+        'torch==2.4.0'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
