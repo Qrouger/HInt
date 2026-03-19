@@ -152,7 +152,7 @@ HInt don't support multiple regions for baits proteins
 
 ### Paths
 
-- **Path_AlphaFold_Data** : Path of AlphaFold databse (string).
+- **Path_AlphaFold_Data** : Path of AlphaFold database (string).
 
 - **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
 
