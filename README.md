@@ -81,10 +81,13 @@ GPU=1 ./setup_databases.sh ./mmseq_database
 
 ## 2.2. Download AlphaFold database (3 hours, 2.7T)
 ```bash
-sudo apt install aria2
-git clone https://github.com/KosinskiLab/alphafold.git
-cd alphafold
-scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
+git clone https://github.com/google-deepmind/alphafold3.git
+cd alphafold3
+./fetch_databases.sh <DB_DIR>
+#sudo apt install aria2
+#git clone https://github.com/KosinskiLab/alphafold.git
+#cd alphafold
+#scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
 <br>
 
