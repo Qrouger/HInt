@@ -200,13 +200,13 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             io.set_structure(structure)
             io.save(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb'))
         if os.path.isfile(os.path.join(job,f'{interaction}_summary_confidences.json')) :
-            with open(os.path.join(result_subdir, f'{interaction}_confidences.json'),'rb') as json_f :
+            with open(os.path.join(result_subdir, f'{interaction}_summary_confidences.json'),'rb') as json_sum_f :
                 json_sum = json.load(json_sum_f)
             if "iptm" in json_sum.keys() and "ptm" in json_sum.keys() :
                 iptm_score = json_sum['iptm']
                 ptm_score = json_sum['ptm']
                 iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
-            with open(os.path.join(result_subdir, 'ranked_0_confidences.json'),'rb') as json_f :
+            with open(os.path.join(result_subdir, f'{interaction}_confidences.json'),'rb') as json_f :
                 json_data = json.load(json_f)
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
