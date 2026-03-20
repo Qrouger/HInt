@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.3.9',
+    version='0.4.0',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -30,7 +30,6 @@ setup(
         'zstandard==0.23.0', 
         'jaxtyping==0.2.34', 
         'typeguard==2.13.3', 
-        'jax_triton==0.2.0', 
         'torch==2.4.0'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
