@@ -19,6 +19,8 @@ import time
 import queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
+import random
+import json
 
 
 # Configure global logger
@@ -330,7 +332,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     file.set_prot_SP(if_prot_SP)
     return new_need_msa
 
-def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
+def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_version) :
     """
     Generate MSAs and AlphaFold feature pickle files for a set of proteins.
 
@@ -347,6 +349,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     CPU : int
     need_msa : list
     need_pkl : list
+    AF_version : str (2 or 3)
 
     """
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
@@ -433,6 +436,43 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
 
     #Create pkl files for proteins without pkl file (from MSA found in AFdb or error during MSA generation with ColabFold mmseqs2)
     if os.path.isfile(f"log_file/{pkl_name}") == True :
+        #chain_id = ["A","B","C","D","E","F","G","H"]
+        #i = -1
+        if AF_version == "3" :
+            for prot in need_pkl :
+                #i += 1
+                #Create json files for AF3
+                #chain_id_prot = chain_id[i]
+                json_file = f"{Path_Pickle_Feature}/{prot}_af3_input.json"
+                a3m_file = f"{Path_Pickle_Feature}/{prot}.a3m"
+                seq = prot_no_SP[prot]
+                random_seed = "42"
+                with open(a3m_file, "r") as msa_f :
+                    msa_content = msa_f.read().strip()
+                data = {
+                "dialect": "alphafold3",
+                "version": 3,
+                "name": prot,
+                "sequences": [
+                    {
+                        "protein": {
+                            "id": "A",
+                            "sequence": seq,
+                            "modifications": [],
+                            "unpairedMsa": msa_content,
+                            "pairedMsa": msa_content,
+                            "templates": []
+                        }
+                    }
+                ],
+                "modelSeeds": random_seed,
+                "bondedAtomPairs": None,
+                "userCCD": None
+                }
+                with open(json_file, "w") as json_f:
+                    json.dump(data, json_f, indent=2)
+
+
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
         f"--data_dir={Path_AlphaFold_Data}",
@@ -807,15 +847,18 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
             # Check if model already exists
             if AF_version == "3":
-                path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0_model.cif")
-                path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0_model.cif")
+                path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/*_model.cif")
+                path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/*_model.cif")
             else : # AF_version == "2"
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
 
             if len(path1) == 0 and len(path2) == 0 :
                 if int_lenght <= max_aa :
-                    job_str = f"{bait_for_job};{prey}\n"
+                    if AF_version == "3" :
+                        job_str = f"{bait_for_job}_af3_input.json;{prey}_af3_input.json\n"
+                    if AF_version == "2" :
+                        job_str = f"{bait_for_job};{prey}\n"
                     vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
@@ -995,6 +1038,8 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
     prot_int = interaction_file.strip("\n").replace(";", "_and_")
+    if AF_version == "3" :
+        prot_int = prot_int.replace("_af3_input.json", "")
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
 
     try :
@@ -1016,7 +1061,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         else :
             cmd = (
                 "run_multimer_jobs.py --mode=custom "
-                f"--output_path=./result_{interaction_type} "
+                f"--output_path=./result_{interaction_type}/{prot_int} "
                 f"--data_dir={Path_AlphaFold_Data} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
