@@ -142,6 +142,20 @@ class File_proteins() :
         """
         self.int_score = int_score
 
+    def set_homo_score (self, homo_score) :
+        """
+        Sets a dict of homo-oligomer score.
+        
+        Parameters:
+        ----------
+        homo_score : dictionary
+        
+        Returns:
+        ----------
+        """
+        self.homo_score = homo_score
+
+
     def set_prot_SP (self, dict_SP) :
         """
         Sets a dict indicating whether each protein has a signal peptide (SP) or not.
@@ -271,6 +285,19 @@ class File_proteins() :
         int_score : dictionary
         """
         return self.int_score
+    
+    def get_homo_score (self) :
+        """
+        Return the homo-oligomer result dict.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        homo_score : dictionary
+        """
+        return self.homo_score
 
     def get_prot_SP (self) :
         """
@@ -315,6 +342,7 @@ class File_proteins() :
         prot_SP = dict()
         already_fasta = dict()
         int_score = dict()
+        homo_score = dict()
         save_prot = ""
         with open(path_txt,"r") as check_f : #clean ncbi file
             new_fasta = str()
@@ -337,6 +365,7 @@ class File_proteins() :
                             new_proteins.append(prot.upper().strip())
                         result_dict[prot.upper().strip()] = dict()
                         int_score[prot.upper().strip()] = dict()
+                        homo_score[prot.upper().strip()] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
                     if save_prot in new_proteins :
@@ -347,6 +376,7 @@ class File_proteins() :
                     sequence_SP[save_prot] = ""
                     result_dict[save_prot] = dict()
                     int_score[save_prot] = dict()
+                    homo_score[save_prot] = dict()
                 elif len(line) > 1 and save_prot != "" :
                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","")
                     for aa in ["O", "B", "Z", "J", "X"] :
@@ -357,10 +387,11 @@ class File_proteins() :
         self.set_possible_prey(new_proteins)
         self.set_proteins_sequence_SP(sequence_SP)
         self.set_int_score(int_score)
+        self.set_homo_score(homo_score)
         self.set_result_dict(result_dict)
         self.set_prot_SP(prot_SP)
 
-    def check_save_dict (self, Path_Pickle_Feature, Alphafold_version) :
+    def check_save_dict (self, Path_Pickle_Feature) :
         """
         Inspect previously saved computation states and determine missing features for each protein.
 
@@ -375,7 +406,6 @@ class File_proteins() :
         Parameters :
         ----------
         Path_Pickle_Feature : str
-        Alphafold_version : str (2 or 3)
 
         Returns :
         ----------
@@ -397,6 +427,7 @@ class File_proteins() :
         deeploc_prot = dict()
         prot_SP = dict()
         int_score = self.get_int_score()
+        homo_score = self.get_homo_score()
         result_dict = self.get_result_dict()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]
@@ -410,6 +441,7 @@ class File_proteins() :
             deeploc_prot = copy.deepcopy(all_info["deeploc"])
             protein_sequence_no_SP = copy.deepcopy(all_info["sequence_no_SP"])
             int_score.update(copy.deepcopy(all_info["int_score"]))
+            homo_score.update(copy.deepcopy(all_info["homo_score"]))
             prot_SP = copy.deepcopy(all_info["Signal_peptide"])
             for protein in proteins :
                 result_dict[protein] = dict()
@@ -429,6 +461,7 @@ class File_proteins() :
                             need_msa.append(protein)
                             need_DeepLoc.append(protein)
                             int_score[protein] = dict() #remove int score
+                            homo_score[protein] = dict()
                         else : #sequences match, set all arguments
                             sequences_SP[protein] = all_info["sequence_SP"][protein]
                             if protein not in all_info["sequence_no_SP"].keys() :
@@ -470,9 +503,8 @@ class File_proteins() :
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files
                     os.system(cmd)
                     int_score[protein] = dict() #remove int score
+                    homo_score[protein] = dict()
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
-                    need_pkl.append(protein)
-                if os.path.isfile(f"{Path_Pickle_Feature}/{protein}_af3_input.json") == False and Alphafold_version == "3"  and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True :
                     need_pkl.append(protein)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True and protein not in need_msa : #check sequence in msa file match with save dict
                     with open(f"{Path_Pickle_Feature}/{protein}.a3m","r") as msa_file :
@@ -491,14 +523,16 @@ class File_proteins() :
                         int_score[protein] = dict() #remove int score
 
             #Check is save score interaction are still valid or delete it
-            for protein in all_info["int_score"].keys() :
-                for key in all_info["int_score"][protein].keys() :
-                    bait = key.split("iQ_score_vs_")[1]
-                    if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
-                        if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
-                            del int_score[protein][f"iQ_score_vs_{bait}"]
-                        else :
-                            del int_score[protein]["iQ_score"]
+            #for protein in all_info["int_score"].keys() :
+            #    for key in all_info["int_score"][protein].keys() :
+            #        bait = key.split("iQ_score_vs_")[1]
+            #        if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
+            #            if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
+            #                del int_score[protein][f"iQ_score_vs_{bait}"]
+
+
+            #Check is save homo score interaction are valid 
+
 
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
@@ -531,6 +565,7 @@ class File_proteins() :
         self.set_proteins_sequence_no_SP(protein_sequence_no_SP)
         self.set_proteins_sequence_SP(sequences_SP)
         self.set_int_score(int_score)
+        self.set_homo_score(homo_score)
         self.Make_save_dict() #Save modification of the save dict
         return need_msa, need_pkl, need_DeepLoc
 
@@ -544,6 +579,7 @@ class File_proteins() :
         pkl_dict["sequence_no_SP"] = self.get_proteins_sequence_no_SP()
         pkl_dict["deeploc"] = self.get_deeploc()
         pkl_dict["int_score"] = self.get_int_score()
+        pkl_dict["homo_score"] = self.get_homo_score()
         pkl_dict["Signal_peptide"] = self.get_prot_SP()
         with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)

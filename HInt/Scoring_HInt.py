@@ -53,12 +53,14 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     start_time = datetime.now()
     result_dict = file.get_result_dict()
     possible_prey = file.get_possible_prey()
-    int_score = file.get_int_score() #save scores
+    int_score = file.get_int_score() #saved scores
+    homo_score = file.get_homo_score()
     seq_no_SP = file.get_proteins_sequence_no_SP()
     prot_lenght = file.get_lenght_prot()
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     regions = Informations_dict["Regions"]
+    nbr_homo = Informations_dict["Homo-oligomer"]
     AF_version = Informations_dict["AlphaFold"]
     ppi_list = list()
     already_done = list()
@@ -81,9 +83,15 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
         if bait is None : #for homo-oligomer
-            for direc in os.listdir(f"./result_{Interaction}") :
-                if "_homo_" in direc :
-                    ppi_list.append(f"./result_{Interaction}/{direc}") #Found a solution for score only homo-oligomer without score
+            for protein in possible_prey :
+                if f"hiQ_score_{nbr_homo}er" not in homo_score[protein].keys() :
+                    ppi_list.append(f"./result_{Interaction}/{protein}_homo_{nbr_homo}er") #Found a solution for score only homo-oligomer without score
+                else :
+                    result_dict[protein][f"hiQ_score_{nbr_homo}er"] = homo_score[protein][f"hiQ_score_{nbr_homo}er"]
+                    if homo_score[protein][f"hiQ_score_{nbr_homo}er"] > 0 :
+                        new_possible_prey.append(protein)
+                    if homo_score[protein][f"hiQ_score_{nbr_homo}er"] == 0 :
+                        result_dict[protein]["Reason_for_filtering"] = f"Bad homo-oligomer PAE : AF"
         else : #for one vs all
             for protein in possible_prey : #check if protein is already score
                 if f"iQ_score_vs_{bait_name}" not in int_score[protein].keys() :
@@ -158,6 +166,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             if job.split("_and_")[-1] not in new_possible_prey :
                                 new_possible_prey.append(job.split("_and_")[-1])
                             all_lines = all_lines + line
+                            name_int = job.split("/")[-1]
+                            os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                     for protein in possible_prey :
                         if protein not in new_possible_prey :
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
@@ -182,15 +192,15 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                                 all_homo[job] = (sum_pi_score,sum_int,row)
                     for key in all_homo.keys() :
                         row = all_homo[key][2]
-                        number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4 #problem with "_" in name sequence ?
+                        #number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4 #problem with "_" in name sequence ?
                         prot_name = row["jobs"].split("_")[0]
-                        if len(save_pi_score[key]) > int(number_oligo) : #if model have more interface than number of homo-oligomerization
+                        if len(save_pi_score[key]) > int(nbr_homo) : #if model have more interface than number of homo-oligomerization
                             new_sum_pi_score = 0
                             save_pi_score[key].sort(reverse=True)
-                            for index in range(0,int(number_oligo)) :
+                            for index in range(0,int(nbr_homo)) :
                                 new_sum_pi_score += save_pi_score[key][index]
-                                hiQ_score = (((float(new_sum_pi_score)/int(number_oligo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
-                            line =f'{key},{str(float(new_sum_pi_score)/int(number_oligo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                                hiQ_score = (((float(new_sum_pi_score)/int(nbr_homo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
+                            line =f'{key},{str(float(new_sum_pi_score)/int(nbr_homo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
                             all_lines += line   
                         else :
                             hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
@@ -198,12 +208,14 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                             all_lines += line
                         if prot_name not in new_possible_prey :
                             new_possible_prey.append(prot_name)
-                        result_dict[key.split("_homo_")[0]]["hiQ_score"] = hiQ_score
+                        result_dict[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
+                        homo_score[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
                         name_int = key.split("/")[-1]
-                        os.system(f"cp {key}/ranked_0.pdb {key}/{name_int}_ranked_0.pdb") #rename pdb file
+                        os.system(f"cp result_{Interaction}/{key}/ranked_0.pdb result_{Interaction}/{key}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                     for protein in possible_prey :
                         if protein not in new_possible_prey :
-                            result_dict[protein]["hiQ_score"] = 0
+                            homo_score[protein][f"hiQ_score_{nbr_homo}er"] = 0
+                            result_dict[protein][f"hiQ_score_{nbr_homo}er"] = 0
                             result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
 
 
@@ -212,6 +224,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                         file2.write(all_lines)
             end_time = datetime.now()
             logger.info("Time scoring interactions : %s\n", end_time - start_time)
+            file.set_homo_score(homo_score)
             file.set_int_score(int_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
@@ -276,6 +289,7 @@ def Resume_file(file, Informations_dict) :
     possible_baits = Informations_dict["Multimer_bait"]
     regions = Informations_dict["Regions"]
     informations = ["DeepLoc","Signal_peptide"]
+    nbr_homo = Informations_dict["Homo-oligomer"]
     big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
     small_csv_lines = "Name,Reason_for_filtering\n"
     for protein in Informations_dict["Interact_with"] :
@@ -290,16 +304,13 @@ def Resume_file(file, Informations_dict) :
                     bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
             informations.append(f"iQ_score_vs_{bait_name}")
             list_name_baits.append(bait_name)
-            if len(possible_baits) == 1 :
-                big_csv_lines = big_csv_lines.strip("\n") + ",iQ_score\n"
-            else :
-                big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
+            big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (any(f"iQ_score_vs_{bait}" in x[1] for bait in list_name_baits), sum(x[1].get(f"iQ_score_vs_{bait}", 0.0) for bait in list_name_baits)),reverse=True) #sorted in function of key of all baits iQ_score and sum of iQ_score
     if Informations_dict["Homo-oligomer"] != "1" :
-        informations.append("hiQ_score")
-        big_csv_lines = big_csv_lines.strip("\n") + "hiQ_score\n"
+        informations.append(f"hiQ_score_{nbr_homo}er")
+        big_csv_lines = big_csv_lines.strip("\n") + f",hiQ_score_{nbr_homo}er\n"
     if Informations_dict["Interact_with"] == [""] and Informations_dict["Homo-oligomer"] != "1" : #if no PPI interactions filter on hiQ_score
-        sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get("hiQ_score", 0), len(x[1]),), reverse=True)
+        sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get(f"hiQ_score_{nbr_homo}er", 0), len(x[1]),), reverse=True)
     if Informations_dict["Homo-oligomer"] == "1" and Informations_dict["Interact_with"] == [""] : #no bait and no homo-oligomer
         sorted_proteins = result_dict
 
@@ -538,7 +549,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                                 color_res[proteins[-1]].add(str(line-complete_lenght+1))
     
     if AF_version == "3" :
-        with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
+        with open(os.path.join(path_int, 'ranked_0_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
