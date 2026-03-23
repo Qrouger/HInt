@@ -226,7 +226,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             data = json.load(json_f)
         best_model = data['order'][0]
         name_int = job.split("/")[-1]
-        os.system(f"cp result_{Interaction}/{job}/ranked_0.pdb result_{Interaction}/{job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
+        os.system(f"cp {job}/ranked_0.pdb {job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
         if "iptm" in data.keys() or "iptm+ptm" in data.keys():
             iptm_ptm_score = data['iptm+ptm'][best_model]
             if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
