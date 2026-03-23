@@ -1037,10 +1037,19 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-    prot_int = interaction_file.strip("\n").replace(";", "_and_")
-    if AF_version == "3" :
-        prot_int = prot_int.replace("_af3_input.json", "")
+    if interaction_type == "PPI_int" : #prbl in AFP ouput using AF3
+        prot_int = interaction_file.strip("\n").replace(";", "_and_")
+        if AF_version == "3" :
+            prot_int = prot_int.replace("_af3_input.json", "")
+        output_dir = f"./result_{interaction_type}/{prot_int}"
+    if interaction_type == "homo_int" :
+        prot_int = interaction_file.strip("\n").replace(":", "_homo_")
+        prot_int += "er"
+        if AF_version == "3" :
+            prot_int = prot_int.replace("_af3_input.json", "")
+        output_dir = f"./result_{interaction_type}"
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
+
 
     try :
         with open(f"log_file/{file_name}", "w") as f :
@@ -1061,7 +1070,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         else :
             cmd = (
                 "run_multimer_jobs.py --mode=custom "
-                f"--output_path=./result_{interaction_type}/{prot_int} "
+                f"--output_path={output_dir} "
                 f"--data_dir={Path_AlphaFold_Data} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
