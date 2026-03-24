@@ -20,7 +20,7 @@ setup(
         'nvidia-ml-py',
         'ihm',
         'scipy==1.16.0',
-        'jax[cuda12]==0.5.2',
+        'jax[cuda12]==0.5.3',
         'numpy==1.26.4',
         'pandas',
         'pydantic',
