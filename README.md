@@ -22,7 +22,7 @@ cd alphafold3
 git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
 pip install . --no-deps
 build_data
-#conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
+conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 ```
 
 ⚠️ **Warning** <br>
