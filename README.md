@@ -37,7 +37,6 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
 pip install .
-pip install torch==2.4.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
@@ -47,7 +46,6 @@ Download deeploc2 package here : https://services.healthtech.dtu.dk/services/Dee
 ```bash
 cd  deeploc2_package
 pip install .
-pip install torch==2.4.0
 ```
 
 ## 1.3. SignalP5
