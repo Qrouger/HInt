@@ -31,7 +31,19 @@ setup(
         'jaxtyping==0.2.34', 
         'typeguard==2.13.3', 
         'torch==2.4.0',
-        'jax_triton==0.2.0'
+        "nvidia-cublas-cu12==12.8.5.5",
+        "nvidia-cuda-cccl-cu12==12.9.27",
+        "nvidia-cuda-cupti-cu12==12.9.79",
+        "nvidia-cuda-nvcc-cu12==12.9.86",
+        "nvidia-cuda-nvrtc-cu12==12.9.86",
+        "nvidia-cuda-runtime-cu12==12.9.79",
+        "nvidia-cudnn-cu12==9.20.0.48",
+        "nvidia-cufft-cu12==11.4.1.4",
+        "nvidia-cusolver-cu12==11.7.5.82",
+        "nvidia-cusparse-cu12==12.5.10.65",
+        "nvidia-nccl-cu12==2.29.7",
+        "nvidia-nvjitlink-cu12==12.9.86",
+        "nvidia-nvshmem-cu12==3.5.21",
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
