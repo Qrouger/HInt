@@ -45,6 +45,7 @@ setup(
         "nvidia-nccl-cu12==2.29.7",
         "nvidia-nvjitlink-cu12==12.9.86",
         "nvidia-nvshmem-cu12==3.5.21",
+        "torch>=1.6"
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
