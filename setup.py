@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.4.1',
+    version='0.4.2',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -29,8 +29,7 @@ setup(
         'rdkit==2024.3.5', 
         'zstandard==0.23.0', 
         'jaxtyping==0.2.34', 
-        'typeguard==2.13.3', 
-        'torch==2.4.0',
+        'typeguard==2.13.3',
         "nvidia-cublas-cu12==12.8.5.5",
         "nvidia-cuda-cccl-cu12==12.9.27",
         "nvidia-cuda-cupti-cu12==12.9.79",
