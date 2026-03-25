@@ -870,7 +870,10 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
-            path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
+            if AF_version == "3" :
+                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/*_model.cif")
+            else :
+                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb")
             if len(path) == 0 :
                 if int_lenght <= max_aa :
                     if AF_version == "3" :
