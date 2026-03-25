@@ -870,16 +870,10 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
-            if AF_version == "3" :
-                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/*_model.cif")
-            else :
-                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb")
+            path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
             if len(path) == 0 :
                 if int_lenght <= max_aa :
-                    if AF_version == "3" :
-                        job_str = f"{prey}_af3_input.json:{nbr_oligo}\n"
-                    if AF_version == "2" :
-                        job_str = f"{prey}:{nbr_oligo}\n"
+                    job_str = f"{prey}:{nbr_oligo}\n"
                     vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
@@ -1055,7 +1049,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
             prot_int = prot_int.replace("_af3_input.json", "")
         output_dir = f"./result_{interaction_type}"
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
-
 
     try :
         with open(f"log_file/{file_name}", "w") as f :

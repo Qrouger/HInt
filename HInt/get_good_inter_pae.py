@@ -193,6 +193,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
                 prot = prot.split("_")[0]
             lenght.append(prot_lenght[prot])
     if AF_version == "3" : #for alphafold3
+        print(interaction)
         if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False : #create ranked_0.pdb for AF3 
             parser = MMCIFParser(QUIET=True)
             structure = parser.get_structure('model', os.path.join(result_subdir,f'{interaction}_model.cif'))
@@ -226,7 +227,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             data = json.load(json_f)
         best_model = data['order'][0]
         name_int = job.split("/")[-1]
-        os.system(f"cp {job}/ranked_0.pdb {job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
+        os.system(f"cp {job}/ranked_0.pdb {job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name #outpu problem for AF3 homo-oligomer
         if "iptm" in data.keys() or "iptm+ptm" in data.keys():
             iptm_ptm_score = data['iptm+ptm'][best_model]
             if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
