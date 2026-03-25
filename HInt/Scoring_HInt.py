@@ -22,6 +22,7 @@ from Bio import PDB
 import copy
 import string
 import subprocess
+from pathlib import Path
 
 # Configure global logger
 logging.basicConfig(
@@ -95,7 +96,12 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
         else : #for one vs all
             for protein in possible_prey : #check if protein is already score
                 if f"iQ_score_vs_{bait_name}" not in int_score[protein].keys() :
-                    ppi_list.append(f"./result_{Interaction}/{bait_name}_and_{protein}")
+                    dir_path = Path(f"./result_{Interaction}/{bait_name}_and_{protein}")
+                    inv_dir = Path(f"./result_{Interaction}/{protein}_and_{bait_name}")
+                    if dir_path.exists() and dir_path.is_dir() :
+                        ppi_list.append(f"./result_{Interaction}/{bait_name}_and_{protein}")
+                    elif inv_dir.exists() and inv_dir.is_dir() :
+                        ppi_list.append(f"./result_{Interaction}/{protein}_and_{bait_name}")
                 else :
                     result_dict[protein][f"iQ_score_vs_{bait_name}"] = int_score[protein][f"iQ_score_vs_{bait_name}"]
                     if int_score[protein][f"iQ_score_vs_{bait_name}"] > 0 :
@@ -210,7 +216,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                         result_dict[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
                         homo_score[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
                         name_int = key.split("/")[-1]
-                        os.system(f"cp result_{Interaction}/{key}/ranked_0.pdb result_{Interaction}/{key}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name
                     for protein in possible_prey :
                         if protein not in new_possible_prey :
                             homo_score[protein][f"hiQ_score_{nbr_homo}er"] = 0

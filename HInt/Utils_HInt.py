@@ -870,10 +870,16 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
-            path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
+            if AF_version == "3" :
+                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/*_model.cif")
+            else :
+                path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb")
             if len(path) == 0 :
                 if int_lenght <= max_aa :
-                    job_str = f"{prey}:{nbr_oligo}\n"
+                    if AF_version == "3" :
+                        job_str = f"{prey}_af3_input.json:{nbr_oligo}\n"
+                    if AF_version == "2" :
+                        job_str = f"{prey}:{nbr_oligo}\n"
                     vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
@@ -1037,17 +1043,16 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-    if interaction_type == "PPI_int" : #prbl in AFP ouput using AF3
+    if interaction_type == "PPI_int" :
         prot_int = interaction_file.strip("\n").replace(";", "_and_")
-        if AF_version == "3" :
-            prot_int = prot_int.replace("_af3_input.json", "")
-        output_dir = f"./result_{interaction_type}/{prot_int}"
     if interaction_type == "homo_int" :
         prot_int = interaction_file.strip("\n").replace(":", "_homo_")
         prot_int += "er"
-        if AF_version == "3" :
-            prot_int = prot_int.replace("_af3_input.json", "")
-        output_dir = f"./result_{interaction_type}"
+
+    if AF_version == "3" : #prbl in AFP ouput using AF3
+        prot_int = prot_int.replace("_af3_input.json", "")
+        output_dir = f"./result_{interaction_type}/{prot_int}"
+
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
 
     try :

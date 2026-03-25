@@ -13,7 +13,7 @@ import subprocess
 import gzip
 from Bio.PDB import MMCIFParser, PDBIO
 import logging
-
+from pathlib import Path
 
 def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
     """Check inter-chain PAE only between the last chain and the others"""
@@ -65,7 +65,7 @@ def obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_pa
     return mpDockq_or_pdockq
 
 
-def extract_plddt_from_pdb(pdb_file):
+def extract_plddt_from_pdb(pdb_file) :
     """
     Extract plddt from b-factor in pdb
     """
@@ -192,22 +192,24 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
             lenght.append(prot_lenght[prot])
-    if AF_version == "3" : #for alphafold3
-        print(interaction)
+    if AF_version == "3" : #for AlphaFold3
+        cif_files = list(Path(result_subdir).glob("*model.cif"))
         if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False : #create ranked_0.pdb for AF3 
             parser = MMCIFParser(QUIET=True)
-            structure = parser.get_structure('model', os.path.join(result_subdir,f'{interaction}_model.cif'))
+            structure = parser.get_structure('model', cif_files[0])
             io = PDBIO()
             io.set_structure(structure)
             io.save(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb'))
-        if os.path.isfile(os.path.join(job,f'{interaction}_summary_confidences.json')) :
-            with open(os.path.join(result_subdir, f'{interaction}_summary_confidences.json'),'rb') as json_sum_f :
+        int_AF3 = str(cif_files[0]).split("_model")[0]
+        confidence_f = list(Path(result_subdir).glob("*_summary_confidences.json"))
+        if os.path.isfile(int_AF3+'_summary_confidences.json') :
+            with open(int_AF3+'_summary_confidences.json','rb') as json_sum_f :
                 json_sum = json.load(json_sum_f)
             if "iptm" in json_sum.keys() and "ptm" in json_sum.keys() :
                 iptm_score = json_sum['iptm']
                 ptm_score = json_sum['ptm']
                 iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
-            with open(os.path.join(result_subdir, f'{interaction}_confidences.json'),'rb') as json_f :
+            with open(int_AF3+'_confidences.json','rb') as json_f :
                 json_data = json.load(json_f)
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
@@ -219,15 +221,15 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
                 iptm_ptm.append(iptm_ptm_score)
                 iptm.append(iptm_score)
                 mpDockq_scores.append(mpDockq_score)
-                
+        else :
+            logging.info(f"Cannot find summary_confidences.json for {job}, skipping.")
 
 
     if os.path.isfile(os.path.join(job,'ranking_debug.json')) : #for AlphaFold2
         with open(os.path.join(result_subdir,'ranking_debug.json'),'rb') as json_f :
             data = json.load(json_f)
         best_model = data['order'][0]
-        name_int = job.split("/")[-1]
-        os.system(f"cp {job}/ranked_0.pdb {job}/{name_int}_ranked_0.pdb") #rename pdb file with explicit name #outpu problem for AF3 homo-oligomer
+        os.system(f"cp {job}/ranked_0.pdb {job}/{interaction}_ranked_0.pdb") #rename pdb file with explicit name
         if "iptm" in data.keys() or "iptm+ptm" in data.keys():
             iptm_ptm_score = data['iptm+ptm'][best_model]
             if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
