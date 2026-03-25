@@ -873,7 +873,10 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0*")
             if len(path) == 0 :
                 if int_lenght <= max_aa :
-                    job_str = f"{prey}:{nbr_oligo}\n"
+                    if AF_version == "3" :
+                        job_str = f"{prey}_af3_input.json:{nbr_oligo}\n"
+                    if AF_version == "2" :
+                        job_str = f"{prey}:{nbr_oligo}\n"
                     vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
