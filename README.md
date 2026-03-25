@@ -82,10 +82,6 @@ GPU=1 ./setup_databases.sh ./mmseq_database
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 ./fetch_databases.sh <DB_DIR>
-#sudo apt install aria2
-#git clone https://github.com/KosinskiLab/alphafold.git
-#cd alphafold
-#scripts/download_all_data.sh /<Database Directory> > download.log 2> download_all.log
 ```
 <br>
 
