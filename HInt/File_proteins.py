@@ -526,12 +526,12 @@ class File_proteins() :
                         int_score[protein] = dict() #remove int score
 
             #Check is save score interaction are still valid or delete it
-            #for protein in all_info["int_score"].keys() :
-            #    for key in all_info["int_score"][protein].keys() :
-            #        bait = key.split("iQ_score_vs_")[1]
-            #        if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
-            #            if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
-            #                del int_score[protein][f"iQ_score_vs_{bait}"]
+            for protein in all_info["int_score"].keys() :
+                for key in all_info["int_score"][protein].keys() :
+                    bait = key.split("iQ_score_vs_")[1]
+                    if os.path.isfile(f"./result_PPI_int/{bait}_and_{protein}/ranked_0.pdb") == False :
+                        if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
+                            del int_score[protein][f"iQ_score_vs_{bait}"]
 
 
             #Check is save homo score interaction are valid 
