@@ -169,7 +169,9 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
     
     
 
-def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_version, prot_lenght) :
+def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup) :
+    seq_no_SP = save_file.get_proteins_sequence_no_SP()
+    prot_lenght = save_file.get_proteins_lenght()
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
@@ -192,6 +194,7 @@ def main(job, output_dir, cutoff, surface_thres, ccp4_setup, seq_no_SP ,AF_versi
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
             lenght.append(prot_lenght[prot])
+            
     if AF_version == "3" : #for AlphaFold3
         cif_files = list(Path(result_subdir).glob("*model.cif"))
         if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False : #create ranked_0.pdb for AF3 
