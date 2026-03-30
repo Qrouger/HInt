@@ -1048,6 +1048,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     if interaction_type == "homo_int" :
         prot_int = interaction_file.strip("\n").replace(":", "_homo_")
         prot_int += "er"
+    prot_int = prot_int.replace(",","_") #for domains
 
     if AF_version == "3" : #prbl in AFP ouput using AF3
         prot_int = prot_int.replace("_af3_input.json", "")
