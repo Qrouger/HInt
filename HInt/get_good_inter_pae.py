@@ -171,7 +171,7 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
 
 def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup) :
     seq_no_SP = save_file.get_proteins_sequence_no_SP()
-    prot_lenght = save_file.get_proteins_lenght()
+    prot_lenght = save_file.get_lenght_prot()
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
