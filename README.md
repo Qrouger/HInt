@@ -40,8 +40,6 @@ pip install .
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
-You need to run these commands with the HInt conda environment activated. <br>
-
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
 cd  deeploc2_package
