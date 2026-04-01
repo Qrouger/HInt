@@ -813,7 +813,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     vram = (mem_info.total / 1024**2) * 0.001  # GiB
-    max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 4*0.00000332*(4.3 - vram))) / (2*0.00000332))
+    max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 3.8*0.00000332*(4.3 - vram))) / (2*0.00000332))
     pynvml.nvmlShutdown()
     
     if Interaction_file == "PPI_int" :
@@ -858,7 +858,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                         job_str = f"{bait_for_job}_af3_input.json;{prey}_af3_input.json\n"
                     if AF_version == "2" :
                         job_str = f"{bait_for_job};{prey}\n"
-                    vram_lenght = 4.3 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
+                    vram_lenght = 3,8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
