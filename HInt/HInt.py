@@ -70,6 +70,8 @@ def main() :
 
     GPU = [gpu for gpu in args.gpu.split(",")]
     CPU = args.cpu
+    if CPU > multiprocessing.cpu_count() :
+        raise ValueError(f"Number of CPUs specified ({CPU}) exceeds the number of available CPUs ({multiprocessing.cpu_count()}).")
     multi_job_per_gpu = args.multi_job_per_gpu
     if multi_job_per_gpu not in ["True", "False"] :
         raise ValueError("Invalid value for --multi_job_per_gpu. Need True or False.")
