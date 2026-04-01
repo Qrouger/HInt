@@ -813,8 +813,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     vram = (mem_info.total / 1024**2) * 0.001  # GiB
-    max_aa=int((-0.00262+math.sqrt((0.00262**2)-4*0.00000228*(3-vram)))/(2*0.00000228))
-
+    max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 4*0.00000332*(4.3 - vram))) / (2*0.00000332))
     pynvml.nvmlShutdown()
     
     if Interaction_file == "PPI_int" :
@@ -836,7 +835,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 start, end = int(regions[bait].split("-")[0]), int(regions[bait].split("-")[1])
                 bait_file = f"{bait}_{start}-{end}"
                 bait_for_job = f"{bait},{start}-{end}"
-            else: 
+            else : 
                 bait_file = bait
                 bait_for_job = bait
 
@@ -846,7 +845,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             int_lenght = lenght + lenght_prot[prey]
 
             # Check if model already exists
-            if AF_version == "3":
+            if AF_version == "3" :
                 path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/*_model.cif")
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/*_model.cif")
             else : # AF_version == "2"
@@ -859,7 +858,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                         job_str = f"{bait_for_job}_af3_input.json;{prey}_af3_input.json\n"
                     if AF_version == "2" :
                         job_str = f"{bait_for_job};{prey}\n"
-                    vram_lenght = 3 + 0.00262 * int_lenght + 0.00000228 * int_lenght**2
+                    vram_lenght = 4.3 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
