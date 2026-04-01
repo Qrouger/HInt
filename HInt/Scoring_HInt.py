@@ -505,6 +505,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
     proteins.append(names_int.split('_and_')[-1])
     color_res = dict()
     lenght_prot = file.get_lenght_prot()
+    dist_k = True
     for prot in proteins :
         color_res[prot] = set()
     if AF_version == "2" :
@@ -522,37 +523,42 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
         seq_prot = file.get_proteins_sequence_no_SP()
         dict_int = dict()
         pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
-        bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
-        bin_edges = np.insert(bin_edges, 0, 0)
-        distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
-        dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
-        complete_lenght = 0
-        max_hori_index = 0
-        for bait in baits.split(",") :
-            complete_lenght += lenght_prot[bait]
-        for bait in baits.split(",") :
-            min_hori_index = max_hori_index
-            max_hori_index += lenght_prot[bait]
-            bait_prey = bait +"_and_" + proteins[-1]
-            dict_int[bait_prey] = [[bait," "+proteins[-1]," Distance_Ä"," PAE_score"]]
-            for line in range(complete_lenght,complete_lenght+lenght_prot[proteins[-1]]) :
-                hori_index = -1
-                for distance in dist[line] :
-                    hori_index += 1
-                    if hori_index < max_hori_index and hori_index >= min_hori_index :
-                        if distance <= 10 :  #center of mass of the residue
-                            if pae_mtx[line][hori_index] <= 10 :
-                                real_hori_index = hori_index - min_hori_index
-                                res_in_tot_seq = real_hori_index
-                                if regions[bait] != "0-0" : #if region selected, need to ajust index
-                                    res_in_tot_seq = hori_index - min_hori_index + int(regions[bait].split("-")[0]) - 1
-                                residue1 = seq_prot[bait][res_in_tot_seq]
-                                residue2 = seq_prot[proteins[-1]][line-complete_lenght]
-                                dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_lenght+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
-                                color_res[bait].add(str(res_in_tot_seq+1))
-                                color_res[proteins[-1]].add(str(line-complete_lenght+1))
+        if "distogram" not in pickle_dict.keys() :
+            print("no dist")
+            dist_k = False
+        else :
+            print(proteins[-1])
+            bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
+            bin_edges = np.insert(bin_edges, 0, 0)
+            distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
+            dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
+            complete_lenght = 0
+            max_hori_index = 0
+            for bait in baits.split(",") :
+                complete_lenght += lenght_prot[bait]
+            for bait in baits.split(",") :
+                min_hori_index = max_hori_index
+                max_hori_index += lenght_prot[bait]
+                bait_prey = bait +"_and_" + proteins[-1]
+                dict_int[bait_prey] = [[bait," "+proteins[-1]," Distance_Ä"," PAE_score"]]
+                for line in range(complete_lenght,complete_lenght+lenght_prot[proteins[-1]]) :
+                    hori_index = -1
+                    for distance in dist[line] :
+                        hori_index += 1
+                        if hori_index < max_hori_index and hori_index >= min_hori_index :
+                            if distance <= 10 :  #center of mass of the residue
+                                if pae_mtx[line][hori_index] <= 10 :
+                                    real_hori_index = hori_index - min_hori_index
+                                    res_in_tot_seq = real_hori_index
+                                    if regions[bait] != "0-0" : #if region selected, need to ajust index
+                                        res_in_tot_seq = hori_index - min_hori_index + int(regions[bait].split("-")[0]) - 1
+                                    residue1 = seq_prot[bait][res_in_tot_seq]
+                                    residue2 = seq_prot[proteins[-1]][line-complete_lenght]
+                                    dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_lenght+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
+                                    color_res[bait].add(str(res_in_tot_seq+1))
+                                    color_res[proteins[-1]].add(str(line-complete_lenght+1))
     
-    if AF_version == "3" :
+    if AF_version == "3" or dist_k == False : #if no distogram, use only PAE and distance from pdb
         with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0      # Å (CA/CB/C)
