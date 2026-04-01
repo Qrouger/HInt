@@ -675,7 +675,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
         if line_msa/2 > 100 and prot not in baits :
             new_possible_prey.append(prot)
         if line_msa/2 <= 100 and prot in baits :
-            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be false negative.")
+            logger.warning(f"This bait: {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be inconsistent.")
     with open("log_file/shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(new_possible_prey)
