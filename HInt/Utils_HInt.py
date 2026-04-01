@@ -611,7 +611,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
             if protein in need_pkl :
                 need_pkl.remove(protein)
     if SignalP != "None" :
-        logger.info("Protein preys remaining after SignalP filtering : " + str(len(new_possible_prey)))
+        logger.info("Protein preys remaining after SignalP filtering: " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
@@ -726,7 +726,7 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
                 need_pkl.remove(protein)
             if protein in need_DeepLoc :
                 need_DeepLoc.remove(protein)
-    logger.info("Protein preys remaining after lenght filtering : " + str(len(new_possible_prey)))
+    logger.info("Protein preys remaining after lenght filtering: " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return(need_msa, need_pkl, need_DeepLoc)
