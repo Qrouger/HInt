@@ -369,8 +369,13 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     regions = Informations_dict["Regions"]
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
+    complete_lenght_prot = file.get_lenght_prot()
+    complete_seq_prot = file.get_proteins_sequence_no_SP()
+    
     interface_dict = dict()
     tasks = []
+    baits_seq = {}
+    baits_lenght = {}
     for baits in Informations_dict["Multimer_bait"] :
         bait_file = baits
         for bait in baits.split(",") :
@@ -378,43 +383,54 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
                 start = int(regions[bait].split("-")[0])
                 end = int(regions[bait].split("-")[1])
                 bait_file = bait_file.replace(bait,f"{bait}_{start}-{end}")
+            baits_seq [bait] = complete_seq_prot[bait]
+            baits_lenght [bait] = complete_lenght_prot[bait]
         bait_file = bait_file.replace(",","_and_")
         for prey in possible_prey :
+            lenght_prot = copy.deepcopy(baits_lenght)
+            lenght_prot [prey] = complete_lenght_prot[prey]
+            seq_prot = copy.deepcopy(baits_seq)
+            seq_prot [prey] = complete_seq_prot[prey]
             if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
-                tasks.append((AF_version,bait_file,prey,file,baits,{},regions))
+                tasks.append((AF_version, bait_file, prey, lenght_prot, seq_prot, baits, regions))
+    if tasks : #if there is interaction to process            
         with Pool(processes=CPU) as pool :
             results_res_int = pool.map(postprocess_interaction, tasks)
-
-
         for d in results_res_int :
             for key, list_int in d.items() :
                 if key in interface_dict :
                     interface_dict[key] += list_int
-                else:
+                else :
                     interface_dict[key] = list_int.copy()
 
         interface_dict = cluster_interface(interface_dict, sorted_proteins)
         plot_sequence_interface(file, interface_dict)
 
-def postprocess_interaction (args) :
+
+
+def postprocess_interaction (args) : #maybe split first and second part of function
     """
     Post-process a single AlphaFold interaction to generate structural figures and interface residue tables.
 
     Parameters :
     ----------
     args : tuple
-    """
-    (AF_version,bait_file,prey,file,baits,interface_dict,region) = args
-    outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
 
-    if AF_version == "2":
+    returns :
+    ----------
+    interface_dict : dict
+    """
+    (AF_version, bait_file, prey, lenght_prot, seq_prot, baits, region) = args
+    outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
+    interface_dict = dict()
+    if AF_version == "2" :
         plot_Distogram(outdir)
 
-    residues_at_interface, proteins, path_int, color_res = make_table_res_int(file,outdir,baits,AF_version,region)
+    residues_at_interface, proteins, path_int, color_res = make_table_res_int(lenght_prot, seq_prot, outdir, baits, AF_version, region)
 
-    if residues_at_interface is not None:
+    if residues_at_interface is not None :
         color_int_residues(path_int, color_res, proteins)
-        interface_dict = define_interface(residues_at_interface,[baits, prey],interface_dict)
+        interface_dict = define_interface(residues_at_interface)
 
     return interface_dict
 
@@ -455,6 +471,12 @@ def plot_Distogram (job) :
         fig, ax = plt.subplots()
         d = ax.imshow(dist)
         plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
+        del dist
+        del results
+        del distogram_softmax
+        del bin_edges
+        del d
+        gc.collect()
         ax.title.set_text("Distance map")
         for index in range(len(lenght_list)-1) :
            initial_lenght += lenght_list[index]
@@ -463,14 +485,9 @@ def plot_Distogram (job) :
         plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
         plt.close()
         os.remove(f"{job}/result_{best_model}.pkl.dmap")
-        del dist
-        del results
-        del distogram_softmax
-        del bin_edges
-        del d
-        gc.collect()
+        
 
-def make_table_res_int (file, path_int, baits, AF_version, regions) :
+def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regions) :
     """
     Generate a detailed table of residue-residue interactions for a protein-protein complex.
 
@@ -480,7 +497,8 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
 
     Parameters :
     ----------
-    file : object of class File_proteins
+    lenght_prot : dict
+    seq_prot : dict
     path_int : str
     baits : str
     AF_verison : str
@@ -495,7 +513,7 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
 
     Notes :
     ----------
-    - For AlphaFold2, interactions are extracted from the predicted aligned error (PAE) matrix and the distogram. Filtered by a distance cutoff (10 Å) and PAE threshold (7 Å).
+    - For AlphaFold2, interactions are extracted from the predicted aligned error (PAE) matrix and the distogram. Filtered by a distance cutoff (10 Å) and PAE threshold (10 Å).
     - For AlphaFold3, interactions are extracted directly from the atomic coordinates in the PDB file, filtered by a distance cutoff (10 Å) and PAE threshold (10 Å). Only consider standard backbone and Cβ atoms for distance calculations.
     """
     parser = PDB.PDBParser(QUIET=True)
@@ -504,7 +522,6 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
     proteins = [bait for bait in baits.split(",")]
     proteins.append(names_int.split('_and_')[-1])
     color_res = dict()
-    lenght_prot = file.get_lenght_prot()
     dist_k = True
     for prot in proteins :
         color_res[prot] = set()
@@ -520,18 +537,21 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
                 pickle_dict = pickle.load(gzip.open(inf_file))
             else :
                 pickle_dict = pickle.load(inf_file)
-        seq_prot = file.get_proteins_sequence_no_SP()
-        dict_int = dict()
-        pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
+
         if "distogram" not in pickle_dict.keys() :
-            print("no dist")
             dist_k = False
         else :
-            print(proteins[-1])
+            pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
             bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
             bin_edges = np.insert(bin_edges, 0, 0)
-            distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
-            dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
+            logits = pickle_dict["distogram"]["logits"]
+            dist = bin_edges[np.argmax(logits, axis=2)]
+            del pickle_dict
+            del logits
+            del bin_edges
+            gc.collect()
+            #distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
+            #dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
             complete_lenght = 0
             max_hori_index = 0
             for bait in baits.split(",") :
@@ -568,7 +588,6 @@ def make_table_res_int (file, path_int, baits, AF_version, regions) :
         len_chain_last = lenght_prot[proteins[-1]]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
-        dict_int = {}
         structure = parser.get_structure('protein',os.path.join(path_int, f"{names_int}_ranked_0.pdb"))
         for model in structure :
             chains = model.get_list()
@@ -679,9 +698,9 @@ def color_int_residues(pdb_path, residues_to_color, names) :
         writer.writelines(save_lines)
 
 
-def define_interface (residues_at_interface, int, old_interface_dict) :
+def define_interface (residues_at_interface) :
     """
-    Update a dictionary of interacting residues for a protein pair.
+    Create a dictionary of interacting residues for a protein pair.
 
     This function parses a list of interacting residue pairs and adds them to the existing interface dictionary. Each protein in the pair gets a list of residues 
     that interact with the other protein. The second protein's name is also added to the list for reference.
@@ -689,20 +708,18 @@ def define_interface (residues_at_interface, int, old_interface_dict) :
     Parameters :
     ----------
     residues_at_interface : dict of lists
-    int : list of str
-    old_interface_dict : dict
 
     Returns :
     ----------
     old_interface_dict : dict
     """
-
-    for int in residues_at_interface.keys() :
-        all_residues_int = residues_at_interface[int]
-        if residues_at_interface[int] == [] :
+    old_interface_dict = {}
+    for inter in residues_at_interface.keys() :
+        all_residues_int = residues_at_interface[inter]
+        if residues_at_interface[inter] == [] :
             continue
-        protein1 = int.split("_and_")[0]
-        protein2 = int.split("_and_")[1]
+        protein1 = inter.split("_and_")[0]
+        protein2 = inter.split("_and_")[1]
         list_int_protein1 = list()
         list_int_protein2 = list()
         if protein1 not in old_interface_dict.keys() :
@@ -711,7 +728,7 @@ def define_interface (residues_at_interface, int, old_interface_dict) :
             old_interface_dict[protein2] = []
         for line in all_residues_int :
             line[1] = line[1].strip()
-            if line[0] != int[0] and "chain" not in line[0] :
+            if line[0] != inter[0] and "chain" not in line[0] :
                 if line[0].split(":")[1] not in list_int_protein1 :
                     list_int_protein1.append(line[0].split(":")[1])
                 if line[1].split(":")[1] not in list_int_protein2 :
