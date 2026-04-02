@@ -436,42 +436,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
 
     #Create pkl files for proteins without pkl file (from MSA found in AFdb or error during MSA generation with ColabFold mmseqs2)
     if os.path.isfile(f"log_file/{pkl_name}") == True :
-        #chain_id = ["A","B","C","D","E","F","G","H"]
-        #i = -1
-        if AF_version == "3" :
-            for prot in need_pkl :
-                #i += 1
-                #Create json files for AF3
-                #chain_id_prot = chain_id[i]
-                json_file = f"{Path_Pickle_Feature}/{prot}_af3_input.json"
-                a3m_file = f"{Path_Pickle_Feature}/{prot}.a3m"
-                seq = prot_no_SP[prot]
-                random_seed = "42"
-                with open(a3m_file, "r") as msa_f :
-                    msa_content = msa_f.read().strip()
-                data = {
-                "dialect": "alphafold3",
-                "version": 3,
-                "name": prot,
-                "sequences": [
-                    {
-                        "protein": {
-                            "id": "A",
-                            "sequence": seq,
-                            "modifications": [],
-                            "unpairedMsa": msa_content,
-                            "pairedMsa": msa_content,
-                            "templates": []
-                        }
-                    }
-                ],
-                "modelSeeds": random_seed,
-                "bondedAtomPairs": None,
-                "userCCD": None
-                }
-                with open(json_file, "w") as json_f:
-                    json.dump(data, json_f, indent=2)
-
 
         cmd2 = ["create_individual_features.py",
         f"--fasta_paths=./log_file/{pkl_name}",
@@ -611,7 +575,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
             if protein in need_pkl :
                 need_pkl.remove(protein)
     if SignalP != "None" :
-        logger.info("Protein preys remaining after SignalP filtering: " + str(len(new_possible_prey)))
+        logger.info("Protein preys remaining after SignalP filtering : " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
@@ -675,7 +639,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
         if line_msa/2 > 100 and prot not in baits :
             new_possible_prey.append(prot)
         if line_msa/2 <= 100 and prot in baits :
-            logger.warning(f"This bait: {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be inconsistent.")
+            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be false negative.")
     with open("log_file/shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(new_possible_prey)
@@ -726,7 +690,7 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
                 need_pkl.remove(protein)
             if protein in need_DeepLoc :
                 need_DeepLoc.remove(protein)
-    logger.info("Protein preys remaining after lenght filtering: " + str(len(new_possible_prey)))
+    logger.info("Protein preys remaining after lenght filtering : " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return(need_msa, need_pkl, need_DeepLoc)
@@ -854,11 +818,8 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
             if len(path1) == 0 and len(path2) == 0 :
                 if int_lenght <= max_aa :
-                    if AF_version == "3" :
-                        job_str = f"{bait_for_job}_af3_input.json;{prey}_af3_input.json\n"
-                    if AF_version == "2" :
-                        job_str = f"{bait_for_job};{prey}\n"
-                    vram_lenght = 3.8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
+                    job_str = f"{bait_for_job};{prey}\n"
+                    vram_lenght = 3,8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
