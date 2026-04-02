@@ -819,7 +819,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             if len(path1) == 0 and len(path2) == 0 :
                 if int_lenght <= max_aa :
                     job_str = f"{bait_for_job};{prey}\n"
-                    vram_lenght = 3,8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
+                    vram_lenght = 3.8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
                     job_with_vram_length.append((job_str, vram_lenght))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
