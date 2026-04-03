@@ -1031,7 +1031,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         else :
             cmd = (
                 "run_multimer_jobs.py --mode=custom "
-                f"--output_path={output_dir} "
+                f"--output_path=./result_{interaction_type} "
                 f"--data_dir={Path_AlphaFold_Data} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
