@@ -1010,10 +1010,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         prot_int += "er"
     prot_int = prot_int.replace(",","_") #for domains
 
-    if AF_version == "3" : #prbl in AFP ouput using AF3
-        prot_int = prot_int.replace("_af3_input.json", "")
-        output_dir = f"./result_{interaction_type}/{prot_int}"
-
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
 
     try :
