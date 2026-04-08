@@ -19,7 +19,7 @@ pip install hint-ppi
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
-git checkout 2e3703e82a9592efbb3fa76ca9e0714aedabacdb
+git checkout -b af3_custom_6ad1a6
 pip install . --no-deps
 build_data
 conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
