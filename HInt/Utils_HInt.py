@@ -384,36 +384,36 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
         # ThreadPool to parallelise
         cpu_per_mafft = 2
         max_workers_mafft = max(1, CPU // cpu_per_mafft)  # how many jobs in parallel
-        executor = ThreadPoolExecutor(max_workers=4) 
-
-        futures_list = []
 
         logger.info(f"Search MSA in AlphaFold database")
-        for protein in generated_msa : #check if prot have an MSA in alphafold database
-            l_p = len(protein)
-            if l_p >= 5 and l_p <= 10 and "_" not in protein : #if not, is not an UniprotID
-                on_afdb = True
-                time.sleep(0.3) #avoid too many request on AFdb server
-                url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
-                msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
-                aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
+        with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
+            for protein in generated_msa : #check if prot have an MSA in alphafold database
+                l_p = len(protein)
+                if l_p >= 5 and l_p <= 10 and "_" not in protein : #if not, is not an UniprotID
+                    on_afdb = True
+                    time.sleep(0.3) #avoid too many request on AFdb server
+                    url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
+                    msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
+                    aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
 
-                result = subprocess.run(["wget", "-q", "-O", msa_in, url])
-                if result.returncode != 0 :
-                    on_afdb = False
+                    result = subprocess.run(["wget", "-q", "-O", msa_in, url])
+                    if result.returncode != 0 :
+                        on_afdb = False
+                    else:
+                        nbr_line = sum(1 for _ in open(msa_in))
+                        if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
+                            on_afdb = False
+                            os.remove(msa_in)
 
-                nbr_line = sum(1 for _ in open(msa_in))
-                if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
-                    on_afdb = False
-                    os.remove(msa_in)
+                    if on_afdb == True :
+                        SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
+                        if SP > 0 : #if no SP don't modify the MSA
+                            executor.submit(fetch_trim_mafft, protein, Path_Pickle_Feature, prot_SP, prot_no_SP)
+                        
+                        logger.info(f"MSA for {protein} processed")
+                        need_msa.remove(protein) #msa found
+                        need_pkl.append(protein)
 
-                if on_afdb == True :
-                    SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
-                    if SP > 0 : #if no SP don't modify the MSA
-                        futures_list.append(executor.submit(fetch_trim_mafft, protein, Path_Pickle_Feature, prot_SP, prot_no_SP))
-                    logger.info(f"MSA for {protein} processed")
-                    need_msa.remove(protein) #msa found
-                    need_pkl.append(protein)
 
         logger.info("MSA search in AlphaFold database complete")        
    
@@ -466,6 +466,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                 "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
+        try:
+            process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+            process.wait()
+        except KeyboardInterrupt:
+            process.kill()
+            process.wait()
         #with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
         #    for protein in need_pkl :
         #        pkl_file = f"./log_file/{protein}_pkl.fasta"
