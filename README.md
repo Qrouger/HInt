@@ -90,7 +90,7 @@ You can download or copy HInt.txt file example. <br>
 
 - **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
 
-- **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. <br>
+- **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. All proteins predicted to be in one of these compartments will be used.<br>
   - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
   - Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
