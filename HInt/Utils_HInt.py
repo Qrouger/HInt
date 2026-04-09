@@ -338,7 +338,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
 
     - Searches for precomputed MSAs in the AlphaFold database
     - Generates MSAs using ColabFold/MMseqs2 when missing
-    - Uses CPU parallelization and GPU acceleration
+    - Uses CPU parallelization (mafft) and GPU acceleration (MMseqs2 GPU)
     - Updates the lists of proteins requiring MSA or pickle generation
 
     Parameters :
@@ -375,31 +375,48 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
 
     #Look for MSA in AlphaFold database
     generated_msa = copy.deepcopy(need_msa)
-    logger.info(f"Search MSA in AlphaFold database")
-
-    # ThreadPool to parallelise
-    cpu_per_mafft = 2
-    max_workers = max(1, CPU // cpu_per_mafft)  # how many mafft in parallel
 
 
     start = time.time()
 
-    futures_list = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor : #CPU parallelization
+    if need_msa != [] :
+
+        # ThreadPool to parallelise
+        cpu_per_mafft = 2
+        max_workers_mafft = max(1, CPU // cpu_per_mafft)  # how many jobs in parallel
+        executor = ThreadPoolExecutor(max_workers=4) 
+
+        futures_list = []
+
+        logger.info(f"Search MSA in AlphaFold database")
         for protein in generated_msa : #check if prot have an MSA in alphafold database
             l_p = len(protein)
             if l_p >= 5 and l_p <= 10 and "_" not in protein : #if not, is not an UniprotID
-                futures_list.append(executor.submit(fetch_trim_mafft,protein,Path_Pickle_Feature,prot_SP,prot_no_SP,))
+                on_afdb = True
+                time.sleep(0.3) #avoid too many request on AFdb server
+                url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
+                msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
+                aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
 
-        for future in as_completed(futures_list) :
-            protein, ok = future.result()
-            if ok :
-                logger.info(f"MSA for {protein} processed")
-                need_msa.remove(protein) #msa found
-                need_pkl.append(protein)
-                    
-    logger.info("MSA search in AlphaFold database complete")
+                result = subprocess.run(["wget", "-q", "-O", msa_in, url])
+                if result.returncode != 0 :
+                    on_afdb = False
 
+                nbr_line = sum(1 for _ in open(msa_in))
+                if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
+                    on_afdb = False
+                    os.remove(msa_in)
+
+                if on_afdb == True :
+                    SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
+                    if SP > 0 : #if no SP don't modify the MSA
+                        futures_list.append(executor.submit(fetch_trim_mafft, protein, Path_Pickle_Feature, prot_SP, prot_no_SP))
+                    logger.info(f"MSA for {protein} processed")
+                    need_msa.remove(protein) #msa found
+                    need_pkl.append(protein)
+
+        logger.info("MSA search in AlphaFold database complete")        
+   
     file.create_fasta_file(False, need_msa, need_pkl)
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
     if len(need_msa) > 10 :
@@ -435,27 +452,52 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     logger.info("Create MSA take "+ str(elapsed/60)+" minutes")
 
     #Create pkl files for proteins without pkl file (from MSA found in AFdb or error during MSA generation with ColabFold mmseqs2)
-    if os.path.isfile(f"log_file/{pkl_name}") == True :
-
+    if len(need_pkl) > 0 :
+        max_workers_feature = CPU
+        futures_list = []
         cmd2 = ["create_individual_features.py",
-        f"--fasta_paths=./log_file/{pkl_name}",
-        f"--data_dir={Path_AlphaFold_Data}",
-        "--save_msa_files=True",
-        f"--output_dir={Path_Pickle_Feature}",
-        "--max_template_date=2024-05-02",
-        "--skip_existing=True",
-        "--use_mmseqs2=True",
-        "--use_precomputed_msas=True"]
+                f"--fasta_paths=./log_file/{pkl_name}",
+                f"--data_dir={Path_AlphaFold_Data}",
+                "--save_msa_files=True",
+                f"--output_dir={Path_Pickle_Feature}",
+                "--max_template_date=2024-05-02",
+                "--skip_existing=True",
+                "--use_mmseqs2=True",
+                "--use_precomputed_msas=True"]
         process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
         stdout, stderr = process.communicate()
+        #with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
+        #    for protein in need_pkl :
+        #        pkl_file = f"./log_file/{protein}_pkl.fasta"
+        #        cmd2 = ["create_individual_features.py",
+        #        f"--fasta_paths={pkl_file}",
+        #        f"--data_dir={Path_AlphaFold_Data}",
+        #        "--save_msa_files=True",
+        #        f"--output_dir={Path_Pickle_Feature}",
+        #        "--max_template_date=2024-05-02",
+        #        "--skip_existing=True",
+        #        "--use_mmseqs2=True",
+        #        "--use_precomputed_msas=True"]
+        #        futures_list.append( executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
+        #    for future in as_completed(futures_list) :
+        #        future.result()
             
+def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
+    with open(pkl_file, "w") as pkl_f :
+        pkl_f.write(f">{protein}\n{prot_no_SP[protein]}\n")
+    process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
+    for line in process.stdout:
+        print(f"[{protein}] {line}", end="")  # stream live
+
+    process.wait()
+
+    print(f"[END] {protein}")
+
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
-    Retrieve a precomputed MSA from the AlphaFold database (AFdb), trim signal peptides if present, and realign the MSA using MAFFT.
+    Trim signal peptides if present, and realign the MSA using MAFFT.
 
-    - Checks whether an MSA exists for the given protein in AFdb
-    - Downloads the MSA in A3M format if available
     - Removes signal peptide residues from all sequences when necessary
     - Filters out excessively short or invalid sequences after trimming
     - Realigns the trimmed MSA using MAFFT
@@ -467,75 +509,53 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     Path_Pickle_Feature : str
     prot_SP : dict
     prot_no_SP : dict
-
-    Returns :
-    ----------
-    protein : str
-    bool
-        True if an MSA was successfully retrieved and processed.
-        False if no MSA was found in AFdb.
     """
-    url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m"
     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
     aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
-
-
-    check = subprocess.run(["wget", "--spider", "-q", url])
-    if check.returncode != 0 : #normaly 0
-        return protein, False  # MSA not found
-
-
-    subprocess.run(["wget", "-q", "-O", msa_in, url], check=True)
-
-    nbr_line = sum(1 for _ in open(msa_in))
-    if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
-        return protein, False
-
+    
     SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
-    if SP > 0 : #if no SP don't modify the MSA
-        trimmed_records = []
-        for rec in SeqIO.parse(msa_in, "fasta") :
-            new_seq = rec.seq[SP:]
-            len_aa_count = sum(1 for c in new_seq if c.isupper())
-            if len_aa_count < 10 or not any(c.isupper() for c in str(new_seq)) : #skip short sequence after SP cut or sequence don't have aa
-                continue
-            new_rec = rec[:]
-            new_rec.seq = new_seq
-            trimmed_records.append(new_rec)
+    trimmed_records = []
+    for rec in SeqIO.parse(msa_in, "fasta") :
+        new_seq = rec.seq[SP:]
+        len_aa_count = sum(1 for c in new_seq if c.isupper())
+        if len_aa_count < 10 or not any(c.isupper() for c in str(new_seq)) : #skip short sequence after SP cut or sequence don't have aa
+            continue
+        new_rec = rec[:]
+        new_rec.seq = new_seq
+        trimmed_records.append(new_rec)
 
-        if trimmed_records :
-            with open(msa_in, "w") as msa_file :
-                for rec in trimmed_records:
-                    msa_file.write(f">{rec.description}\n{rec.seq}\n")
+    if trimmed_records :
+        with open(msa_in, "w") as msa_file :
+            for rec in trimmed_records:
+                msa_file.write(f">{rec.description}\n{rec.seq}\n")
 
-        #realign with mafft
-        cmd_mafft = f"mafft --quiet --anysymbol --thread 1 --parttree --retree 1 --maxiterate 0 {msa_in} > {aln_out}" #monothread
-        subprocess.run(cmd_mafft, shell=True, check=True)
+    #realign with mafft
+    cmd_mafft = f"mafft --quiet --anysymbol --thread 1 --parttree --retree 1 --maxiterate 0 {msa_in} > {aln_out}" #monothread
+    subprocess.run(cmd_mafft, shell=True, check=True)
 
-        #reformat a3m
-        cmd_reformat = f"reformat.pl fas a3m {aln_out} {msa_in}"
-        subprocess.run(cmd_reformat, shell=True, check=True)
-        cmd_rm_f = f"rm {aln_out}"
-        subprocess.run(cmd_rm_f, shell=True, check=True)
+    #reformat a3m
+    cmd_reformat = f"reformat.pl fas a3m {aln_out} {msa_in}"
+    subprocess.run(cmd_reformat, shell=True, check=True)
+    cmd_rm_f = f"rm {aln_out}"
+    subprocess.run(cmd_rm_f, shell=True, check=True)
 
-        #delete \n
-        all_lines = ""
-        with open(msa_in, "r") as in_a3m:
-            seq, header = "", None
-            for line in in_a3m:
-                if line.startswith(">"):
-                    if header:
-                        all_lines += f"{header}\n{seq}\n"
-                    header = line.strip()
-                    seq = ""
-                else:
-                    seq += line.strip()
-            if header:
-                all_lines += f"{header}\n{seq}\n"
-        with open(msa_in, "w") as out_a3m:
-            out_a3m.write(all_lines)
+    #delete \n
+    all_lines = ""
+    with open(msa_in, "r") as in_a3m:
+        seq, header = "", None
+        for line in in_a3m:
+            if line.startswith(">"):
+                if header:
+                    all_lines += f"{header}\n{seq}\n"
+                header = line.strip()
+                seq = ""
+            else:
+                seq += line.strip()
+        if header:
+            all_lines += f"{header}\n{seq}\n"
+    with open(msa_in, "w") as out_a3m:
+        out_a3m.write(all_lines)
 
-    return protein, True
 
 
 def filter_signalP(file, Informations_dict, need_msa, need_pkl) :

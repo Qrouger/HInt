@@ -476,6 +476,7 @@ class File_proteins() :
                         if protein not in all_info["sequence_no_SP"].keys() :
                             need_msa.append(protein)
                         if protein not in all_info["deeploc"].keys() :
+
                             need_DeepLoc.append(protein)
                 if protein not in all_info["sequence_SP"].keys() :
                     if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
@@ -518,7 +519,12 @@ class File_proteins() :
                                 break
                             if line[0] == ">" :
                                 index += 1
-                    if msa_seq != all_info["sequence_no_SP"][protein] : #if not match, remove pkl file and start at zero
+                    if index == 0 : #empty msa file, so remove it and start at zero
+                        cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*"
+                        os.system(cmd)
+                        need_msa.append(protein)
+                        int_score[protein] = dict() #remove int score
+                    elif msa_seq != all_info["sequence_no_SP"][protein] and index == 1 : #if not match, remove pkl file and start at zero
                         cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*"
                         os.system(cmd)
                         need_msa.append(protein)

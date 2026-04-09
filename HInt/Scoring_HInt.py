@@ -447,44 +447,46 @@ def plot_Distogram (job) :
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
-    if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
-        path_file = f'{job}/result_{best_model}.pkl.gz'
-    if os.path.isfile(f'{job}/result_{best_model}.pkl') :
-        path_file = f'{job}/result_{best_model}.pkl'
-    if path_file.endswith(".gz") :
-        with gzip.open(path_file, "rb") as f :
-            results = pickle.load(f)
-    else :
-        with open(path_file, "rb") as f :
-            results = pickle.load(f)
-    if "distogram" in results.keys() and os.path.exists(f'{job}/result_{best_model}.dmap.png') == False : #avoid error from APD release 
-        bin_edges = results["distogram"]["bin_edges"]
-        bin_edges = np.insert(bin_edges, 0, 0)
-        distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
-        dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2)
-        np.savetxt(f"{job}/result_{best_model}.pkl.dmap", dist)
-        lenght_list = []
-        for seq in results["seqs"] :
-           lenght_list.append(len(seq))
-        logger.info(f"Generate {job.split('/')[2]} Distogram")
-        initial_lenght = 0
-        fig, ax = plt.subplots()
-        d = ax.imshow(dist)
-        plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
-        del dist
-        del results
-        del distogram_softmax
-        del bin_edges
-        del d
-        gc.collect()
-        ax.title.set_text("Distance map")
-        for index in range(len(lenght_list)-1) :
-           initial_lenght += lenght_list[index]
-           ax.axhline(initial_lenght, color="black", linewidth=1.5)
-           ax.axvline(initial_lenght, color="black", linewidth=1.5)
-        plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
-        plt.close()
-        os.remove(f"{job}/result_{best_model}.pkl.dmap")
+    del ranking_results
+    if os.path.exists(f'{job}/result_{best_model}.dmap.png') == False :
+        if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
+            path_file = f'{job}/result_{best_model}.pkl.gz'
+        if os.path.isfile(f'{job}/result_{best_model}.pkl') :
+            path_file = f'{job}/result_{best_model}.pkl'
+        if path_file.endswith(".gz") :
+            with gzip.open(path_file, "rb") as f :
+                results = pickle.load(f)
+        else :
+            with open(path_file, "rb") as f :
+                results = pickle.load(f)
+        if "distogram" in results.keys() : #avoid error from APD release 
+            bin_edges = results["distogram"]["bin_edges"]
+            bin_edges = np.insert(bin_edges, 0, 0)
+            distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
+            dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2)
+            np.savetxt(f"{job}/result_{best_model}.pkl.dmap", dist)
+            lenght_list = []
+            for seq in results["seqs"] :
+                lenght_list.append(len(seq))
+            logger.info(f"Generate {job.split('/')[2]} Distogram")
+            initial_lenght = 0
+            fig, ax = plt.subplots()
+            d = ax.imshow(dist)
+            plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
+            del dist
+            del results
+            del distogram_softmax
+            del bin_edges
+            del d
+            gc.collect()
+            ax.title.set_text("Distance map")
+            for index in range(len(lenght_list)-1) :
+                initial_lenght += lenght_list[index]
+                ax.axhline(initial_lenght, color="black", linewidth=1.5)
+                ax.axvline(initial_lenght, color="black", linewidth=1.5)
+            plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
+            plt.close()
+            os.remove(f"{job}/result_{best_model}.pkl.dmap")
         
 
 def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regions) :

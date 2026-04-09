@@ -100,7 +100,6 @@ def main() :
     # need_msa also includes proteins that only require signal peptide information
     need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["AlphaFold"])
 
-
     # Remove bait proteins from the prey list
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]])
 
@@ -111,7 +110,6 @@ def main() :
     # Filter proteins based on sequence length
     # (default: remove proteins shorter than 20 AA)
     need_msa, need_pkl, need_DeepLoc = filter_lenght(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
-
     # --------------------------------------------------------------
     # DeepLoc filtering
     # --------------------------------------------------------------
@@ -205,3 +203,5 @@ def main() :
     sorted_protein = Resume_file(HInt_object, Informations_dict)
     if Informations_dict["Interact_with"] != [''] :
         Create_figures(HInt_object, Informations_dict, Informations_dict["AlphaFold"], sorted_protein, CPU)
+
+    logger.info("All steps done")
