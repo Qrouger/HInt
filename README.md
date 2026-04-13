@@ -22,6 +22,7 @@ cd alphafold3
 git checkout -b af3_custom_6ad1a6
 pip install . --no-deps
 build_data
+pip install alphapulldown==2.3.0
 conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 ```
 
