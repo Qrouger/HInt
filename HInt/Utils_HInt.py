@@ -382,8 +382,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     if need_msa != [] :
 
         # ThreadPool to parallelise
-        cpu_per_mafft = 2
-        max_workers_mafft = max(1, CPU // cpu_per_mafft)  # how many jobs in parallel
+
+        max_workers_mafft = CPU # how many jobs in parallel
 
         logger.info(f"Search MSA in AlphaFold database")
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
