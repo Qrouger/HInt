@@ -455,8 +455,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     if len(need_pkl) > 0 :
         max_workers_feature = CPU
         futures_list = []
-        cmd2 = ["create_individual_features.py",
-                f"--fasta_paths=./log_file/{pkl_name}",
+
+        with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
+            for protein in need_pkl :
+                pkl_file = f"./log_file/{protein}_pkl.fasta"
+                cmd2 = ["create_individual_features.py",
+                f"--fasta_paths={pkl_file}",
                 f"--data_dir={Path_AlphaFold_Data}",
                 "--save_msa_files=True",
                 f"--output_dir={Path_Pickle_Feature}",
@@ -464,41 +468,25 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                 "--skip_existing=True",
                 "--use_mmseqs2=True",
                 "--use_precomputed_msas=True"]
-        process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-        stdout, stderr = process.communicate()
-        try:
-            process = subprocess.Popen(cmd2, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-            process.wait()
-        except KeyboardInterrupt:
-            process.kill()
-            process.wait()
-        #with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
-        #    for protein in need_pkl :
-        #        pkl_file = f"./log_file/{protein}_pkl.fasta"
-        #        cmd2 = ["create_individual_features.py",
-        #        f"--fasta_paths={pkl_file}",
-        #        f"--data_dir={Path_AlphaFold_Data}",
-        #        "--save_msa_files=True",
-        #        f"--output_dir={Path_Pickle_Feature}",
-        #        "--max_template_date=2024-05-02",
-        #        "--skip_existing=True",
-        #        "--use_mmseqs2=True",
-        #        "--use_precomputed_msas=True"]
-        #        futures_list.append( executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
-        #    for future in as_completed(futures_list) :
-        #        future.result()
-            
+                futures_list.append(executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
+
 def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
+    """
+    Create a pickle file for a single protein using the create_individual_features.py script. Allow parallelization.
+    
+    Parameters :
+    ----------
+    protein : str
+    pkl_file : str
+    prot_no_SP : dict
+    cmd : str
+    """
     with open(pkl_file, "w") as pkl_f :
         pkl_f.write(f">{protein}\n{prot_no_SP[protein]}\n")
     process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
-    for line in process.stdout:
-        print(f"[{protein}] {line}", end="")  # stream live
-
+    for line in process.stdout :
+        print(f"{line}", end="")  # stream live
     process.wait()
-
-    print(f"[END] {protein}")
-
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
