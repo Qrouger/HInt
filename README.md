@@ -97,11 +97,11 @@ You can download or copy HInt.txt file example. <br>
 
 - **Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
 
-- **Min_protein_lenght** : Minimum lenght of the protein you search (integer). <br>
+- **Min_protein_lenght** : Minimum lenght of the protein you search (integer), default set on 20aa. <br>
 
 - **AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
-- **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20). <br>
+- **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20), default set on 1 (monomer). <br>
 
 - **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
 
