@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.5.3',
+    version='0.5.3.2',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -45,7 +45,8 @@ setup(
         "nvidia-nccl-cu12==2.29.7",
         "nvidia-nvjitlink-cu12==12.9.86",
         "nvidia-nvshmem-cu12==3.5.21",
-        "torch>=1.6"
+        "torch>=1.6",
+        "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
