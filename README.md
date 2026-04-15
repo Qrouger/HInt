@@ -9,8 +9,10 @@ HInt accelerates AlphaFold by optimizing computations and parallelizing structur
 ```bash
 conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git setuptools==81
 conda activate HInt
-pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
 pip install hint-ppi
+pip uninstall colabfold 
+pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
+pip install numpy==1.26.4
 ```
 <details>
 <summary>AlphaFold 3 (optional) </summary>
