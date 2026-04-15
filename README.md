@@ -86,7 +86,7 @@ cd alphafold3
 
 # 3. Input parameters
 ## 3.1. Setup HInt.txt <br>
-You can download or copy HInt.txt file example. <br>
+You need to download or copy HInt.txt file example. <br>
 ### *A priori* informations
 
 - **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
