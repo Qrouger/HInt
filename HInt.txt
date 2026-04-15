@@ -12,9 +12,9 @@ AlphaFold : 2 #version 3 or 2
 
 
 ###Database Paths #All paths are mandatory except Path_MMseqs2_Data
-Path_AlphaFold_Data : /data/alphadata_v2
+Path_AlphaFold_Data :
 Path_ccp4 : /opt/xtal/ccp4-9
-Path_MMseqs2_Data : /data/mmseq_database
+Path_MMseqs2_Data :
 
 ###Input Path
 Path_Uniprot_ID : sequences.txt
