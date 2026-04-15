@@ -46,7 +46,8 @@ pip install .
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
 cd  deeploc2_package
-pip install .
+pip install . torch==2.6.0
+
 ```
 
 ## 1.3. SignalP5
