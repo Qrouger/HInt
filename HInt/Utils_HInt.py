@@ -487,6 +487,7 @@ def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     for line in process.stdout :
         print(f"{line}", end="")  # stream live
     process.wait()
+    os.remove(pkl_file)
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
