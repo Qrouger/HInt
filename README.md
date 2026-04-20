@@ -1,4 +1,4 @@
-# <img width="200" height="1024" alt="HInt_logo" src="https://github.com/user-attachments/assets/89cb86d5-971a-4388-87ac-ec93d1271abf" /><br>
+# <img width="240" height="240" alt="HInt_logo" src="https://github.com/user-attachments/assets/0d85a047-f02c-4819-9bc2-b51ca8bf0aba" />
 # HInt
 HInt accelerates AlphaFold by optimizing computations and parallelizing structure predictions. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
 
