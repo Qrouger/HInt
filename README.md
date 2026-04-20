@@ -24,7 +24,6 @@ cd alphafold3
 git checkout -b af3_custom_6ad1a6
 pip install . --no-deps
 build_data
-pip install alphapulldown==2.3.0
 conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 ```
 
@@ -35,11 +34,10 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 
 ## 1.2.1. DeepLoc Pro (Prokaryote)
 
-
 ```bash
 git clone https://github.com/Jaimomar99/deeplocpro
 cd deeplocpro
-pip install .
+pip install . triton==3.1.0
 ```
 ## 1.2.2. DeepLoc2 (Eukaryote)
 
@@ -47,7 +45,7 @@ Download deeploc2 package here : https://services.healthtech.dtu.dk/services/Dee
 ```bash
 cd  deeploc2_package
 pip install . torch==2.6.0
-
+pip install triton==3.1.0
 ```
 
 ## 1.3. SignalP5
