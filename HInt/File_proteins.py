@@ -517,8 +517,6 @@ class File_proteins() :
                     homo_score[protein] = dict()
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
-                if os.path.isfile(f"{Path_Pickle_Feature}/{protein}_af3_input.json") == False and Alphafold_version == "3"  and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True :
-                    need_pkl.append(protein)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True and protein not in need_msa : #check sequence in msa file match with save dict
                     with open(f"{Path_Pickle_Feature}/{protein}.a3m","r") as msa_file :
                         index = 0
