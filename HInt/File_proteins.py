@@ -169,6 +169,19 @@ class File_proteins() :
         """
         self.prot_SP = dict_SP
 
+    def set_uniprot_prot (self, list_uniprot) :
+        """
+        Sets a list of protein set with uniprotID.
+        
+        Parameters:
+        ----------
+        list_uniprot : list
+        
+        Returns:
+        ----------
+        """
+        self.list_uniprot = list_uniprot
+
     def get_proteins_sequence_SP (self) :
         """
         Return the new amino acid sequence dictionary with SP.
@@ -305,12 +318,25 @@ class File_proteins() :
         
         Parameters:
         ----------
-        int_score : dictionary
         
         Returns:
         ----------
+        int_score : dictionary
         """
         return self.prot_SP
+
+    def get_uniprot_prot (self) :
+        """
+        Return a list of protein set with uniprotID.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        list_uniprot : list
+        """
+        return self.list_uniprot
 
 ### Generating of features and pre-file to run multimer
 
@@ -337,6 +363,7 @@ class File_proteins() :
         - Sequences containing non-standard amino acids are rejected to ensure compatibility with MSA generation and peptid signal.
         """
         new_proteins = list()
+        uniprot_prot = list()
         sequence_SP = dict()
         result_dict = dict()
         prot_SP = dict()
@@ -351,11 +378,11 @@ class File_proteins() :
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     scrap_name= line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1]
                     if scrap_name in list_new_prot_name :
-                       for i in range(1,100) :
-                          new_name = scrap_name + "_" + str(i)
-                          if new_name not in list_new_prot_name :
-                             scrap_name = new_name
-                             break
+                        for i in range(1,100) :
+                            new_name = scrap_name + "_" + str(i)
+                            if new_name not in list_new_prot_name :
+                                scrap_name = new_name
+                                break
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 else :
@@ -372,6 +399,7 @@ class File_proteins() :
                             raise ValueError(f"Protein {prot.upper().strip()} is duplicated in the input file.")
                         else :
                             new_proteins.append(prot.upper().strip())
+                            uniprot_prot.append(prot.upper().strip())
                         result_dict[prot.upper().strip()] = dict()
                         int_score[prot.upper().strip()] = dict()
                         homo_score[prot.upper().strip()] = dict()
@@ -391,6 +419,7 @@ class File_proteins() :
                     for aa in ["O", "B", "Z", "J", "X"] :
                         if aa in line.strip("\n") :
                             raise ValueError(f"Sequence {save_prot} contains {aa}.")
+        self.set_uniprot_prot(uniprot_prot)
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
         self.set_possible_prey(new_proteins)

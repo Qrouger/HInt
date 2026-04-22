@@ -356,6 +356,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
     baits = Informations_dict["Interact_with"]
+    uniprot_prot = file.get_uniprot_prot()
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
@@ -369,7 +370,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     
     logger.info(f"{len(need_msa)} proteins need MSA")
     logger.info(f"{len(need_pkl)} proteins need pkl files")
-    
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
 
@@ -388,8 +388,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
         logger.info(f"Search MSA in AlphaFold database")
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
             for protein in generated_msa : #check if prot have an MSA in alphafold database
-                l_p = len(protein)
-                if l_p >= 5 and l_p <= 10 and "_" not in protein : #if not, is not an UniprotID
+                l_p =  len(protein)
+                if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
                     time.sleep(0.3) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
@@ -487,7 +487,6 @@ def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     for line in process.stdout :
         print(f"{line}", end="")  # stream live
     process.wait()
-    os.remove(pkl_file)
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
