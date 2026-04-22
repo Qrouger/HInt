@@ -419,7 +419,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
    
     file.create_fasta_file(False, need_msa, need_pkl)
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
-    if len(need_msa) > 10 :
+    if len(need_msa) > 10 and Path_MMseqs2_Data != "" :
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
             GPU_str = GPU_str[:-2]
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1"  #-e 0.1
@@ -433,7 +433,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     file.create_fasta_file(False, need_msa, need_pkl)
 
     #Create MSA files with ColabFold mmseq2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
-    if len(need_msa) > 0 and len(need_msa) <= 10 :
+    if len(need_msa) > 0 and (len(need_msa) <= 10 or Path_MMseqs2_Data == "") :
         if os.path.isfile(f"log_file/{msa_name}") == True :
             cmd = ["create_individual_features.py",
             f"--fasta_paths=./log_file/{msa_name}",
