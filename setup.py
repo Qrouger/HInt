@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.5.4',
+    version='0.5.5',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -32,19 +32,6 @@ setup(
         'typeguard==2.13.3',
         'jax_triton==0.2.0',
         'triton==3.1.0',
-        "nvidia-cublas-cu12==12.8.5.5",
-        "nvidia-cuda-cccl-cu12==12.9.27",
-        "nvidia-cuda-cupti-cu12==12.9.79",
-        "nvidia-cuda-nvcc-cu12==12.9.86",
-        "nvidia-cuda-nvrtc-cu12==12.9.86",
-        "nvidia-cuda-runtime-cu12==12.9.79",
-        "nvidia-cudnn-cu12==9.20.0.48",
-        "nvidia-cufft-cu12==11.4.1.4",
-        "nvidia-cusolver-cu12==11.7.5.82",
-        "nvidia-cusparse-cu12==12.5.10.65",
-        "nvidia-nccl-cu12==2.29.7",
-        "nvidia-nvjitlink-cu12==12.9.86",
-        "nvidia-nvshmem-cu12==3.5.21",
         "torch>=1.6"
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
