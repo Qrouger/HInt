@@ -19,9 +19,8 @@ pip install numpy==1.26.4
 
 
 ```bash
-git clone https://github.com/google-deepmind/alphafold3.git
+git clone https://github.com/KosinskiLab/alphafold3
 cd alphafold3
-git checkout -b af3_custom_6ad1a6
 pip install . --no-deps
 build_data
 conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
