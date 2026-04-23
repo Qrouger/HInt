@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import random
 import json
+import string
 
 
 # Configure global logger
@@ -807,7 +808,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 4*0.00000332*(3.8 - vram))) / (2*0.00000332))
     pynvml.nvmlShutdown()
     
-    if Interaction_file == "PPI_int" :
+    if Interaction_file == "PPI_int" or Interaction_file == "Compounds" :
         # Determine bait length and region
         complexe = "," in bait
         if complexe :
@@ -831,6 +832,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 bait_for_job = bait
 
         # Build job list
+    if Interaction_file == "PPI_int" :
         copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
         for prey in copy_possible_prey :
             int_lenght = lenght + lenght_prot[prey]
@@ -852,8 +854,17 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
-
-    elif Interaction_file == "homo_int" :
+    if Interaction_file == "Compounds" :
+        Compounds = file.get_compounds()
+        vram_lenght = 3.8 + (-0.0000627) * lenght + 0.00000332 * lenght**2
+        for compound in Compounds :
+            job_str = f"{bait_for_job};{compound}\n"
+            compound_f = compound.replace("(", "").replace(")", "").replace("=","")
+            path = glob.glob(f"./result_Compounds/{bait_file}_and_{compound_f}/*_model.cif")
+            if len(path) == 0 :
+                job_with_vram_length.append((f"{job_str}", vram_lenght)) #consider no vram for compound, only for protein bait
+            
+    if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
             int_lenght = lenght_prot[prey] * int(nbr_oligo)
@@ -891,7 +902,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
 
 
-def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu) :
+def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait=[]) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -902,6 +913,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     job_with_vram_length : list of tuple
     GPU : list
     multi_job_per_gpu : str
+    seq_bait : dict
     """
     if not job_with_vram_length :
         return
@@ -922,11 +934,11 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     AF_version = Informations_dict["AlphaFold"]
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+    Baits = Informations_dict["Interact_with"]
 
     with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
         for job, _ in job_with_vram_length :
             f.write(job)
-
     manager(jobs_pending=list(job_with_vram_length),
             GPU=GPU,
             max_vram=max_vram,
@@ -934,12 +946,14 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
             Path_Pickle_Feature=Path_Pickle_Feature,
             interaction_type=interaction_type,
             AF_version=AF_version,
-            multi_job_per_gpu=multi_job_per_gpu
+            multi_job_per_gpu=multi_job_per_gpu,
+            seq_bait=seq_bait,
+            Baits=Baits
         )
 
 
 
-def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu) :
+def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu, seq_bait, Baits) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
@@ -953,6 +967,8 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     interaction_type : str
     AF_version : str
     multi_job_per_gpu : str
+    seq_bait : dict
+    Baits : list
     """
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
@@ -971,7 +987,6 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
                     jobs_running[gpu_id].pop(i)
                     break
 
-
         launched = False
 
         for interaction, job_vram in list(jobs_pending) :
@@ -980,7 +995,6 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
             for gpu_id in sorted_gpus :
 
                 free = max_vram - gpu_vram_used[gpu_id]
-                    
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
                     p = multiprocessing.Process(target=gpu_job_runner,
                         args=(gpu_id,
@@ -991,6 +1005,8 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
                             Path_Pickle_Feature,
                             interaction_type,
                             AF_version,
+                            seq_bait, 
+                            Baits,
                         ),
                     )
 
@@ -1008,7 +1024,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
             time.sleep(1)
 
 
-def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version) :
+def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits) :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1022,6 +1038,8 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     Path_Pickle_Feature : str
     interaction_type : str
     AF_version : str
+    seq_bait : dict
+    Baits : list
     """
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -1030,18 +1048,61 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-    if interaction_type == "PPI_int" :
+
+    if interaction_type == "PPI_int" or interaction_type == "Compounds" :
         prot_int = interaction_file.strip("\n").replace(";", "_and_")
     if interaction_type == "homo_int" :
         prot_int = interaction_file.strip("\n").replace(":", "_homo_")
         prot_int += "er"
-    prot_int = prot_int.replace(",","_") #for domains
+    prot_int = prot_int.replace(",","_").replace("(", "").replace(")", "") #for domains
 
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
 
+    if interaction_type == "Compounds" : #Write json file to use AF3 native
+        random_seed = random.randrange(2**32 - 1)
+        json_input = ""
+        sequences = []
+        ligands = []
+        i = -1
+        for obj in interaction_file.strip("\n").split(";") :
+            i += 1
+            if "," in obj :
+                obj = obj.split(",")[0]
+            if obj in Baits : #it's protein
+                with open(f"{Path_Pickle_Feature}/{obj}.a3m", "r") as a3m_f :
+                    all_lines = a3m_f.read()
+                sequences.append({
+                    "protein": {
+                        "id": string.ascii_uppercase[i],
+                        "sequence": seq_bait[obj],
+                        "unpairedMsa": all_lines,
+                        "pairedMsa": all_lines,
+                        "templates": []
+                    }
+                })
+
+            else :         # LIGAND (SMILES)
+                ligands.append({
+                    "ligand": {
+                        "id": string.ascii_uppercase[i],
+                        "smiles": obj
+                    }
+                })
+        af3_input = {
+        "name": prot_int,
+        "dialect": "alphafold3",
+        "version": 3,
+        "modelSeeds": [random_seed],
+        "sequences": sequences + ligands
+        }
+        file_name = file_name.replace(".txt", ".json")
+        with open(f"log_file/{file_name}", "w") as f:
+            json.dump(af3_input, f, indent=2)
+        print(prot_int)
     try :
-        with open(f"log_file/{file_name}", "w") as f :
-            f.write(interaction_file)
+        if interaction_type != "Compounds" :
+            with open(f"log_file/{file_name}", "w") as f :
+                f.write(interaction_file)
 
         if AF_version == "2" :
             cmd = (
@@ -1055,7 +1116,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
                 "--remove_keys_from_pickles=False"
             )
-        else :
+        if AF_version == "3" and interaction_type != "Compounds" :
             cmd = (
                 "run_multimer_jobs.py --mode=custom "
                 f"--output_path=./result_{interaction_type} "
@@ -1065,6 +1126,10 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 "--fold_backend=alphafold3 "
                 "--use_ap_style=True "
             )
+
+        if AF_version == "3" and interaction_type == "Compounds" :
+            print(file_name)
+            cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_AlphaFold_Data} --model_dir={Path_AlphaFold_Data} --json_path=log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         proc = subprocess.Popen(
             cmd,

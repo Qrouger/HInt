@@ -8,12 +8,15 @@ from .Utils_HInt import *
 import csv
 import os
 import copy
+from rdkit import Chem,RDLogger
+
+RDLogger.DisableLog('rdApp.*') #Disable RDKit warnings for SMILES parsing
 
 class File_proteins() :
     """
     Manipulate and save the file that contains all proteins.
     """
-    def __init__ (self, path_txt_file) :
+    def __init__ (self, path_txt_file, baits, AF_version) :
         """
         Constructor :
         Set attributes for a single entry file.
@@ -21,8 +24,10 @@ class File_proteins() :
         Parameters:
     	-----------
         path_txt_file : string
+        baits : list
+        AF_version : string (2 or 3)
         """
-        self.set_all_att(path_txt_file)
+        self.set_all_att(path_txt_file, baits, AF_version)
 
     def set_proteins_sequence_SP (self, new_protein_sequence) :
         """
@@ -53,7 +58,7 @@ class File_proteins() :
 
     def set_proteins (self, new_protein) :
         """
-        Sets a list of all proteins names.
+        Sets a list of all proteins.
         
         Parameters:
         ----------
@@ -181,6 +186,19 @@ class File_proteins() :
         ----------
         """
         self.list_uniprot = list_uniprot
+    
+    def set_compounds (self, compounds) :
+        """
+        Set a list of compounds.
+        
+        Parameters:
+        ----------
+        compounds : list
+
+        Returns:
+        ----------
+        """
+        self.compounds = compounds
 
     def get_proteins_sequence_SP (self) :
         """
@@ -338,9 +356,23 @@ class File_proteins() :
         """
         return self.list_uniprot
 
+    def get_compounds (self) :
+        """
+        Return a list of compounds.
+        
+        Parameters:
+        ----------
+        
+        Returns:
+        ----------
+        compounds : list
+        """
+        return self.compounds
+
+
 ### Generating of features and pre-file to run multimer
 
-    def set_all_att (self, path_txt) :
+    def set_all_att (self, path_txt, baits, AF_version) :
         """
         Initialize and populate all attributes from a protein input text file.
 
@@ -355,6 +387,8 @@ class File_proteins() :
         Parameters :
         ----------
         path_txt : string
+        baits : list
+        AF_version : string (2 or 3)
 
         Notes :
         ----------
@@ -363,6 +397,7 @@ class File_proteins() :
         - Sequences containing non-standard amino acids are rejected to ensure compatibility with MSA generation and peptid signal.
         """
         new_proteins = list()
+        new_compounds = list()
         uniprot_prot = list()
         sequence_SP = dict()
         result_dict = dict()
@@ -395,14 +430,22 @@ class File_proteins() :
                     save_prot = ""
                     new_line = (line.strip().split(","))
                     for prot in new_line :
-                        if prot.upper().strip() in new_proteins :
-                            raise ValueError(f"Protein {prot.upper().strip()} is duplicated in the input file.")
+                        clean_prot = prot.upper().strip()
+                        smile = clean_prot.replace("CL","Cl")
+                        smile = smile.replace("BR","Br")
+                        smile = smile.replace("FL","Fl") #Clean smile
+                        mol = Chem.MolFromSmiles(smile) #check if the line is a SMILES code
+                        if clean_prot in new_proteins or clean_prot in new_compounds :
+                            raise ValueError(f"Protein {clean_prot} is duplicated in the input file.")
                         else :
-                            new_proteins.append(prot.upper().strip())
-                            uniprot_prot.append(prot.upper().strip())
-                        result_dict[prot.upper().strip()] = dict()
-                        int_score[prot.upper().strip()] = dict()
-                        homo_score[prot.upper().strip()] = dict()
+                            if mol is not None :
+                                new_compounds.append(smile)
+                            else :
+                                new_proteins.append(clean_prot)
+                                uniprot_prot.append(clean_prot)
+                        result_dict[clean_prot] = dict()
+                        int_score[clean_prot] = dict()
+                        homo_score[clean_prot] = dict()
                 elif line[0] == ">" :
                     save_prot = line[1:len(line)].strip("\n").strip(" ")
                     if save_prot in new_proteins :
@@ -419,6 +462,14 @@ class File_proteins() :
                     for aa in ["O", "B", "Z", "J", "X"] :
                         if aa in line.strip("\n") :
                             raise ValueError(f"Sequence {save_prot} contains {aa}.")
+        if new_compounds != [] :
+            if AF_version != "3" : 
+                raise ValueError("Compounds screening need AlphaFold3.")
+            for protein in new_proteins :
+                if protein not in baits :
+                    raise ValueError("HInt doesn't allow to screen compounds and proteins. Please remove no bait protein from the input file.")
+
+        self.set_compounds(new_compounds)
         self.set_uniprot_prot(uniprot_prot)
         self.set_file_name(path_txt)
         self.set_proteins(new_proteins)
@@ -468,6 +519,7 @@ class File_proteins() :
         int_score = self.get_int_score()
         homo_score = self.get_homo_score()
         result_dict = self.get_result_dict()
+        compounds = self.get_compounds()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]
 
@@ -604,6 +656,8 @@ class File_proteins() :
                     
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
+                
+        
         self.set_prot_SP(prot_SP)
         self.set_result_dict(result_dict)
         self.set_deeploc(deeploc_prot)

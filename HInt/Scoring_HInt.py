@@ -22,6 +22,7 @@ from Bio import PDB
 import copy
 import string
 import subprocess
+import math
 from pathlib import Path
 
 # Configure global logger
@@ -33,7 +34,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
+def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, multi_scoring=False) :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -50,6 +51,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     Interaction : str
         Interaction type ("PPI_int" or "homo_int")
     bait : str
+    multi_scoring : str
     """
     start_time = datetime.now()
     result_dict = file.get_result_dict()
@@ -66,7 +68,10 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
     ppi_list = list()
     already_done = list()
     already_dict = dict()
+    mean_iQ_score = dict()
+    cv_iQ_score = dict()
 
+    multi_scoring = False if multi_scoring == "False" else True
     result = subprocess.run(["conda", "env", "list", "--json"],capture_output=True, text=True, check=True)
     envs = json.loads(result.stdout)["envs"]
     exists = any("pi_score" in env for env in envs)
@@ -111,7 +116,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
 
         results = []
         with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
-            tasks = [(ppi, file, AF_version, Path_ccp4) for ppi in ppi_list]
+            tasks = [(ppi, file, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
                 if df is not None and not df.empty :
@@ -131,49 +136,63 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
                     all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                     for row in reader :
                         job = row['jobs']
-                        if '_and_' in job and job.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
+                        just_name = job.split("_ranked_")[0]
+
+                        if '_and_' in job and just_name.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                             if "," in bait : #multimer bait
                                 if row['pi_score'] == 'No interface detected' :
-                                    if job in already_done : #if protein have multi interface interaction, mean of pi_score
+                                    if job in already_done : #if protein have multi interface interaction, mean of pi_score #multimeric bait
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
                                         already_dict[job].append(float(-2.63))
                                         mean_pi_score = (sum(already_dict[job]) + float(-2.63)) / len(already_dict[job])
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
-                                        line =f'\n{row["jobs"]},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
                                         already_dict[job] = [float(-2.63)]
                                         iQ_score = float(row['iptm_ptm'])*30#pi_score don't detect interface so it's set on -2.63
-                                        line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
                                 else :
-                                    if job in already_done : #if protein have multi interface interaction, mean of pi_score
+                                    if job in already_done : #if protein have multi interface interaction, mean of pi_score  #multimeric bait
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
                                         already_dict[job].append(float(row['pi_score']))
                                         mean_pi_score = (sum(already_dict[job]) + float(row['pi_score'])) / len(already_dict[job])
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
-                                        line =f'\n{row["jobs"]},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
                                         already_dict[job] = [float(row['pi_score'])]
                                         iQ_score = ((float(row['pi_score'])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
-                                        line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'{just_name},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
-                            else :
-                            #need to use hiQ_score for multimer bait and look at interface
+                            
+                            else : #need to use hiQ_score for multimer bait and look at interface
                                 if row['pi_score'] == 'No interface detected' :
                                     iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
-                                    line =f'{row["jobs"]},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                                    already_done.append(job)
+                                    if "ranked_0" in job :
+                                        line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        mean_iQ_score[just_name.split("_and_")[-1]] = []
                                 else :
                                     iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
-                                    line =f'{row["jobs"]},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                                    already_done.append(job)
-                            int_score[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                            result_dict[job.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                            if job.split("_and_")[-1] not in new_possible_prey :
-                                new_possible_prey.append(job.split("_and_")[-1])
-                            all_lines = all_lines + line
-                            name_int = job.split("/")[-1]
+                                    if "ranked_0" in job :
+                                        line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        mean_iQ_score[just_name.split("_and_")[-1]] =[]
+                            mean_iQ_score[just_name.split("_and_")[-1]].append(iQ_score)
+                            int_score[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            result_dict[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            if just_name.split("_and_")[-1] not in new_possible_prey :
+                                new_possible_prey.append(just_name.split("_and_")[-1])
+                            if "ranked_0" in job :
+                                all_lines = all_lines + line
+                            name_int = just_name.split("/")[-1]
                     for protein in possible_prey :
+                        if multi_scoring == True and protein in mean_iQ_score.keys() :
+                            scores = mean_iQ_score[protein]
+                            print(protein, scores)
+                            mean = sum(scores) / len(scores)
+                            variance = sum((x - mean) ** 2 for x in scores) / len(scores)
+                            std = math.sqrt(variance)
+                            cv_iQ_score[protein] = std / mean
+                            mean_iQ_score[protein] = sum(scores) / len(scores)
                         if protein not in new_possible_prey :
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
                             result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
@@ -230,6 +249,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None) :
             logger.info("Time scoring interactions : %s\n", end_time - start_time)
             file.set_homo_score(homo_score)
             file.set_int_score(int_score)
+        print(cv_iQ_score)
+        print(mean_iQ_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
@@ -251,9 +272,9 @@ def run_scoring (args) :
     ----------
     result : pandas.DataFrame
     """
-    interaction, file, AF_version, Path_ccp4 = args
+    interaction, file, AF_version, Path_ccp4, multi_scoring = args
     try :
-        result = HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, 100, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()

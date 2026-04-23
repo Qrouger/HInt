@@ -50,13 +50,13 @@ def add_arguments(parser) :
     ----------
     parser : argparse.ArgumentParser
     """
-    parser.add_argument("--gpu", help="Comma-separated list of GPUs available for computation", required=False, default="0")
+    parser.add_argument("--gpu", help="Comma-separated list of GPUs available for computation (default: 0)", required=False, default="0")
 
     N_CPU = multiprocessing.cpu_count()
     default_cpu = N_CPU // 2  # by default, use half of the available CPUs
-    parser.add_argument("--cpu", help="Number of CPUs available for computation", required=False, default=default_cpu, type=int)
+    parser.add_argument("--cpu", help="Number of CPUs available for computation (default: half of the CPUs)", required=False, default=default_cpu, type=int)
     parser.add_argument("--multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default="True")
-
+    parser.add_argument("--multi_scoring", help="Score all models of each interactions (default: False)", required=False, default="False")
 
 # ------------------------------------------------------------------
 # Main execution
@@ -75,7 +75,9 @@ def main() :
     multi_job_per_gpu = args.multi_job_per_gpu
     if multi_job_per_gpu not in ["True", "False"] :
         raise ValueError("Invalid value for --multi_job_per_gpu. Need True or False.")
-        
+    multi_scoring = args.multi_scoring
+    if multi_scoring not in ["True", "False"] :
+        raise ValueError("Invalid value for --multi_scoring. Need True or False.")
     Informations_dict = Define_informations()
 
     logger.info("GPUs set to: %s", GPU)
@@ -85,7 +87,7 @@ def main() :
     # Initialize protein container
     # --------------------------------------------------------------
 
-    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"])
+    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"])
 
     
     for bait in Informations_dict["Interact_with"] : # Check that all bait proteins exist in the protein list
@@ -177,9 +179,13 @@ def main() :
 
     if Informations_dict["Interact_with"] != [''] :
         for bait in Informations_dict["Multimer_bait"] :
-            job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu)
-            Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait)
+            if HInt_object.get_compounds() != [] :
+                job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "Compounds", bait)
+                Generate_3D_model(Informations_dict, "Compounds", job_with_vram_length, GPU, multi_job_per_gpu, HInt_object.get_proteins_sequence_no_SP())
+            else :
+                job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
+                Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu)
+                Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait, multi_scoring)
             HInt_object.Make_save_dict()  # Save interaction scores
 
 
