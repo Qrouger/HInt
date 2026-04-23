@@ -80,52 +80,57 @@ def extract_plddt_from_pdb(pdb_file) :
                     pass
     return np.array(plddt_values, dtype=float)
 
-def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
+def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
     """
     A function to calculate all predicted models' pi_scores and make a pandas df of the results.
     Instrumented to log timing per major step.
     """
-    direc = jobs[0].split("/")[len(jobs[0].split("/"))-1]
-    if os.path.isdir("/scratch") :
-        tmp_dir = f"/scratch/tmp/{direc}"
-    else :
-        tmp_dir = f"/tmp/{direc}"
-    print (f"Creating temporary directory {tmp_dir} for pi_score outputs")
-    subprocess.run(f"rm -rf {tmp_dir} && mkdir -p {tmp_dir}/pi_score_outputs", shell=True, executable="/bin/bash", check=True)
-    pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
-    
-    cwd = os.path.dirname(os.path.abspath(__file__))
 
-    for job in jobs:
-        if not os.path.isfile(os.path.join(job, f"{direc}_ranked_0.pdb")):
-            print(f"{job} failed. Cannot find {direc}_ranked_0.pdb in {job}")
+    output_df = pd.DataFrame()
+    for job in jobs :
+        direc = os.path.dirname(job)
+        file_pdb = job.split("/")[-1]
+        name_job = f"{interaction}_{file_pdb.split('.pdb')[0]}"
+        if os.path.isdir("/scratch") :
+            tmp_dir = f"/scratch/tmp/{name_job}"
+        else :
+            tmp_dir = f"/tmp/{name_job}"
+        logging.info(f"Creating temporary directory {tmp_dir} for pi_score outputs")
+        subprocess.run(f"rm -rf {tmp_dir} && mkdir -p {tmp_dir}/pi_score_outputs", shell=True, executable="/bin/bash", check=True)
+        pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
+        
+        cwd = os.path.dirname(os.path.abspath(__file__))
+
+        if not os.path.isfile(os.path.join(direc, f"{file_pdb}")):
+            logging.error(f"{job} failed. Cannot find {file_pdb} in {direc}")
             sys.exit()
 
-        pdb_path = os.path.join(job, f"{direc}_ranked_0.pdb")
+
         output_dir = os.path.join(pi_score_outputs)
+
         cmd = (
             f"source {ccp4_setup}/bin/ccp4.setup-sh && "
             f"conda run -n pi_score python {cwd}/script_pi_score/run_piscore_wc.py "
-            f"-p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10"
+            f"-p {job} -o {output_dir} -s {surface_thres} -ps 10"
         )
 
         proc = subprocess.Popen(cmd, shell=True, executable="/bin/bash", close_fds=True)
         proc.wait()
-    output_df = pd.DataFrame()
-    for job in jobs:
-        name_job = job.split("/")[-1]
+
+   
+
         subdir = os.path.join(pi_score_outputs)
         csv_files = [f for f in os.listdir(subdir) if 'filter_intf_features' in f]
         pi_score_files = [f for f in os.listdir(subdir) if 'pi_score_' in f]
 
-        if not csv_files or not pi_score_files:
-            print(f"Warning: missing CSV or pi_score files for {name_job}")
+        if not csv_files or not pi_score_files :
+            logging.info(f"Warning: missing CSV or pi_score files for {name_job}")
             continue
         for csv_f in csv_files:
             filtered_df = pd.read_csv(os.path.join(subdir, csv_f))
 
-            if filtered_df.shape[0] == 0:
-                for column in filtered_df.columns:
+            if filtered_df.shape[0] == 0 :
+                for column in filtered_df.columns :
                     filtered_df[column] = ["None"]
                 filtered_df['jobs'] = str(name_job)
                 filtered_df['pi_score'] = "No interface detected"
@@ -135,22 +140,21 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
             interface_id = csv_f.split("filter_intf_features_")[-1].replace(".csv", "")
 
             pi_f = [f for f in pi_score_files if interface_id in f]
-            if not pi_f:
-                print(f"Warning: no pi_score file for interface {interface_id}")
+            if not pi_f :
+                logging.info(f"Warning: no pi_score file for interface {interface_id}")
                 continue
 
             pi_score = pd.read_csv(os.path.join(subdir, pi_f[0]))
             pi_score['jobs'] = str(name_job)
 
-            # interface propre
-            if 'chains' in pi_score.columns:
+
+            if 'chains' in pi_score.columns :
                 pi_score['interface'] = pi_score['chains']
             else:
                 pi_score['interface'] = interface_id
 
             filtered_df['jobs'] = str(name_job)
-            last_chain = get_last_chain_from_pdb(os.path.join(job, f"{name_job}_ranked_0.pdb"))
-            last_chain = get_last_chain_from_pdb(os.path.join(job, f"{name_job}_ranked_0.pdb"))
+            last_chain = get_last_chain_from_pdb(os.path.join(job))
 
             filtered_df = filtered_df[filtered_df['interface'].apply(lambda x: last_chain in x)]
             pi_score = pi_score.drop(columns=["#PDB", "pdb", "pvalue", "chains", "predicted_class"],errors="ignore")
@@ -161,20 +165,28 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
                 on=['jobs', 'interface'],
                 how='left'
             )
-
             output_df = pd.concat([output_df, filtered_df])
 
     subprocess.run(f"rm -rf {tmp_dir}", shell=True, executable='/bin/bash')
     return output_df
     
-    
+def get_last_chain_from_pdb(pdb_file) :
+    last_chain = None
+    with open(pdb_file, 'r') as f :
+        for line in f :
+            if line.startswith(('ATOM', 'HETATM')):
+                chain = line[21]  # col 22 (index 21)
+                last_chain = chain
+    return last_chain
 
-def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup) :
+
+def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_scoring) :
     seq_no_SP = save_file.get_proteins_sequence_no_SP()
     prot_lenght = save_file.get_lenght_prot()
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
+    name_jobs = list()
     mpDockq_scores = list()
     logging.info(f"Scoring {job}")
     result_subdir = os.path.join(job)
@@ -195,7 +207,9 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup) :
                 prot = prot.split("_")[0]
             lenght.append(prot_lenght[prot])
             
-    if AF_version == "3" : #for AlphaFold3
+
+    ### AlphaFold3 ###
+    if AF_version == "3" :
         cif_files = list(Path(result_subdir).glob("*model.cif"))
         if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False : #create ranked_0.pdb for AF3 
             parser = MMCIFParser(QUIET=True)
@@ -228,58 +242,64 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup) :
             logging.info(f"Cannot find summary_confidences.json for {job}, skipping.")
 
 
-    if os.path.isfile(os.path.join(job,'ranking_debug.json')) : #for AlphaFold2
+    ### AlphaFold2 ###
+    if os.path.isfile(os.path.join(job,'ranking_debug.json')) :
+        i = -1
+        os.system(f"cp {job}/ranked_0.pdb {job}/{interaction}_ranked_0.pdb") #rename pdb file with explicit name
+        all_models = ["ranked_0.pdb"]
+        if multi_scoring == True :
+            all_models = ["ranked_0.pdb", "ranked_1.pdb", "ranked_2.pdb", "ranked_3.pdb", "ranked_4.pdb"]
         with open(os.path.join(result_subdir,'ranking_debug.json'),'rb') as json_f :
             data = json.load(json_f)
-        best_model = data['order'][0]
-        os.system(f"cp {job}/ranked_0.pdb {job}/{interaction}_ranked_0.pdb") #rename pdb file with explicit name
-        if "iptm" in data.keys() or "iptm+ptm" in data.keys():
-            iptm_ptm_score = data['iptm+ptm'][best_model]
-            if os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl")) :
-                pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl")
-                with open(pkl_path, 'rb') as pkl :
-                    check_dict = pickle.load(pkl)
-            elif os.path.exists(os.path.join(result_subdir, f"result_{best_model}.pkl.gz")) :
-                print("result pickle for the best model not found. Now search for zipped pickle.")
-                pkl_path = os.path.join(result_subdir, f"result_{best_model}.pkl.gz")
-                with gzip.open(pkl_path, 'rb') as pkl :
-                    check_dict = pickle.load(pkl)
-            else :
-                logging.info(f"Cannot find result pickle for {job}, skipping.")
-            iptm_score = check_dict['iptm']
-            pae_mtx = check_dict['predicted_aligned_error']
-            chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
-            check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
-            mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
-            if check:
-                good_jobs.append(str(job))
-                iptm_ptm.append(iptm_ptm_score)
-                iptm.append(iptm_score)
-                mpDockq_scores.append(mpDockq_score)
+        best_model = data['order']
+        for pdb in all_models :
+            i += 1
+            rank_model = best_model[i]
+            del best_model
+            if "iptm" in data.keys() or "iptm+ptm" in data.keys() :
+                iptm_ptm_score = data['iptm+ptm'][rank_model]
+                if os.path.exists(os.path.join(result_subdir, f"result_{rank_model}.pkl")) :
+                    pkl_path = os.path.join(result_subdir, f"result_{rank_model}.pkl")
+                    with open(pkl_path, 'rb') as pkl :
+                        check_dict = pickle.load(pkl)
+                elif os.path.exists(os.path.join(result_subdir, f"result_{rank_model}.pkl.gz")) :
+                    logging.info("Result pickle for the best model not found. Now search for zipped pickle.")
+                    pkl_path = os.path.join(result_subdir, f"result_{rank_model}.pkl.gz")
+                    with gzip.open(pkl_path, 'rb') as pkl :
+                        check_dict = pickle.load(pkl)
+                else :
+                    logging.info(f"Cannot find result pickle for {job}, skipping.")
+                iptm_score = check_dict['iptm']
+                pae_mtx = check_dict['predicted_aligned_error']
+                chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
+                if pdb == "ranked_0.pdb" :
+                    check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
+                mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
+                if check :
+                    good_jobs.append(str(f"{job}/{pdb}"))
+                    iptm_ptm.append(iptm_ptm_score)
+                    iptm.append(iptm_score)
+                    mpDockq_scores.append(mpDockq_score)
+                    name_jobs.append(f"{job.split('/')[-1]}_{pdb.split('.')[0]}")
+        del data
+        
     other_measurements_df=pd.DataFrame.from_dict({
-        "jobs":job.split("/")[-1],
+        "jobs":name_jobs,
         "iptm_ptm":iptm_ptm,
         "iptm":iptm,
         "mpDockQ/pDockQ":mpDockq_scores})
 
     if good_jobs!=[] :
-        pi_score_df = run_and_summarise_pi_score(good_jobs,surface_thres,ccp4_setup)
-        pi_score_df = pd.merge(pi_score_df,other_measurements_df,on="jobs")
+        pi_score_df = run_and_summarise_pi_score(job.split("/")[-1], good_jobs, surface_thres, ccp4_setup)
+        pi_score_df = pd.merge(pi_score_df, other_measurements_df, on="jobs")
         columns = list(pi_score_df.columns.values)
         columns.pop(columns.index('jobs'))
         pi_score_df = pi_score_df[['jobs'] + columns]
         pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
+        
         return pi_score_df
     else :
         return None
 
 
 
-def get_last_chain_from_pdb(pdb_file):
-    last_chain = None
-    with open(pdb_file, 'r') as f:
-        for line in f:
-            if line.startswith(('ATOM', 'HETATM')):
-                chain = line[21]  # col 22 (index 21)
-                last_chain = chain
-    return last_chain
