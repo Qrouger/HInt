@@ -925,7 +925,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
 
     with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
         for job, _ in job_with_vram_length :
-            f.write(job + "\n")
+            f.write(job)
 
     manager(jobs_pending=list(job_with_vram_length),
             GPU=GPU,
