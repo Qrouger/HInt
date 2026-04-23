@@ -53,7 +53,7 @@ class File_proteins() :
 
     def set_proteins (self, new_protein) :
         """
-        Sets a list of all proteins UniprotID.
+        Sets a list of all proteins names.
         
         Parameters:
         ----------
