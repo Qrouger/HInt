@@ -7,7 +7,7 @@ HInt accelerates AlphaFold by optimizing computations and parallelizing structur
 ## 1.1. HInt
 
 ```bash
-conda create -n HInt -c conda-forge -c bioconda python==3.11 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git setuptools==81
+conda create -n HInt -c conda-forge -c bioconda python==3.12 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git setuptools==81
 conda activate HInt
 pip install hint-ppi
 pip uninstall colabfold 
