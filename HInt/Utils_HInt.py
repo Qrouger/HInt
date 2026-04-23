@@ -327,6 +327,19 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     for prot in need_msa : 
         if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == False :
             new_need_msa.append(prot)
+        if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == True and prot in prot_SP_len.keys() : #if MSA already exist but have SP
+            with open(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m", "r") as msa_file :
+                b = "no"
+                for line in msa_file :
+                    if b == "yes" :
+                        first_line = line.strip("\n")
+                        break
+                    if line[0] == ">" :
+                        b = "yes"
+            if first_line != new_fasta_dict[prot] : #if sequence with SP is different from sequence without SP, modify the MSA file with the new sequence without SP
+                cmd_rm = f"rm -r {Informations_dict['Path_Pickle_Feature']}/{prot}*"
+                os.system(cmd_rm)
+                new_need_msa.append(prot)
     file.set_proteins_sequence_no_SP(new_fasta_dict)
     file.set_result_dict(result_dict)
     file.set_prot_SP(if_prot_SP)
