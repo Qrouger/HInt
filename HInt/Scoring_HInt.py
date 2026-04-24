@@ -132,7 +132,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                 reader = csv.DictReader(result_file)
 
                 #For one vs all
-                if Interaction == "PPI_int" : #make int_score
+                if Interaction == "PPI_int" or "Compounds" : #make int_score
                     all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                     for row in reader :
                         job = row['jobs']

@@ -189,11 +189,11 @@ class File_proteins() :
     
     def set_compounds (self, compounds) :
         """
-        Set a list of compounds.
+        Set a dict of compounds. Key of the dict is name of the compound and the value is the smile.
         
         Parameters:
         ----------
-        compounds : list
+        compounds : dict
 
         Returns:
         ----------
@@ -358,14 +358,14 @@ class File_proteins() :
 
     def get_compounds (self) :
         """
-        Return a list of compounds.
+        Return a dict of compounds.
         
         Parameters:
         ----------
         
         Returns:
         ----------
-        compounds : list
+        compounds : dict
         """
         return self.compounds
 
@@ -397,7 +397,7 @@ class File_proteins() :
         - Sequences containing non-standard amino acids are rejected to ensure compatibility with MSA generation and peptid signal.
         """
         new_proteins = list()
-        new_compounds = list()
+        new_compounds = dict()
         uniprot_prot = list()
         sequence_SP = dict()
         result_dict = dict()
@@ -431,15 +431,21 @@ class File_proteins() :
                     new_line = (line.strip().split(","))
                     for prot in new_line :
                         clean_prot = prot.upper().strip()
+                        if ":" in clean_prot : #compounds set up
+                            compound_name = clean_prot.split(":")[0]
+                            smile = clean_prot.split(":")[1]
                         smile = clean_prot.replace("CL","Cl")
                         smile = smile.replace("BR","Br")
                         smile = smile.replace("FL","Fl") #Clean smile
                         mol = Chem.MolFromSmiles(smile) #check if the line is a SMILES code
-                        if clean_prot in new_proteins or clean_prot in new_compounds :
+                        if clean_prot in new_proteins or clean_prot in new_compounds.values() :
                             raise ValueError(f"Protein {clean_prot} is duplicated in the input file.")
                         else :
                             if mol is not None :
-                                new_compounds.append(smile)
+                                if ":" not in clean_prot :
+                                    raise ValueError(f"Missing compound name for {clean_prot}. Compounds should be in the format 'CompoundName:SMILES'.")
+                                else :
+                                    new_compounds[compound_name] = smile
                             else :
                                 new_proteins.append(clean_prot)
                                 uniprot_prot.append(clean_prot)
@@ -462,7 +468,7 @@ class File_proteins() :
                     for aa in ["O", "B", "Z", "J", "X"] :
                         if aa in line.strip("\n") :
                             raise ValueError(f"Sequence {save_prot} contains {aa}.")
-        if new_compounds != [] :
+        if new_compounds != {} :
             if AF_version != "3" : 
                 raise ValueError("Compounds screening need AlphaFold3.")
             for protein in new_proteins :
@@ -519,7 +525,6 @@ class File_proteins() :
         int_score = self.get_int_score()
         homo_score = self.get_homo_score()
         result_dict = self.get_result_dict()
-        compounds = self.get_compounds()
         pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
         del_car = ["\n"," ","//"]
 

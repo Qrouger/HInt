@@ -366,6 +366,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     AF_version : str (2 or 3)
 
     """
+
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
@@ -409,7 +410,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
                     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
                     aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
-
                     result = subprocess.run(["wget", "-q", "-O", msa_in, url])
                     if result.returncode != 0 :
                         on_afdb = False
@@ -419,12 +419,10 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                         if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
                             on_afdb = False
                             os.remove(msa_in)
-
                     if on_afdb == True :
                         SP = len(prot_SP[protein]) - len(prot_no_SP[protein])
                         if SP > 0 : #if no SP don't modify the MSA
                             executor.submit(fetch_trim_mafft, protein, Path_Pickle_Feature, prot_SP, prot_no_SP)
-                        
                         logger.info(f"MSA for {protein} processed")
                         need_msa.remove(protein) #msa found
                         need_pkl.append(protein)
@@ -461,7 +459,6 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
             "--use_precomputed_msas=True"]
             process = subprocess.Popen(cmd, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
             stdout, stderr = process.communicate()
-
     end = time.time()
     elapsed = end - start
     logger.info("Create MSA take "+ str(elapsed/60)+" minutes")
@@ -857,12 +854,14 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                     possible_prey.remove(prey)
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
-        vram_lenght = 3.8 + (-0.0000627) * lenght + 0.00000332 * lenght**2
-        for compound in Compounds :
+        vram_lenght = 1.9 + (-0.0000627) * lenght + 0.00000332 * lenght**2 #AF3 use less memory ,
+        for compound in Compounds.keys() :
             job_str = f"{bait_for_job};{compound}\n"
-            compound_f = compound.replace("(", "").replace(")", "").replace("=","")
-            path = glob.glob(f"./result_Compounds/{bait_file}_and_{compound_f}/*_model.cif")
+            path = glob.glob(f"./result_Compounds/{bait_file}_and_{compound}/*_model.cif")
             if len(path) == 0 :
+                if os.path.isdir(f"./result_Compounds/{bait_file}_and_{compound}") : #if dir exist and model not exist, rm dir
+                    os.system(f"rm -r ./result_Compounds/{bait_file}_and_{compound}")
+                print(f"./result_Compounds/{bait_file}_and_{compound}/*_model.cif")
                 job_with_vram_length.append((f"{job_str}", vram_lenght)) #consider no vram for compound, only for protein bait
             
     if Interaction_file == "homo_int" :
@@ -1055,7 +1054,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     if interaction_type == "homo_int" :
         prot_int = interaction_file.strip("\n").replace(":", "_homo_")
         prot_int += "er"
-    prot_int = prot_int.replace(",","_").replace("(", "").replace(")", "") #for domains
+    prot_int = prot_int.replace(",","_")
 
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
 
@@ -1082,7 +1081,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                     }
                 })
 
-            else :         # LIGAND (SMILES)
+            else : # it's LIGAND (SMILES)
                 ligands.append({
                     "ligand": {
                         "id": string.ascii_uppercase[i],
@@ -1099,7 +1098,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         file_name = file_name.replace(".txt", ".json")
         with open(f"log_file/{file_name}", "w") as f:
             json.dump(af3_input, f, indent=2)
-        print(prot_int)
     try :
         if interaction_type != "Compounds" :
             with open(f"log_file/{file_name}", "w") as f :
@@ -1129,7 +1127,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
             )
 
         if AF_version == "3" and interaction_type == "Compounds" :
-            print(file_name)
             cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_AlphaFold_Data} --model_dir={Path_AlphaFold_Data} --json_path=log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         proc = subprocess.Popen(

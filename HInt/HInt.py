@@ -156,7 +156,6 @@ def main() :
     # Feature generation (MSA + pickle files)
     # --------------------------------------------------------------
 
-
     if (len(need_msa) > 0 or len(need_pkl) > 0) and Informations_dict["Interact_with"] != [''] :
         create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, need_pkl, Informations_dict["AlphaFold"])
 
@@ -183,6 +182,7 @@ def main() :
             if HInt_object.get_compounds() != [] :
                 job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "Compounds", bait)
                 Generate_3D_model(Informations_dict, "Compounds", job_with_vram_length, GPU, multi_job_per_gpu, HInt_object.get_proteins_sequence_no_SP())
+                Score_interaction(HInt_object, Informations_dict, CPU, "Compounds", bait, multi_scoring)
             else :
                 job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
                 Generate_3D_model(Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu)
