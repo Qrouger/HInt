@@ -861,7 +861,6 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             if len(path) == 0 :
                 if os.path.isdir(f"./result_Compounds/{bait_file}_and_{compound}") : #if dir exist and model not exist, rm dir
                     os.system(f"rm -r ./result_Compounds/{bait_file}_and_{compound}")
-                print(f"./result_Compounds/{bait_file}_and_{compound}/*_model.cif")
                 job_with_vram_length.append((f"{job_str}", vram_lenght)) #consider no vram for compound, only for protein bait
             
     if Interaction_file == "homo_int" :
@@ -885,6 +884,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
                     possible_prey.remove(prey)
 
+
     # Classify job_list in function of int lenght
     job_with_vram_length.sort(key=lambda x: x[1], reverse=True)
 
@@ -902,7 +902,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
 
 
-def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait=[]) :
+def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -914,6 +914,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     GPU : list
     multi_job_per_gpu : str
     seq_bait : dict
+    compounds_dict : dict
     """
     if not job_with_vram_length :
         return
@@ -948,12 +949,13 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
             AF_version=AF_version,
             multi_job_per_gpu=multi_job_per_gpu,
             seq_bait=seq_bait,
-            Baits=Baits
+            Baits=Baits,
+            compounds_dict=compounds_dict
         )
 
 
 
-def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu, seq_bait, Baits) :
+def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu, seq_bait, Baits, compounds_dict) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
@@ -969,6 +971,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     multi_job_per_gpu : str
     seq_bait : dict
     Baits : list
+    compounds_dict : dict
     """
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
@@ -991,7 +994,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
 
         for interaction, job_vram in list(jobs_pending) :
             sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
-
+            compound = compounds_dict[interaction.strip("\n").split(";")[-1]] #to just select one compound for each interaction
             for gpu_id in sorted_gpus :
 
                 free = max_vram - gpu_vram_used[gpu_id]
@@ -1007,6 +1010,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
                             AF_version,
                             seq_bait, 
                             Baits,
+                            compound
                         ),
                     )
 
@@ -1024,7 +1028,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
             time.sleep(1)
 
 
-def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits) :
+def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1040,6 +1044,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     AF_version : str
     seq_bait : dict
     Baits : list
+    compound : str
     """
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -1085,7 +1090,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 ligands.append({
                     "ligand": {
                         "id": string.ascii_uppercase[i],
-                        "smiles": obj
+                        "smiles": compound
                     }
                 })
         af3_input = {
