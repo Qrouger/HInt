@@ -413,6 +413,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                     result = subprocess.run(["wget", "-q", "-O", msa_in, url])
                     if result.returncode != 0 :
                         on_afdb = False
+                        os.remove(msa_in)
                     else:
                         nbr_line = sum(1 for _ in open(msa_in))
                         if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
