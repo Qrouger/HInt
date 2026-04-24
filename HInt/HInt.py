@@ -169,7 +169,8 @@ def main() :
 
 
     logger.info("Generating MSA depth figures")
-    Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"])
+    if Informations_dict["Interact_with"] != [''] :
+        Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"])
 
 
     # --------------------------------------------------------------
