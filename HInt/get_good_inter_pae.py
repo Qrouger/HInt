@@ -255,7 +255,6 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
         for pdb in all_models :
             i += 1
             rank_model = best_model[i]
-            del best_model
             if "iptm" in data.keys() or "iptm+ptm" in data.keys() :
                 iptm_ptm_score = data['iptm+ptm'][rank_model]
                 if os.path.exists(os.path.join(result_subdir, f"result_{rank_model}.pkl")) :
