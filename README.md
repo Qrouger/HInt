@@ -7,12 +7,8 @@ HInt accelerates AlphaFold by optimizing computations and parallelizing structur
 ## 1.1. HInt
 
 ```bash
-conda create -n HInt -c conda-forge -c bioconda python==3.12 pdbfixer==1.9 mafft kalign2 hhsuite hmmer mmseqs2 git setuptools==81
-conda activate HInt
-pip install hint-ppi
-pip uninstall colabfold 
-pip install --no-warn-conflicts \ "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
-pip install numpy==1.26.4
+wget https://github.com/Qrouger/Install_HInt.sh
+bash Install_HInt.sh
 ```
 <details>
 <summary>AlphaFold 3 (optional) </summary>
@@ -31,14 +27,7 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 
 </details>
 
-## 1.2.1. DeepLoc Pro (Prokaryote)
-
-```bash
-git clone https://github.com/Jaimomar99/deeplocpro
-cd deeplocpro
-pip install . triton==3.1.0
-```
-## 1.2.2. DeepLoc2 (Eukaryote)
+## 1.2. DeepLoc2 (Eukaryote)
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
