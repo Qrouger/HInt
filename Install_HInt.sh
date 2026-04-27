@@ -65,6 +65,8 @@ $CONDA_BIN run -n $ENV_NAME pip install . --no-deps
 
 $CONDA_BIN run -n $ENV_NAME build_data || echo "WARNING: build_data failed"
 
+$CONDA_BIN run -n $ENV_NAME conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
+
 cd ..
 
 $CONDA_BIN install -y -c nvidia/label/cuda-12.4.1 cuda
