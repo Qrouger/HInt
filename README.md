@@ -13,15 +13,6 @@ bash Install_HInt.sh
 <details>
 <summary>AlphaFold 3 (optional) </summary>
 
-
-```bash
-git clone https://github.com/KosinskiLab/alphafold3
-cd alphafold3
-pip install . --no-deps
-build_data
-conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
-```
-
 ⚠️ **Warning** <br>
 You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md)
 
