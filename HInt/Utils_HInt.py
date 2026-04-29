@@ -676,7 +676,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
         if line_msa/2 > 100 and prot not in baits :
             new_possible_prey.append(prot)
         if line_msa/2 <= 100 and prot in baits :
-            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. All interactions with this bait can be false negative.")
+            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. Predicted interactions involving this protein should be interpreted with caution.")
     with open("log_file/shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(new_possible_prey)
@@ -984,6 +984,7 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
     Baits : list
     compounds_dict : dict
     """
+    compound = None
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
     multi_job_per_gpu = False if multi_job_per_gpu == "False" else True
@@ -1005,7 +1006,8 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
 
         for interaction, job_vram in list(jobs_pending) :
             sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
-            compound = compounds_dict[interaction.strip("\n").split(";")[-1]] #to just select one compound for each interaction
+            if interaction_type == "Compounds" :
+                compound = compounds_dict[interaction.strip("\n").split(";")[-1]] #to just select one compound for each interaction
             for gpu_id in sorted_gpus :
 
                 free = max_vram - gpu_vram_used[gpu_id]
@@ -1064,7 +1066,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-
+    print(interaction_file.strip("\n"))
     if interaction_type == "PPI_int" or interaction_type == "Compounds" :
         prot_int = interaction_file.strip("\n").replace(";", "_and_")
     if interaction_type == "homo_int" :
