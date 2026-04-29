@@ -14,12 +14,13 @@ import gzip
 from Bio.PDB import MMCIFParser, PDBIO
 import logging
 from pathlib import Path
+import gemmi
+
 
 def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
     """Check inter-chain PAE only between the last chain and the others"""
-
     pae = pae_mtx.copy()
-    if type_int == "PPI" :
+    if type_int == "PPI" or type_int == "Compounds" :
         start_last = sum(lenght[:-1])
         # mask all 
         pae[:] = 50
@@ -40,7 +41,7 @@ def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
     return check
 
 
-def obtain_mpdockq(work_dir,pkl_dict=None) :
+def obtain_chain_coord(work_dir,pkl_dict=None) :
     """Returns chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path"""
     interaction = work_dir.split("/")[-1]
     pdb_path = os.path.join(work_dir,f'{interaction}_ranked_0.pdb')
@@ -70,13 +71,13 @@ def extract_plddt_from_pdb(pdb_file) :
     Extract plddt from b-factor in pdb
     """
     plddt_values = []
-    with open(pdb_file, "r") as f:
+    with open(pdb_file, "r") as f :
         for line in f:
-            if line.startswith("ATOM") and line[12:16].strip() == "CA":
-                try:
+            if line.startswith("ATOM") and line[12:16].strip() == "CA" :
+                try :
                     b_factor = float(line[60:66].strip())
                     plddt_values.append(b_factor)
-                except ValueError:
+                except ValueError :
                     pass
     return np.array(plddt_values, dtype=float)
 
@@ -89,8 +90,9 @@ def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
     output_df = pd.DataFrame()
     for job in jobs :
         direc = os.path.dirname(job)
+        print(interaction)
         file_pdb = job.split("/")[-1]
-        name_job = f"{interaction}_{file_pdb.split('.pdb')[0]}"
+        name_job = f"{file_pdb.split('.pdb')[0]}"
         if os.path.isdir("/scratch") :
             tmp_dir = f"/scratch/tmp/{name_job}"
         else :
@@ -101,7 +103,7 @@ def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
         
         cwd = os.path.dirname(os.path.abspath(__file__))
 
-        if not os.path.isfile(os.path.join(direc, f"{file_pdb}")):
+        if not os.path.isfile(os.path.join(direc, f"{file_pdb}")) :
             logging.error(f"{job} failed. Cannot find {file_pdb} in {direc}")
             sys.exit()
 
@@ -171,6 +173,9 @@ def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
     return output_df
     
 def get_last_chain_from_pdb(pdb_file) :
+    """
+    Get the last chain identifier from a PDB file. This is used to filter pi_score results for the last chain only.
+    """
     last_chain = None
     with open(pdb_file, 'r') as f :
         for line in f :
@@ -181,6 +186,23 @@ def get_last_chain_from_pdb(pdb_file) :
 
 
 def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_scoring) :
+    """
+    Main function to check inter-PAE and run pi_score for good models. Returns a pandas df with all scores.
+    structure confidence (ipTM)
+    geometry confidence (PAE)
+    interface quality (mpDockQ)
+    physico-chemical scoring (PI-score)
+
+    Parameters :
+    ----------
+    job : str
+    cutoff : int
+    surface_thres : int
+    save_file : File_proteins object
+    AF_version : str
+    ccp4_setup : str
+    multi_scoring : bool
+    """
     seq_no_SP = save_file.get_proteins_sequence_no_SP()
     prot_lenght = save_file.get_lenght_prot()
     good_jobs = []
@@ -192,7 +214,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     result_subdir = os.path.join(job)
     interaction = job.split("/")[-1]
     lenght = list()
-    if "_and_" in interaction :
+    if "_and_" in interaction and "PPI" in job :
         type_int = "PPI"
         for prot in interaction.split("_and_") :
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
@@ -206,17 +228,29 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
             lenght.append(prot_lenght[prot])
+    if "Compounds" in job :
+        type_int = "Compounds"
+        for prot in interaction.split("_and_") :
+            if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
+                prot = prot.split("_")[0]
+            if prot == interaction.split("_and_")[-1] :
+                l = 1
+            else :
+                l = prot_lenght[prot]
+            lenght.append(l)
+
             
 
     ### AlphaFold3 ###
     if AF_version == "3" :
         cif_files = list(Path(result_subdir).glob("*model.cif"))
-        if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False : #create ranked_0.pdb for AF3 
-            parser = MMCIFParser(QUIET=True)
-            structure = parser.get_structure('model', cif_files[0])
-            io = PDBIO()
-            io.set_structure(structure)
-            io.save(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb'))
+        pdb = "ranked_0.pdb"
+        if os.path.isfile(os.path.join(result_subdir,f'{interaction}_ranked_0.pdb')) == False  : #create ranked_0.pdb for AF3 
+            doc = gemmi.cif.read_file(str(cif_files[0]))
+            block = doc.sole_block()
+            structure = gemmi.make_structure_from_block(block)
+            structure.write_pdb(os.path.join(result_subdir, f'{interaction}_ranked_0.pdb'))
+
         int_AF3 = str(cif_files[0]).split("_model")[0]
         confidence_f = list(Path(result_subdir).glob("*_summary_confidences.json"))
         if os.path.isfile(int_AF3+'_summary_confidences.json') :
@@ -230,21 +264,22 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 json_data = json.load(json_f)
             pae_list = json_data['pae']
             pae_mtx = np.array(pae_list)
-            chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job))
+            chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job))
             check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
             if check:
-                good_jobs.append(str(job))
+                good_jobs.append(str(job)+"/"+f"{job.split('/')[-1]}_ranked_0.pdb")
                 iptm_ptm.append(iptm_ptm_score)
                 iptm.append(iptm_score)
                 mpDockq_scores.append(mpDockq_score)
+                name_jobs.append(f"{job.split('/')[-1]}_{pdb.split('.')[0]}")
         else :
             logging.info(f"Cannot find summary_confidences.json for {job}, skipping.")
 
 
     ### AlphaFold2 ###
     if os.path.isfile(os.path.join(job,'ranking_debug.json')) :
-        i = -1
+        mod_index = -1
         os.system(f"cp {job}/ranked_0.pdb {job}/{interaction}_ranked_0.pdb") #rename pdb file with explicit name
         all_models = ["ranked_0.pdb"]
         if multi_scoring == True :
@@ -253,8 +288,8 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
             data = json.load(json_f)
         best_model = data['order']
         for pdb in all_models :
-            i += 1
-            rank_model = best_model[i]
+            mod_index += 1
+            rank_model = best_model[mod_index]
             if "iptm" in data.keys() or "iptm+ptm" in data.keys() :
                 iptm_ptm_score = data['iptm+ptm'][rank_model]
                 if os.path.exists(os.path.join(result_subdir, f"result_{rank_model}.pkl")) :
@@ -270,9 +305,9 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                     logging.info(f"Cannot find result pickle for {job}, skipping.")
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
-                chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_mpdockq(os.path.join(job),check_dict)
+                chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job),check_dict)
                 if pdb == "ranked_0.pdb" :
-                    check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
+                    check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int) #only check PAE for best model
                 mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
                 if check :
                     good_jobs.append(str(f"{job}/{pdb}"))

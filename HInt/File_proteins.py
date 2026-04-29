@@ -411,13 +411,17 @@ class File_proteins() :
             new_fasta = str()
             for line in check_f :
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
-                    scrap_name= line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1]
+                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1]
                     if scrap_name in list_new_prot_name :
                         for i in range(1,100) :
                             new_name = scrap_name + "_" + str(i)
                             if new_name not in list_new_prot_name :
                                 scrap_name = new_name
                                 break
+                    new_fasta += ">" + scrap_name + "\n"
+                    list_new_prot_name.append(scrap_name)
+                if line[0] == ">" and " "in line :
+                    scrap_name = line.split(" ")[0][1:]
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 else :
@@ -431,21 +435,27 @@ class File_proteins() :
                     new_line = (line.strip().split(","))
                     for prot in new_line :
                         clean_prot = prot.upper().strip()
+                        compound_name = ""
+                        mol = None
                         if ":" in clean_prot : #compounds set up
                             compound_name = clean_prot.split(":")[0]
                             smile = clean_prot.split(":")[1]
-                        smile = clean_prot.replace("CL","Cl")
-                        smile = smile.replace("BR","Br")
-                        smile = smile.replace("FL","Fl") #Clean smile
-                        mol = Chem.MolFromSmiles(smile) #check if the line is a SMILES code
-                        if clean_prot in new_proteins or clean_prot in new_compounds.values() :
+                            smile = smile.replace("CL","Cl")
+                            smile = smile.replace("BR","Br")
+                            smile = smile.replace("FL","Fl") #Clean smile
+                            mol = Chem.MolFromSmiles(smile) #check if the line is a SMILES code
+                        if clean_prot in new_proteins or compound_name in new_compounds.values() :
                             raise ValueError(f"Protein {clean_prot} is duplicated in the input file.")
                         else :
                             if mol is not None :
                                 if ":" not in clean_prot :
                                     raise ValueError(f"Missing compound name for {clean_prot}. Compounds should be in the format 'CompoundName:SMILES'.")
                                 else :
-                                    new_compounds[compound_name] = smile
+                                    mol_with_H = Chem.AddHs(mol) #Add explicit hydrogens to the molecule to ensure accurate SMILES representation
+                                    smiles_H = Chem.MolToSmiles(mol_with_H)
+                                    new_compounds[compound_name] = smiles_H
+                                    result_dict[compound_name] = dict()
+                                    int_score[compound_name] = dict()
                             else :
                                 new_proteins.append(clean_prot)
                                 uniprot_prot.append(clean_prot)
@@ -474,7 +484,6 @@ class File_proteins() :
             for protein in new_proteins :
                 if protein not in baits :
                     raise ValueError("HInt doesn't allow to screen compounds and proteins. Please remove no bait protein from the input file.")
-
         self.set_compounds(new_compounds)
         self.set_uniprot_prot(uniprot_prot)
         self.set_file_name(path_txt)
@@ -721,8 +730,9 @@ class File_proteins() :
         sequences_SP = self.get_proteins_sequence_SP()
         sequences_no_SP = self.get_proteins_sequence_no_SP()
         file_name = self.get_file_name().split("/")[-1]
-        file_msa = file_name.replace(".txt","_msa.fasta")
-        file_pkl = file_name.replace(".txt","_pkl.fasta")
+        ext_f = "." + file_name.split(".")[-1]
+        file_msa = file_name.replace(ext_f,"_msa.fasta")
+        file_pkl = file_name.replace(ext_f,"_pkl.fasta")
         if os.path.isfile(f"log_file/{file_msa}") == True :
             os.remove(f"log_file/{file_msa}")
         if os.path.isfile(f"log_file/{file_pkl}") == True :

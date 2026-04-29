@@ -202,7 +202,8 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
     file_name = file.get_file_name().split("/")[-1]
-    fasta_file = file_name.replace(".txt","_msa.fasta")
+    ext_f = "." + file_name.split(".")[-1]
+    fasta_file = file_name.replace(ext_f,"_msa.fasta")
 
 
     if os.path.exists("log_file/result_deeploc") == True :
@@ -286,7 +287,8 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     final_file = str()
     SP_signal = 0
     file_name = file.get_file_name().split("/")[-1]
-    fasta_file = file_name.replace(".txt","_msa.fasta")
+    ext_f = "." + file_name.split(".")[-1]
+    fasta_file = file_name.replace(ext_f,"_msa.fasta")
     output_file = fasta_file.replace(".fasta","")
     new_fasta_dict = file.get_proteins_sequence_no_SP()
     result_dict = file.get_result_dict()
@@ -375,8 +377,9 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
-    msa_name = file_name.replace(".txt","_msa.fasta")
-    pkl_name = file_name.replace(".txt","_pkl.fasta")
+    ext_f = "." + file_name.split(".")[-1]
+    msa_name = file_name.replace(ext_f,"_msa.fasta")
+    pkl_name = file_name.replace(ext_f,"_pkl.fasta")
     GPU_str = ""
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
@@ -388,32 +391,26 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
 
-    #Look for MSA in AlphaFold database
-    generated_msa = copy.deepcopy(need_msa)
-
-
-    start = time.time()
-
-    if need_msa != [] :
-
-        # ThreadPool to parallelise
-
-        max_workers_mafft = CPU # how many jobs in parallel
-
-        logger.info(f"Search MSA in AlphaFold database")
+    def AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa) :
+        retry_queue = list() #list of protein to retry if error during MSA search in AFdb (too many request on server)
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
             for protein in generated_msa : #check if prot have an MSA in alphafold database
                 l_p =  len(protein)
                 if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
-                    time.sleep(0.3) #avoid too many request on AFdb server
+                    time.sleep(0.4) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
                     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
                     aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
-                    result = subprocess.run(["wget", "-q", "-O", msa_in, url])
+                    result = subprocess.run(["wget", "-O", msa_in, url], stderr=subprocess.PIPE)
                     if result.returncode != 0 :
+                        err = result.stderr.decode()
                         on_afdb = False
-                        os.remove(msa_in)
+                        if "404" in err : #404 error mean that MSA is not available in AFdb
+                            os.remove(msa_in)
+                        if "429" in err or "Too Many Requests" in err :
+                            retry_queue.append(protein)
+
                     else:
                         nbr_line = sum(1 for _ in open(msa_in))
                         if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
@@ -426,9 +423,23 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                         logger.info(f"MSA for {protein} processed")
                         need_msa.remove(protein) #msa found
                         need_pkl.append(protein)
+        return retry_queue
 
+    start = time.time()
+    generated_msa = copy.deepcopy(need_msa)
+    if need_msa != [] :
+        #ThreadPool to parallelise Mafft
+        max_workers_mafft = CPU # how many jobs in parallel
 
-        logger.info("MSA search in AlphaFold database complete")        
+        #Look for MSA in AlphaFold database
+        logger.info(f"Search MSA in AlphaFold database")
+
+        retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa)
+
+    while retry_queue != [] : #retry if error during MSA search in AFdb
+        retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
+
+    logger.info("MSA search in AlphaFold database complete")     
    
     file.create_fasta_file(False, need_msa, need_pkl)
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA

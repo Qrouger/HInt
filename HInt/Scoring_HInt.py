@@ -65,6 +65,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
     regions = Informations_dict["Regions"]
     nbr_homo = Informations_dict["Homo-oligomer"]
     AF_version = Informations_dict["AlphaFold"]
+    Compounds = file.get_compounds().keys() 
     ppi_list = list()
     already_done = list()
     already_dict = dict()
@@ -88,7 +89,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
 
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
-        if bait is None : #for homo-oligomer
+        if Interaction == "homo_int" : #for homo-oligomer
             for protein in possible_prey :
                 if f"hiQ_score_{nbr_homo}er" not in homo_score[protein].keys() :
                     ppi_list.append(f"./result_{Interaction}/{protein}_homo_{nbr_homo}er") #Found a solution for score only homo-oligomer without score
@@ -98,7 +99,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                         new_possible_prey.append(protein)
                     if homo_score[protein][f"hiQ_score_{nbr_homo}er"] == 0 :
                         result_dict[protein]["Reason_for_filtering"] = f"Bad homo-oligomer PAE : AF"
-        else : #for one vs all
+        if Interaction == "PPI_int" : #for one vs all
             for protein in possible_prey : #check if protein is already score
                 if f"iQ_score_vs_{bait_name}" not in int_score[protein].keys() :
                     dir_path = Path(f"./result_{Interaction}/{bait_name}_and_{protein}")
@@ -113,6 +114,20 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                         new_possible_prey.append(protein)
                     if int_score[protein][f"iQ_score_vs_{bait_name}"] == 0 :
                         result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+        if Interaction == "Compounds" : #for compounds
+            for compound in Compounds :
+                if f"iQ_score_vs_{compound}" not in int_score[compound].keys() :
+                    dir_path = Path(f"./result_{Interaction}/{bait_name}_and_{compound}")
+                    inv_dir = Path(f"./result_{Interaction}/{compound}_and_{bait_name}")
+                    if dir_path.exists() and dir_path.is_dir() :
+                        ppi_list.append(f"./result_{Interaction}/{bait_name}_and_{compound}")
+                    elif inv_dir.exists() and inv_dir.is_dir() :
+                        ppi_list.append(f"./result_{Interaction}/{compound}_and_{bait_name}")
+                else :
+                    result_dict[compound][f"iQ_score_vs_{compound}"] = int_score[compound][f"iQ_score_vs_{compound}"]
+                    if int_score[compound][f"iQ_score_vs_{compound}"] == 0 :
+                        result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+                
 
         results = []
         with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
@@ -187,7 +202,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                     for protein in possible_prey :
                         if multi_scoring == True and protein in mean_iQ_score.keys() :
                             scores = mean_iQ_score[protein]
-                            print(protein, scores)
                             mean = sum(scores) / len(scores)
                             variance = sum((x - mean) ** 2 for x in scores) / len(scores)
                             std = math.sqrt(variance)
@@ -249,8 +263,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
             logger.info("Time scoring interactions : %s\n", end_time - start_time)
             file.set_homo_score(homo_score)
             file.set_int_score(int_score)
-        print(cv_iQ_score)
-        print(mean_iQ_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
@@ -274,7 +286,7 @@ def run_scoring (args) :
     """
     interaction, file, AF_version, Path_ccp4, multi_scoring = args
     try :
-        result = HInt.get_good_inter_pae.main(interaction, 100, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
@@ -573,8 +585,6 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
             del logits
             del bin_edges
             gc.collect()
-            #distogram_softmax = softmax(pickle_dict["distogram"]["logits"], axis=2)
-            #dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2) #center of mass of the residue
             complete_lenght = 0
             max_hori_index = 0
             for bait in baits.split(",") :
@@ -604,7 +614,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
     if AF_version == "3" or dist_k == False : #if no distogram, use only PAE and distance from pdb
         with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
-        DIST_CUTOFF = 10.0      # Å (CA/CB/C)
+        DIST_CUTOFF = 10.0 # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
 
@@ -678,7 +688,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
         for interaction in dict_int[chains] :
             if interaction not in residues_at_interface[chains] :
                 residues_at_interface[chains].append(interaction)
-    if residues_at_interface != dict() : #can arrive if it don't find atom with distance < 10 or PAE < 7
+    if residues_at_interface != dict() : #can arrive if it don't find atom with distance < 10 or PAE < 10
         return residues_at_interface,proteins,path_int,color_res
     else :
         return None,None,None,None
@@ -895,7 +905,7 @@ def plot_sequence_interface (file, dict_inter) :
                 else :
                     ax.add_patch(plt.Rectangle((i, y_pos), 1, 0.6, color="white"))
                     ax.text(i + 0.5, y_pos + 0.25, aa, ha='center', va='center', color='black')
-                if (total_index+1) % 10 == 0 or i == 0:
+                if (total_index+1) % 10 == 0 or i == 0 :
                     ax.text(i + 0.5, y_pos + 0.5, str(total_index + 1), ha='center', va='center', color='black', fontsize=7)
         for index_neigh, neigh in enumerate(uniprot_id_interface) :
             name_neigh = f"{neigh}({dict_name[neigh]})" if neigh in dict_name else neigh
