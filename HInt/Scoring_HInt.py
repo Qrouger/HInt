@@ -305,10 +305,10 @@ def Resume_file(file, Informations_dict) :
 
     Two CSV files are produced:
     ------------------------
-    1) All_Final_result_HInt.csv
+    1. All_Final_result_HInt.csv
        Detailed table containing score, SignalP and DeepLoc informations for each protein.
 
-    2) Summary_result_HInt.csv
+    2. Summary_result_HInt.csv
        Compact table listing only the protein name and its global status ("possible hit" or reason for filtering).
 
     Parameters :

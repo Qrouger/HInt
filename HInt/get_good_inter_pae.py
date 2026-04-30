@@ -90,13 +90,13 @@ def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
     output_df = pd.DataFrame()
     for job in jobs :
         direc = os.path.dirname(job)
-        print(interaction)
         file_pdb = job.split("/")[-1]
         name_job = f"{file_pdb.split('.pdb')[0]}"
         if os.path.isdir("/scratch") :
             tmp_dir = f"/scratch/tmp/{name_job}"
         else :
             tmp_dir = f"/tmp/{name_job}"
+
         logging.info(f"Creating temporary directory {tmp_dir} for pi_score outputs")
         subprocess.run(f"rm -rf {tmp_dir} && mkdir -p {tmp_dir}/pi_score_outputs", shell=True, executable="/bin/bash", check=True)
         pi_score_outputs = os.path.join(tmp_dir, "pi_score_outputs")
@@ -310,7 +310,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                     check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int) #only check PAE for best model
                 mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
                 if check :
-                    good_jobs.append(str(f"{job}/{pdb}"))
+                    good_jobs.append(str(f"{job}/{job.split('/')[-1]}_{pdb}"))
                     iptm_ptm.append(iptm_ptm_score)
                     iptm.append(iptm_score)
                     mpDockq_scores.append(mpDockq_score)

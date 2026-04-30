@@ -1066,7 +1066,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
-    print(interaction_file.strip("\n"))
     if interaction_type == "PPI_int" or interaction_type == "Compounds" :
         prot_int = interaction_file.strip("\n").replace(";", "_and_")
     if interaction_type == "homo_int" :
