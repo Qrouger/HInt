@@ -398,7 +398,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                 l_p =  len(protein)
                 if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
-                    time.sleep(0.4) #avoid too many request on AFdb server
+                    time.sleep(0.25) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
                     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
                     aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
