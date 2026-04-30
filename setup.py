@@ -32,7 +32,8 @@ setup(
         'typeguard==2.13.3',
         'jax_triton==0.2.0',
         'triton==3.1.0',
-        'torch>=1.6'
+        'torch>=1.6',
+        'gemmi'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
