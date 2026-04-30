@@ -39,7 +39,7 @@ $CONDA_BIN create -n $ENV_NAME -y \
 
 echo "=== Installing HInt ==="
 
-$CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi==0.5.6
+$CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi
 
 #$CONDA_BIN run -n $ENV_NAME pip uninstall -y colabfold || true
 
