@@ -489,23 +489,23 @@ def plot_Distogram (job) :
             with open(path_file, "rb") as f :
                 results = pickle.load(f)
         if "distogram" in results.keys() : #avoid error from APD release 
-            bin_edges = results["distogram"]["bin_edges"]
-            bin_edges = np.insert(bin_edges, 0, 0)
+            bin_edges = np.insert(results["distogram"]["bin_edges"], 0, 0)
             distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
             dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2)
             np.savetxt(f"{job}/result_{best_model}.pkl.dmap", dist)
             lenght_list = []
             for seq in results["seqs"] :
                 lenght_list.append(len(seq))
+            del results
+            del dist
+            del distogram_softmax
+            del bin_edges
+            gc.collect()
             logger.info(f"Generate {job.split('/')[2]} Distogram")
             initial_lenght = 0
             fig, ax = plt.subplots()
             d = ax.imshow(dist)
             plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
-            del dist
-            del results
-            del distogram_softmax
-            del bin_edges
             del d
             gc.collect()
             ax.title.set_text("Distance map")
