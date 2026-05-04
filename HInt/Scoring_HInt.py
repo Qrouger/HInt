@@ -572,11 +572,10 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
         if "distogram" not in pickle_dict.keys() :
             dist_k = False
         else :
-            pae_mtx = pickle_dict['predicted_aligned_error']#take PAE
-            bin_edges = pickle_dict["distogram"]["bin_edges"]#take distogram for distance
-            bin_edges = np.insert(bin_edges, 0, 0)
+            bin_edges = np.insert(pickle_dict["distogram"]["bin_edges"], 0, 0) #take distogram for distance
             logits = pickle_dict["distogram"]["logits"]
             dist = bin_edges[np.argmax(logits, axis=2)]
+            pae_mtx = pickle_dict["predicted_aligned_error"]#take PAE
             del pickle_dict
             del logits
             del bin_edges
@@ -606,7 +605,9 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
                                     dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_lenght+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
                                     color_res[bait].add(str(res_in_tot_seq+1))
                                     color_res[proteins[-1]].add(str(line-complete_lenght+1))
-    
+            del dist
+            del pae_mtx
+            gc.collect()
     if AF_version == "3" or dist_k == False : #if no distogram, use only PAE and distance from pdb
         with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
@@ -671,7 +672,9 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
 
                 for (resA, resB), (dist, pae) in int_already_know.items() :
                    dict_int[interaction].append([f"{resA[2:5]}:{resA.split()[-1]}",f" {resB[2:5]}:{resB.split()[-1]}",f" {dist:.2f}",f" {pae:.2f}"])
-
+        del structure
+        del pae_mtx
+        gc.collect()
     residues_at_interface = dict()
     for chains in dict_int.keys() :
         residues_at_interface[chains] = []
