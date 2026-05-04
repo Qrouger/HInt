@@ -261,8 +261,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
             with open(int_AF3+'_confidences.json','rb') as json_f :
                 json_data = json.load(json_f)
-            pae_list = json_data['pae']
-            pae_mtx = np.array(pae_list)
+            pae_mtx = np.array(json_data['pae'])
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job))
             check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
@@ -303,7 +302,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 else :
                     logging.info(f"Cannot find result pickle for {job}, skipping.")
                 iptm_score = check_dict['iptm']
-                pae_mtx = check_dict['predicted_aligned_error']
+                pae_mtx = np.numpy(check_dict['predicted_aligned_error'])
                 chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job),check_dict)
                 if pdb == "ranked_0.pdb" :
                     check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int) #only check PAE for best model
