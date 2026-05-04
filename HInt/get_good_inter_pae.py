@@ -81,7 +81,7 @@ def extract_plddt_from_pdb(pdb_file) :
                     pass
     return np.array(plddt_values, dtype=float)
 
-def run_and_summarise_pi_score(interaction, jobs, surface_thres, ccp4_setup) :
+def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
     """
     A function to calculate all predicted models' pi_scores and make a pandas df of the results.
     Instrumented to log timing per major step.
@@ -252,7 +252,6 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
             structure.write_pdb(os.path.join(result_subdir, f'{interaction}_ranked_0.pdb'))
 
         int_AF3 = str(cif_files[0]).split("_model")[0]
-        confidence_f = list(Path(result_subdir).glob("*_summary_confidences.json"))
         if os.path.isfile(int_AF3+'_summary_confidences.json') :
             with open(int_AF3+'_summary_confidences.json','rb') as json_sum_f :
                 json_sum = json.load(json_sum_f)
@@ -324,7 +323,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
         "mpDockQ/pDockQ":mpDockq_scores})
 
     if good_jobs!=[] :
-        pi_score_df = run_and_summarise_pi_score(job.split("/")[-1], good_jobs, surface_thres, ccp4_setup)
+        pi_score_df = run_and_summarise_pi_score(good_jobs, surface_thres, ccp4_setup)
         pi_score_df = pd.merge(pi_score_df, other_measurements_df, on="jobs")
         columns = list(pi_score_df.columns.values)
         columns.pop(columns.index('jobs'))

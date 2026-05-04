@@ -157,7 +157,7 @@ def main() :
     # --------------------------------------------------------------
 
     if (len(need_msa) > 0 or len(need_pkl) > 0) :#and Informations_dict["Interact_with"] != [''] :
-        create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, need_pkl, Informations_dict["AlphaFold"])
+        create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, need_pkl)
 
     HInt_object.Make_save_dict()  # Save SignalP and feature results
 

@@ -58,8 +58,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
     possible_prey = file.get_possible_prey()
     int_score = file.get_int_score() #saved scores
     homo_score = file.get_homo_score()
-    seq_no_SP = file.get_proteins_sequence_no_SP()
-    prot_lenght = file.get_lenght_prot()
     new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     regions = Informations_dict["Regions"]
@@ -198,7 +196,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                                 new_possible_prey.append(just_name.split("_and_")[-1])
                             if "ranked_0" in job :
                                 all_lines = all_lines + line
-                            name_int = just_name.split("/")[-1]
                     for protein in possible_prey :
                         if multi_scoring == True and protein in mean_iQ_score.keys() :
                             scores = mean_iQ_score[protein]
@@ -248,7 +245,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
                             new_possible_prey.append(prot_name)
                         result_dict[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
                         homo_score[prot_name][f"hiQ_score_{nbr_homo}er"] = hiQ_score
-                        name_int = key.split("/")[-1]
                     for protein in possible_prey :
                         if protein not in new_possible_prey :
                             homo_score[protein][f"hiQ_score_{nbr_homo}er"] = 0

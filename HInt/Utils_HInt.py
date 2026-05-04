@@ -348,7 +348,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     file.set_prot_SP(if_prot_SP)
     return new_need_msa
 
-def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_version) :
+def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     """
     Generate MSAs and AlphaFold feature pickle files for a set of proteins.
 
@@ -365,21 +365,18 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
     CPU : int
     need_msa : list
     need_pkl : list
-    AF_version : str (2 or 3)
 
     """
 
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
-    baits = Informations_dict["Interact_with"]
     uniprot_prot = file.get_uniprot_prot()
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
     ext_f = "." + file_name.split(".")[-1]
     msa_name = file_name.replace(ext_f,"_msa.fasta")
-    pkl_name = file_name.replace(ext_f,"_pkl.fasta")
     GPU_str = ""
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
@@ -398,10 +395,9 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, AF_ve
                 l_p =  len(protein)
                 if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
-                    time.sleep(0.25) #avoid too many request on AFdb server
+                    time.sleep(0.2) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
                     msa_in = f"{Path_Pickle_Feature}/{protein}.a3m"
-                    aln_out = f"{Path_Pickle_Feature}/{protein}.aln"
                     result = subprocess.run(["wget", "-O", msa_in, url], stderr=subprocess.PIPE)
                     if result.returncode != 0 :
                         err = result.stderr.decode()
@@ -755,6 +751,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     new_need_pkl : list
     """
     localisation = Informations_dict["DeepLoc"].split(",")
+    localisation = [loc.strip() for loc in localisation]
     deeploc = file.get_deeploc()
     possible_baits = Informations_dict["Interact_with"]
     possible_prey = file.get_possible_prey()
@@ -1077,7 +1074,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
 
     if interaction_type == "Compounds" : #Write json file to use AF3 native
         random_seed = random.randrange(2**32 - 1)
-        json_input = ""
         sequences = []
         ligands = []
         i = -1
@@ -1207,7 +1203,6 @@ def kill_hint_processes(proc) :
     proc : subprocess obj
     """
     logger.info("Ctrl+C detected")
-    python_path = sys.executable
     try :
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL) #kill all PID
     except ProcessLookupError :
