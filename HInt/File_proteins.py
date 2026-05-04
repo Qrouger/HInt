@@ -420,7 +420,7 @@ class File_proteins() :
                                 break
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
-                if line[0] == ">" and " "in line :
+                elif line[0] == ">" and " "in line :
                     scrap_name = line.split(" ")[0][1:]
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
