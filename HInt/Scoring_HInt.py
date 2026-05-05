@@ -34,7 +34,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, multi_scoring=False) :
+def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi_scoring="False") :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -77,7 +77,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait=None, mul
     if not exists :
         subprocess.run(["conda", "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
 
-    if bait is not None : #setup bait name
+    if bait != "" : #setup bait name
         bait_name = bait.replace(",","_and_")
         for prot in bait.split(",") :
             if regions[prot] != "0-0" :
