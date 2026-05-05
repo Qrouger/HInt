@@ -302,7 +302,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 else :
                     logging.info(f"Cannot find result pickle for {job}, skipping.")
                 iptm_score = check_dict['iptm']
-                pae_mtx = np.numpy(check_dict['predicted_aligned_error'])
+                pae_mtx = np.array(check_dict['predicted_aligned_error'])
                 chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job),check_dict)
                 if pdb == "ranked_0.pdb" :
                     check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int) #only check PAE for best model
