@@ -497,7 +497,6 @@ def plot_Distogram (job) :
             for seq in results["seqs"] :
                 lenght_list.append(len(seq))
             del results
-            del dist
             del distogram_softmax
             del bin_edges
             gc.collect()
@@ -505,6 +504,7 @@ def plot_Distogram (job) :
             initial_lenght = 0
             fig, ax = plt.subplots()
             d = ax.imshow(dist)
+            del dist
             plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
             del d
             gc.collect()
