@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # stop si erreur
+set -e
 set -o pipefail
 
 
