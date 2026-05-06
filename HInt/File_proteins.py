@@ -495,7 +495,7 @@ class File_proteins() :
         self.set_result_dict(result_dict)
         self.set_prot_SP(prot_SP)
 
-    def check_save_dict (self, Path_Pickle_Feature, Alphafold_version) :
+    def check_save_dict (self, Path_Pickle_Feature) :
         """
         Inspect previously saved computation states and determine missing features for each protein.
 
@@ -510,7 +510,6 @@ class File_proteins() :
         Parameters :
         ----------
         Path_Pickle_Feature : str
-        Alphafold_version : str (2 or 3)
         
         Returns :
         ----------
