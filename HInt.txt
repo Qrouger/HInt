@@ -1,10 +1,10 @@
 ###Informations  #All arguments are optional except Organism
-Signal_peptide : #Yes, No or None.
-DeepLoc :
+Signal_peptide : Yes #Yes, No or None.
+DeepLoc : Periplasmic, Extracellular
 Max_protein_lenght :
 Min_protein_lenght :
 Homo-oligomer : #Integer between 2-20
-Interact_with : O50333 #UniprotID/Protein Name
+Interact_with : P33790 #UniprotID/Protein Name
 Organism : gram- #gram-, gram+, euk or arch
 
 
@@ -12,7 +12,7 @@ AlphaFold : 2 #version 3 or 2
 
 
 ###Database Paths #All paths are mandatory except Path_MMseqs2_Data
-Path_AlphaFold_Data :
+Path_AlphaFold_Data : /AF_db
 Path_ccp4 : /opt/xtal/ccp4-9
 Path_MMseqs2_Data :
 
