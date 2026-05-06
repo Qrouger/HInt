@@ -638,7 +638,8 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
     new_possible_prey = list()
     for prot in all_prot :
         if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() == False :
-            pre_feature_dict = pickle.load(open(f'{Path_Pickle_Feature}/{prot}.pkl','rb'))
+            #Make coverage plot
+            pre_feature_dict = pickle.load(open(f"{Path_Pickle_Feature}/{prot}.pkl","rb"))
             feature_dict = pre_feature_dict.feature_dict
             msa = feature_dict['msa']
             seqid = (np.array(msa[0] == msa).mean(-1))
@@ -649,8 +650,8 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
             plt.figure(figsize=(14, 4), dpi=100)
             plt.subplot(1, 2, 1)
             plt.title(f"Sequence coverage ({prot})")
-            plt.imshow(final, interpolation='nearest', aspect='auto', cmap="rainbow_r", vmin=0, vmax=1, origin='lower')
-            plt.plot((msa != 21).sum(0), color='black')
+            plt.imshow(final, interpolation="nearest", aspect="auto", cmap="rainbow_r", vmin=0, vmax=1, origin="lower")
+            plt.plot((msa != 21).sum(0), color="black")
             plt.xlim(-0.5, msa.shape[1] - 0.5)
             plt.ylim(-0.5, msa.shape[0] - 0.5)
             plt.colorbar(label="Sequence identity to query", )
@@ -658,25 +659,28 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
             plt.ylabel("Sequences")
             plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
             plt.close()
-        with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f:
+        #Evaluate MSA depth
+        with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f :
             line_msa = sum(1 for _ in msa_f)
-        if line_msa/2 <= 100 and prot not in baits :
-            if line_msa/2 < 2 :
-               shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
+            real_nb_msa = line_msa/2
+        if real_nb_msa <= 100 and prot not in baits :
+            if real_nb_msa < 2 :
+               shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "No MSA"
                result_dict[prot]["Reason_for_filtering"] = "No MSA"
             else :
-               shallow_MSA += prot + " : " + str(int(line_msa/2)) + " sequences\n"
+               shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
                result_dict[prot]["shallow_MSA"] = "Shallow MSA"
                new_possible_prey.append(prot)
-        if line_msa/2 > 100 and prot not in baits :
+        if real_nb_msa > 100 and prot not in baits :
             new_possible_prey.append(prot)
-        if line_msa/2 <= 100 and prot in baits :
-            logger.warning(f"This bait : {prot} have a shallow MSA with {int(line_msa/2)} sequences. Predicted interactions involving this protein should be interpreted with caution.")
+        if real_nb_msa <= 100 and prot in baits :
+            logger.warning(f"This bait : {prot} have a shallow MSA with {int(real_nb_msa)} sequences. Predicted interactions involving this protein should be interpreted with caution.")
     with open("log_file/shallow_MSA.txt", "w") as MSA_file :
         MSA_file.write(shallow_MSA)
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
+
 
 
 def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
