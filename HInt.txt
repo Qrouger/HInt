@@ -4,7 +4,7 @@ DeepLoc :
 Max_protein_lenght :
 Min_protein_lenght :
 Homo-oligomer : #Integer between 2-20
-Interact_with : O50333 #UniprotID/Protein Name #Precise a region (start-end)
+Interact_with : O50333 #UniprotID/Protein Name
 Organism : gram- #gram-, gram+, euk or arch
 
 
