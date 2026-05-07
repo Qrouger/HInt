@@ -165,6 +165,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
+                                        mean_iQ_score[just_name.split("_and_")[-1]] = []
                                         already_dict[job] = [float(-2.63)]
                                         iQ_score = float(row['iptm_ptm'])*30#pi_score don't detect interface so it's set on -2.63
                                         line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
@@ -177,12 +178,13 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                                         iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
+                                        mean_iQ_score[just_name.split("_and_")[-1]] = []
                                         already_dict[job] = [float(row['pi_score'])]
                                         iQ_score = ((float(row['pi_score'])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
                                         line =f'{just_name},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
                             
-                            else : #need to use hiQ_score for multimer bait and look at interface
+                            else : #if only one bait
                                 if row['pi_score'] == 'No interface detected' :
                                     iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
                                     if "ranked_0" in job :
@@ -191,7 +193,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                                 else :
                                     iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
                                     if "ranked_0" in job :
-                                        line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'{just_name},{row['pi_score']},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         mean_iQ_score[just_name.split("_and_")[-1]] =[]
                             mean_iQ_score[just_name.split("_and_")[-1]].append(iQ_score)
                             int_score[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
