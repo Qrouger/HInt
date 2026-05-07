@@ -69,13 +69,17 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
     already_dict = dict()
     mean_iQ_score = dict()
     cv_iQ_score = dict()
+    
+    for t in ["micromamba", "mamba", "conda"] :
+        if shutil.which(t) :
+            tool = t
 
     multi_scoring = False if multi_scoring == "False" else True
-    result = subprocess.run(["conda", "env", "list", "--json"],capture_output=True, text=True, check=True)
+    result = subprocess.run([tool, "env", "list", "--json"],capture_output=True, text=True, check=True)
     envs = json.loads(result.stdout)["envs"]
     exists = any("pi_score" in env for env in envs)
     if not exists :
-        subprocess.run(["conda", "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
+        subprocess.run([tool, "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
 
     if bait != "" : #setup bait name
         bait_name = bait.replace(",","_and_")
