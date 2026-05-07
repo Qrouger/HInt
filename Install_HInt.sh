@@ -9,9 +9,12 @@ ENV_NAME="HInt"
 CONDA_BIN="${CONDA_BIN:-conda}"
 ENV_PATH="$($CONDA_BIN info --base)/envs/$ENV_NAME"
 
-
 echo "=== Initializing conda ==="
-source "$($CONDA_BIN info --base)/etc/profile.d/conda.sh"
+if [[ "$CONDA_BIN" == *micromamba* ]] || [[ "$CONDA_BIN" == *mamba* ]]; then
+    eval "$($CONDA_BIN shell hook --shell=bash)"
+else
+    source "$($CONDA_BIN info --base)/etc/profile.d/conda.sh"
+fi
 
 
 if $CONDA_BIN env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
