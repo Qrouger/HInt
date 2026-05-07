@@ -68,7 +68,7 @@ $CONDA_BIN run -n $ENV_NAME pip install . --no-deps
 
 $CONDA_BIN run -n $ENV_NAME build_data || echo "WARNING: build_data failed"
 
-$CONDA_BIN run -n $ENV_NAME conda install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
+$CONDA_BIN run -n $ENV_NAME $CONDA_BIN install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 
 cd ..
 
@@ -76,7 +76,7 @@ $CONDA_BIN install -y -c nvidia/label/cuda-12.4.1 cuda
 
 echo "=== DeepLocPro ==="
 if [ ! -d "deeplocpro" ]; then
-   git clone https://github.com/Jaimomar99/deeplocpro
+   $CONDA_BIN run -n $ENV_NAME git clone https://github.com/Jaimomar99/deeplocpro
 fi
 cd deeplocpro
 
