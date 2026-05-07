@@ -505,6 +505,7 @@ def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
     for line in process.stdout :
         print(f"{line}", end="")  # stream live
+    os.remove(pkl_file)
     process.wait()
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
