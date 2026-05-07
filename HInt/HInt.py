@@ -100,7 +100,7 @@ def main() :
 
 
     # need_msa also includes proteins that only require signal peptide information
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"], Informations_dict["AlphaFold"])
+    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
 
     # Remove bait proteins from the prey list
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]])
