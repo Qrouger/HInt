@@ -4,17 +4,18 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "script_pi_score"))
-from calculate_mpdockq import *
 import pickle
 import json
-import numpy as np
-import pandas as pd
+import shutil
+import gemmi
+import logging
 import subprocess
 import gzip
+import numpy as np
+import pandas as pd
 from Bio.PDB import MMCIFParser, PDBIO
-import logging
 from pathlib import Path
-import gemmi
+from calculate_mpdockq import *
 
 
 def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
@@ -86,7 +87,10 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
     A function to calculate all predicted models' pi_scores and make a pandas df of the results.
     Instrumented to log timing per major step.
     """
-
+    output_df = pd.DataFrame()
+    for t in ["micromamba", "mamba", "conda"] :
+        if shutil.which(t) :
+            tool = t
     output_df = pd.DataFrame()
     for job in jobs :
         direc = os.path.dirname(job)
@@ -112,7 +116,7 @@ def run_and_summarise_pi_score(jobs, surface_thres, ccp4_setup) :
 
         cmd = (
             f"source {ccp4_setup}/bin/ccp4.setup-sh && "
-            f"conda run -n pi_score python {cwd}/script_pi_score/run_piscore_wc.py "
+            f"{tool} run -n pi_score python {cwd}/script_pi_score/run_piscore_wc.py "
             f"-p {job} -o {output_dir} -s {surface_thres} -ps 10"
         )
 
