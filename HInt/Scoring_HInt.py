@@ -6,9 +6,6 @@ import os
 import csv
 import logging
 import multiprocessing
-from multiprocessing import Pool
-from tqdm import tqdm
-from datetime import datetime
 import HInt.get_good_inter_pae
 import gc
 import pandas as pd
@@ -17,13 +14,16 @@ import pickle
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import softmax
-from Bio import PDB
 import copy
 import string
 import subprocess
 import math
 from pathlib import Path
+from multiprocessing import Pool
+from tqdm import tqdm
+from datetime import datetime
+from scipy.special import softmax
+from Bio import PDB
 
 # Configure global logger
 logging.basicConfig(
