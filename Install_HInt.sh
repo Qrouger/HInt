@@ -57,11 +57,11 @@ if [ -d "alphafold3" ]; then
     rm -rf alphafold3
 fi
 
-git clone https://github.com/KosinskiLab/alphafold3
+$CONDA_BIN run -n $ENV_NAME git clone https://github.com/KosinskiLab/alphafold3
 
 cd alphafold3
 
-git checkout -b af3_custom_6ad1a6
+$CONDA_BIN run -n $ENV_NAME git checkout -b af3_custom_6ad1a6
 
 
 $CONDA_BIN run -n $ENV_NAME pip install . --no-deps
