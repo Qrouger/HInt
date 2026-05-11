@@ -377,7 +377,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     file_name = file.get_file_name()
     ext_f = "." + file_name.split(".")[-1]
     msa_name = file_name.replace(ext_f,"_msa.fasta")
-    GPU_str = ""
+    retry_queue = list()
+    GPU_str = str()
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
