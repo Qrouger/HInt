@@ -152,48 +152,48 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                 if Interaction == "PPI_int" or Interaction == "Compounds" : #make int_score
                     all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
                     for row in reader :
-                        job = row['jobs']
+                        job = row["jobs"]
                         just_name = job.split("_ranked_")[0]
 
                         if '_and_' in job and just_name.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                             if "," in bait : #multimer bait
-                                if row['pi_score'] == 'No interface detected' :
+                                if row["pi_score"] == 'No interface detected' :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score #multimeric bait
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
                                         already_dict[job].append(float(-2.63))
                                         mean_pi_score = (sum(already_dict[job]) + float(-2.63)) / len(already_dict[job])
-                                        iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                                        iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row["iptm_ptm"])*40
                                         line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
                                         mean_iQ_score[just_name.split("_and_")[-1]] = []
                                         already_dict[job] = [float(-2.63)]
-                                        iQ_score = float(row['iptm_ptm'])*30#pi_score don't detect interface so it's set on -2.63
+                                        iQ_score = float(row["iptm_ptm"])*30#pi_score don't detect interface so it's set on -2.63
                                         line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
                                 else :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score  #multimeric bait
                                         all_lines = '\n'.join(all_lines.rstrip('\n').split('\n')[:-1]) #delete last line
-                                        already_dict[job].append(float(row['pi_score']))
-                                        mean_pi_score = (sum(already_dict[job]) + float(row['pi_score'])) / len(already_dict[job])
-                                        iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                                        already_dict[job].append(float(row["pi_score"]))
+                                        mean_pi_score = (sum(already_dict[job]) + float(row["pi_score"])) / len(already_dict[job])
+                                        iQ_score = ((mean_pi_score+2.63)/5.26)*60+float(row["iptm_ptm"])*40
                                         line =f'\n{just_name},{str(mean_pi_score)},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                     else :
                                         mean_iQ_score[just_name.split("_and_")[-1]] = []
-                                        already_dict[job] = [float(row['pi_score'])]
-                                        iQ_score = ((float(row['pi_score'])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                                        already_dict[job] = [float(row["pi_score"])]
+                                        iQ_score = ((float(row["pi_score"])+2.63)/5.26)*60+float(row["iptm_ptm"])*40
                                         line =f'{just_name},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         already_done.append(job)
                             
                             else : #if only one bait
-                                if row['pi_score'] == 'No interface detected' :
-                                    iQ_score = float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30 #pi_score don't detect interface so it's set on -2.63
+                                if row["pi_score"] == 'No interface detected' :
+                                    iQ_score = float(row["iptm_ptm"])*30+float(row["mpDockQ/pDockQ"])*30 #pi_score don't detect interface so it's set on -2.63
                                     if "ranked_0" in job :
                                         line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         mean_iQ_score[just_name.split("_and_")[-1]] = []
                                 else :
-                                    iQ_score = ((float(row['pi_score'])+2.63)/5.26)*40+float(row['iptm_ptm'])*30+float(row['mpDockQ/pDockQ'])*30
+                                    iQ_score = ((float(row["pi_score"])+2.63)/5.26)*40+float(row["iptm_ptm"])*30+float(row["mpDockQ/pDockQ"])*30
                                     if "ranked_0" in job :
-                                        line =f'{just_name},{row['pi_score']},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                                        line =f'{just_name},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
                                         mean_iQ_score[just_name.split("_and_")[-1]] =[]
                             mean_iQ_score[just_name.split("_and_")[-1]].append(iQ_score)
                             int_score[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
@@ -221,14 +221,14 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     save_pi_score = dict()
                     all_lines = "jobs,pi_score,iptm_ptm,hiQ_score\n"
                     for row in reader :
-                        job = row['jobs']
-                        if row['pi_score'] != 'No interface detected' :
+                        job = row["jobs"]
+                        if row["pi_score"] != 'No interface detected' :
                             if job not in all_homo.keys() :
-                                all_homo[job] = (row['pi_score'],1,row)
-                                save_pi_score[job] = [float(row['pi_score'])]
+                                all_homo[job] = (row["pi_score"],1,row)
+                                save_pi_score[job] = [float(row["pi_score"])]
                             else :
-                                save_pi_score[job].append(float(row['pi_score']))
-                                sum_pi_score = float(all_homo[job][0]) + float(row['pi_score'])
+                                save_pi_score[job].append(float(row["pi_score"]))
+                                sum_pi_score = float(all_homo[job][0]) + float(row["pi_score"])
                                 sum_int = all_homo[job][1] + 1
                                 all_homo[job] = (sum_pi_score,sum_int,row)
                     for key in all_homo.keys() :
@@ -240,11 +240,11 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                             save_pi_score[key].sort(reverse=True)
                             for index in range(0,int(nbr_homo)) :
                                 new_sum_pi_score += save_pi_score[key][index]
-                                hiQ_score = (((float(new_sum_pi_score)/int(nbr_homo))+2.63)/5.26)*60+float(row['iptm_ptm'])*40 #cause iptm_ptm are always same for each interface
+                                hiQ_score = (((float(new_sum_pi_score)/int(nbr_homo))+2.63)/5.26)*60+float(row["iptm_ptm"])*40 #cause iptm_ptm are always same for each interface
                             line =f'{key},{str(float(new_sum_pi_score)/int(nbr_homo))},{row["iptm_ptm"]},{str(hiQ_score)}\n'
                             all_lines += line   
                         else :
-                            hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row['iptm_ptm'])*40
+                            hiQ_score = (((float(all_homo[key][0])/all_homo[key][1])+2.63)/5.26)*60+float(row["iptm_ptm"])*40
                             line =f'{key},{str(float(all_homo[key][0])/all_homo[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
                             all_lines += line
                         if prot_name not in new_possible_prey :
