@@ -797,8 +797,7 @@ def cluster_interface (interface_dict, sorted_proteins) :
     interface_dict : dict
         Updated dictionary where each interface list starts with a letter (a-z) representing the interface cluster. Interfaces with similar residues share the same letter.
     """
-    alphabet = string.ascii_lowercase
-
+    alphabet = list(string.ascii_lowercase) + [c*2 for c in string.ascii_lowercase]
     for proteins in interface_dict.keys() :
         if len(interface_dict[proteins]) >= 27 : #Limit to 27 interfaces per protein
             best_preys = list()
