@@ -107,7 +107,7 @@ def Define_informations() :
                 logger.info("Minimum lenght for prey protein set by default 20 to AA")
             elif informations_key == "Max_protein_lenght" :
                 Informations_dict[informations_key] = ""
-        if len(Informations_dict[informations_key]) == 1 :
+        if len(Informations_dict[informations_key]) != 0 :
             if informations_key == "Path_AlphaFold_Data" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
                     raise ValueError(f"Path set for AlphaFold database doesn't exist : {Informations_dict[informations_key]}")
