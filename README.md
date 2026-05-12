@@ -22,6 +22,7 @@ You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://gi
 
 Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
 ```bash
+conda activate HInt
 cd  deeploc2_package
 pip install . torch==2.6.0
 pip install triton==3.1.0
