@@ -1067,7 +1067,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
     env['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
-    env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '3.2'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
     if interaction_type == "PPI_int" or interaction_type == "Compounds" :
