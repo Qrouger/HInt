@@ -245,3 +245,10 @@ HInt_screen/
 
 </details>
 
+## Standalone iQ-score Calculation
+
+Compute **iQ-score** independently from the full HInt workflow.
+
+[![GitHub](https://img.shields.io/badge/GitHub-iQ--score-black?style=for-the-badge&logo=github)](https://github.com/Qrouger/iQ-score)
+
+</div>
