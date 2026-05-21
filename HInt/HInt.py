@@ -252,6 +252,6 @@ def main() :
     for step in time_dict.keys() :
         if step != "Summarize_info" :
             line_report += f"{step}\t{time_dict[step][0]}\t{time_dict[step][1]:.2f}\n"
-    with open("./HInt_report.txt", "w") as f :
+    with open("./log_file/HInt_report.txt", "w") as f :
         f.write(line_report)
     logger.info("All steps done")
