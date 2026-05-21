@@ -199,6 +199,19 @@ class File_proteins() :
         """
         self.compounds = compounds
 
+    def set_time_dict (self, time_dict) :
+        """
+        Set a dict of differents step timing. Key of the dict is step and the value list of number of prey and time.
+        
+        Parameters:
+        ----------
+        time_dict : dict
+
+        Returns:
+        ----------
+        """
+        self.time_dict = time_dict
+
     def get_proteins_sequence_SP (self) :
         """
         Return the new amino acid sequence dictionary with SP.
@@ -367,6 +380,20 @@ class File_proteins() :
         compounds : dict
         """
         return self.compounds
+    
+    def get_time_dict (self) :
+        """
+        Return a dict of timings.
+        
+        Parameters:
+        ----------
+
+        Returns:
+        ----------
+        time_dict : dict
+        """
+        return self.time_dict
+
 
 
 ### Generating of features and pre-file to run multimer
@@ -404,6 +431,7 @@ class File_proteins() :
         already_fasta = dict()
         int_score = dict()
         homo_score = dict()
+        time_dict = dict()
         save_prot = ""
         list_new_prot_name = list()
         with open(path_txt,"r") as check_f : #clean ncbi file
@@ -483,6 +511,7 @@ class File_proteins() :
             for protein in new_proteins :
                 if protein not in baits :
                     raise ValueError("HInt doesn't allow to screen compounds and proteins. Please remove no bait protein from the input file.")
+        self.set_time_dict(time_dict)
         self.set_compounds(new_compounds)
         self.set_uniprot_prot(uniprot_prot)
         self.set_file_name(path_txt)

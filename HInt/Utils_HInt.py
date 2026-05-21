@@ -8,15 +8,12 @@ import subprocess
 import multiprocessing
 import pynvml
 import copy
-import sys
 import signal
 import glob
-import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from Bio import SeqIO
 import time
-import queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import random
@@ -286,6 +283,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     """
     final_file = str()
     SP_signal = 0
+    time_dict = file.get_time_dict()
     file_name = file.get_file_name().split("/")[-1]
     ext_f = "." + file_name.split(".")[-1]
     fasta_file = file_name.replace(ext_f,"_msa.fasta")
@@ -868,7 +866,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                     possible_prey.remove(prey)
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
-        vram_lenght = 1.9 + (-0.0000627) * lenght + 0.00000332 * lenght**2 #AF3 use less memory ,
+        vram_lenght = 1.9 + (-0.0000627) * lenght + 0.00000332 * lenght**2 
         for compound in Compounds.keys() :
             job_str = f"{bait_for_job};{compound}\n"
             path = glob.glob(f"./result_Compounds/{bait_file}_and_{compound}/*_model.cif")
@@ -967,7 +965,8 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
             compounds_dict=compounds_dict
         )
 
-
+    stop_flag.set()
+    monitor.join()
 
 def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu, seq_bait, Baits, compounds_dict) :
     """

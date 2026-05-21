@@ -400,6 +400,10 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     AF_version : str
     sorted_proteins : list
     CPU : int
+
+    Returns :
+    ----------
+    tasks : list of tuples
     """
     logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
@@ -441,6 +445,8 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
 
         interface_dict = cluster_interface(interface_dict, sorted_proteins)
         plot_sequence_interface(file, interface_dict)
+    
+    return tasks
 
 
 
@@ -452,7 +458,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     ----------
     args : tuple
 
-    returns :
+    Returns :
     ----------
     interface_dict : dict
     """
