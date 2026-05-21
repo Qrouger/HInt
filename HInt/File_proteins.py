@@ -5,7 +5,6 @@
 import urllib.request
 import re
 from .Utils_HInt import *
-import csv
 import os
 import copy
 from rdkit import Chem,RDLogger
