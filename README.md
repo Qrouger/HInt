@@ -53,7 +53,7 @@ To accelerate MSA generation, it is strongly recommended to store the databases 
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
-GPU=1 ./setup_databases.sh ./mmseq_database
+GPU=1 ./setup_databases.sh ./MMseqs2_GPU_database
 ```
 
 
