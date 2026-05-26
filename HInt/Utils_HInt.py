@@ -283,7 +283,6 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     """
     final_file = str()
     SP_signal = 0
-    time_dict = file.get_time_dict()
     file_name = file.get_file_name().split("/")[-1]
     ext_f = "." + file_name.split(".")[-1]
     fasta_file = file_name.replace(ext_f,"_msa.fasta")
