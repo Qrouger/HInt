@@ -247,7 +247,7 @@ def main() :
         time_Figure = format_time(time.time() - start_Figure)
         time_dict["Figures"] = [len(nbr_fig), time_Figure]
 
-    line_report = f"===== SUMMARY INFO =====\nBait : {time_dict['Summarize_info'][0]}\nCellular localization : {time_dict['Summarize_info'][1]}\nPeptide signal : {time_dict['Summarize_info'][2]}\nMinimum protein length : {time_dict['Summarize_info'][3]}\nMaximum protein length : {time_dict['Summarize_info'][4]}\nHomo-oligomer state : {time_dict['Summarize_info'][5]}\nNumber of preys : {time_dict['Summarize_info'][6]}\nOrganism : {time_dict['Summarize_info'][7]}\n\n===== TIMINGS =====\nStep\tNumber of proteins\tTime\n"
+    line_report = f"===== SUMMARY INFO =====\nBait : {time_dict['Summarize_info'][0]}\nCellular localization : {time_dict['Summarize_info'][1]}\nPeptide signal : {time_dict['Summarize_info'][2]}\nMinimum protein length : {time_dict['Summarize_info'][3]}\nMaximum protein length : {time_dict['Summarize_info'][4]}\nHomo-oligomer state : {time_dict['Summarize_info'][5]}\nNumber of preys : {time_dict['Summarize_info'][6]}\nOrganism : {time_dict['Summarize_info'][7]}\nGPU : {GPU}\nCPU : {CPU}\n\n===== TIMINGS =====\nStep\tNumber of proteins\tTime\n"
     for step in time_dict.keys() :
         if step != "Summarize_info" :
             line_report += f"{step}\t{time_dict[step][0]}\t{time_dict[step][1]}\n"
