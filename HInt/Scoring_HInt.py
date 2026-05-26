@@ -373,7 +373,7 @@ def Resume_file(file, Informations_dict) :
         small_csv_lines += "\n"
     with open("All_Final_result_HInt.csv", "w") as All_result_file :
         All_result_file.write(big_csv_lines)
-    with open("Summary_result_HInt.csv", "w") as summary :
+    with open("./log_file/Summary_result_HInt.csv", "w") as summary :
         summary.write(small_csv_lines)
     return sorted_proteins
 
