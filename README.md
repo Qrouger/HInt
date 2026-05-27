@@ -225,7 +225,6 @@ HInt_screen/
 HInt_screen/
   HInt.txt
   sequences.txt
-  Summary_result_HInt.csv
   All_Final_result_HInt.csv
   result_PPI_int/
     P33790_and_P15069
@@ -243,11 +242,41 @@ HInt_screen/
   Interface_fig/
   log_file/
     HInt.log
+    Summary_result_HInt.csv
 ```
-
 </details>
 
-## Standalone iQ-score Calculation
+## Global results description
+
+The pipeline generates three main output files:
+
+### All_Final_result_HInt.csv
+Final curated results after filtering steps.
+
+- **Name**: Protein identifier  
+- **Localization**: Predicted subcellular localization  
+- **Signal_peptide**: Signal peptide prediction (presence or not)  
+- **Score**: Final HInt interaction score  
+
+---
+
+### Summary_result_HInt.csv
+Summary of filtering decisions applied to each entry.
+
+- **Name**: Protein identifier  
+- **Reason_for_filtering**: Reason why the entry was filtered or flagged  
+
+---
+
+### HInt_report
+Comprehensive report of all processed entries.
+
+Includes:
+- All entry information  
+- Execution timings for each stage (prediction, scoring, filtering, etc.)
+
+
+# Standalone iQ-score Calculation
 
 Compute **iQ-score** independently from the full HInt workflow.
 
