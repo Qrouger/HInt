@@ -235,7 +235,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     for key in all_homo.keys() :
                         row = all_homo[key][2]
                         #number_oligo = row["jobs"].split("_")[2].replace("er","") #AFPD 2.0.4 #problem with "_" in name sequence ?
-                        prot_name = row["jobs"].split("_")[0]
+                        prot_name = row["jobs"].split("_homo_")[0]
                         if len(save_pi_score[key]) > int(nbr_homo) : #if model have more interface than number of homo-oligomerization
                             new_sum_pi_score = 0
                             save_pi_score[key].sort(reverse=True)
