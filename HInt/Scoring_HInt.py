@@ -330,7 +330,7 @@ def Resume_file(file, Informations_dict) :
     regions = Informations_dict["Regions"]
     informations = ["DeepLoc","Signal_peptide"]
     nbr_homo = Informations_dict["Homo-oligomer"]
-    big_csv_lines = "Name,DeepLoc,Signal_peptide\n"
+    big_csv_lines = "Name,Localization,Signal_peptide\n"
     small_csv_lines = "Name,Reason_for_filtering\n"
     for protein in Informations_dict["Interact_with"] :
         result_dict.pop(protein, None) #remove bait from result dict
