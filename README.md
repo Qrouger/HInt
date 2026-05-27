@@ -243,6 +243,7 @@ HInt_screen/
   log_file/
     HInt.log
     Summary_result_HInt.csv
+    HInt_report.txt
 ```
 </details>
 
@@ -268,13 +269,22 @@ Summary of filtering decisions applied to each entry.
 
 ---
 
-### HInt_report
+### HInt_report.txt
 Comprehensive report of all processed entries.
 
 Includes:
 - All entry information  
 - Execution timings for each stage (prediction, scoring, filtering, etc.)
 
+## PPI specific results
+
+`<PPI>_rest_int.csv`  
+Table of interface residues identified at the protein-protein interface.  
+Includes residues selected based on PAE and distance criteria (< 10 Å).
+
+`<PPI>_ranked_0.pdb`  
+Structural model of the predicted complex.  
+Interface residues can be visualized by coloring the structure using the B-factor field.
 
 # Standalone iQ-score Calculation
 
