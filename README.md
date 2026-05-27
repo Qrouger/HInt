@@ -270,7 +270,7 @@ Summary of filtering decisions applied to each entry.
 ---
 
 ### HInt_report.txt
-Comprehensive report of all processed entries.
+Comprehensive report of all processed entries and timings.
 
 Includes:
 - All entry information  
