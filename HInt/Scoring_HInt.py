@@ -460,7 +460,10 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     interface_dict : dict
     """
     (AF_version, bait_file, prey, lenght_prot, seq_prot, baits, region) = args
-    outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
+    if os.path.isdir (f"./result_PPI_int/{bait_file}_and_{prey}") == True :
+        outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
+    if os.path.isdir (f"./result_PPI_int/{prey}_and_{bait_file}") == True :
+        outdir = f"./result_PPI_int/{prey}_and_{bait_file}"
     interface_dict = dict()
     if AF_version == "2" :
         plot_Distogram(outdir)
@@ -473,7 +476,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
 
     return interface_dict
 
-ef plot_Distogram (job) :
+def plot_Distogram (job) :
     """
     Generate a distance map (distogram) for the best model of a given AlphaFold job.
 
