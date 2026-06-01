@@ -468,7 +468,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     if AF_version == "2" :
         plot_Distogram(outdir)
 
-    residues_at_interface, proteins, path_int, color_res = make_table_res_int(lenght_prot, seq_prot, outdir, baits, AF_version, region)
+    residues_at_interface, proteins, path_int, color_res = make_table_res_int(lenght_prot, seq_prot, outdir, baits, prey, AF_version, region)
 
     if residues_at_interface is not None :
         color_int_residues(path_int, color_res, proteins)
@@ -543,7 +543,7 @@ def plot_Distogram (job) :
             logger.info(f"Distogram created for {job}")
         
 
-def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regions) :
+def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version, regions) :
     """
     Generate a detailed table of residue-residue interactions for a protein-protein complex.
 
@@ -557,6 +557,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
     seq_prot : dict
     path_int : str
     baits : str
+    prey : str
     AF_verison : str
     regions : dict
 
@@ -576,7 +577,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regi
     names_int = path_int.split('/')[2]
     dict_int = dict()
     proteins = [bait for bait in baits.split(",")]
-    proteins.append(names_int.split('_and_')[-1])
+    proteins.append(prey)
     color_res = dict()
     dist_k = True
     for prot in proteins :
