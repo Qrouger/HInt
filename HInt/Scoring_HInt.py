@@ -476,7 +476,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
 
     return interface_dict
 
-def plot_Distogram (job) :
+ef plot_Distogram (job) :
     """
     Generate a distance map (distogram) for the best model of a given AlphaFold job.
 
@@ -489,7 +489,9 @@ def plot_Distogram (job) :
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
+    out_png = f"{job}/result_{best_model}.dmap.png"
     del ranking_results
+    gc.collect()
     if os.path.exists(f'{job}/result_{best_model}.dmap.png') == False :
         if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
             path_file = f'{job}/result_{best_model}.pkl.gz'
@@ -501,34 +503,44 @@ def plot_Distogram (job) :
         else :
             with open(path_file, "rb") as f :
                 results = pickle.load(f)
-        if "distogram" in results.keys() : #avoid error from APD release 
+        dist = None
+        if "distogram" in results.keys() : #avoid error from APD release
+
             bin_edges = np.insert(results["distogram"]["bin_edges"], 0, 0)
-            distogram_softmax = softmax(results["distogram"]["logits"], axis=2)
-            dist = np.sum(np.multiply(distogram_softmax, bin_edges), axis=2)
-            np.savetxt(f"{job}/result_{best_model}.pkl.dmap", dist)
-            lenght_list = []
-            for seq in results["seqs"] :
-                lenght_list.append(len(seq))
+
+            logits = results["distogram"]["logits"]  # alias (avoid deep copy)
+
+            logits = logits - np.max(logits, axis=2, keepdims=True)
+            exp_logits = np.exp(logits)
+            probs = exp_logits / np.sum(exp_logits, axis=2, keepdims=True)
+
+            dist = np.tensordot(probs, bin_edges, axes=([2], [0]))
+            del logits, exp_logits, probs, bin_edges
+            gc.collect()
+
+            lengths = [len(s) for s in results.get("seqs", [])]
             del results
-            del distogram_softmax
-            del bin_edges
             gc.collect()
-            logger.info(f"Generate {job.split('/')[2]} Distogram")
-            initial_lenght = 0
+
             fig, ax = plt.subplots()
-            d = ax.imshow(dist)
+
+            im = ax.imshow(dist, interpolation="nearest")
+            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+            ax.set_title("Distance map")
+
+            pos = 0
+            for L in lengths[:-1]:
+                pos += L
+                ax.axhline(pos, color="black", linewidth=1)
+                ax.axvline(pos, color="black", linewidth=1)
+
+            fig.savefig(out_png, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
             del dist
-            plt.colorbar(d, ax=ax, fraction=0.046, pad=0.04)
-            del d
             gc.collect()
-            ax.title.set_text("Distance map")
-            for index in range(len(lenght_list)-1) :
-                initial_lenght += lenght_list[index]
-                ax.axhline(initial_lenght, color="black", linewidth=1.5)
-                ax.axvline(initial_lenght, color="black", linewidth=1.5)
-            plt.savefig(f"{job}/result_{best_model}.dmap.png", dpi=600)
-            plt.close()
-            os.remove(f"{job}/result_{best_model}.pkl.dmap")
+            logger.info(f"Distogram created for {job}")
         
 
 def make_table_res_int (lenght_prot, seq_prot, path_int, baits, AF_version, regions) :
