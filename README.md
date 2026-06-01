@@ -57,7 +57,7 @@ GPU=1 ./setup_databases.sh ./MMseqs2_GPU_database
 ```
 
 
-## 2.2. Download AlphaFold database (3 hours, 2.7T)
+## 2.2. Download AlphaFold3 database (633G)
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
