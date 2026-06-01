@@ -130,8 +130,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     result_dict[compound][f"iQ_score_vs_{compound}"] = int_score[compound][f"iQ_score_vs_{compound}"]
                     if int_score[compound][f"iQ_score_vs_{compound}"] == 0 :
                         result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
-                
-
         results = []
         with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
             tasks = [(ppi, file, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
@@ -155,8 +153,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     for row in reader :
                         job = row["jobs"]
                         just_name = job.split("_ranked_")[0]
-
-                        if '_and_' in job and just_name.split("_and_")[-1] in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
+                        prey_name = just_name.replace(bait_name,"").replace("_and_","")
+                        if '_and_' in job and prey_name in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                             if "," in bait : #multimer bait
                                 if row["pi_score"] == 'No interface detected' :
                                     if job in already_done : #if protein have multi interface interaction, mean of pi_score #multimeric bait
@@ -190,17 +188,17 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                                     iQ_score = float(row["iptm_ptm"])*30+float(row["mpDockQ/pDockQ"])*30 #pi_score don't detect interface so it's set on -2.63
                                     if "ranked_0" in job :
                                         line =f'{just_name},-2.63,{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                                        mean_iQ_score[just_name.split("_and_")[-1]] = []
+                                        mean_iQ_score[prey_name] = []
                                 else :
                                     iQ_score = ((float(row["pi_score"])+2.63)/5.26)*40+float(row["iptm_ptm"])*30+float(row["mpDockQ/pDockQ"])*30
                                     if "ranked_0" in job :
                                         line =f'{just_name},{row["pi_score"]},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
-                                        mean_iQ_score[just_name.split("_and_")[-1]] =[]
-                            mean_iQ_score[just_name.split("_and_")[-1]].append(iQ_score)
-                            int_score[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                            result_dict[just_name.split("_and_")[-1]][f"iQ_score_vs_{bait_name}"] = iQ_score
-                            if just_name.split("_and_")[-1] not in new_possible_prey :
-                                new_possible_prey.append(just_name.split("_and_")[-1])
+                                        mean_iQ_score[prey_name] =[]
+                            mean_iQ_score[prey_name].append(iQ_score)
+                            int_score[prey_name][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            result_dict[prey_name][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            if prey_name not in new_possible_prey :
+                                new_possible_prey.append(prey_name)
                             if "ranked_0" in job :
                                 all_lines = all_lines + line
                     for protein in possible_prey :
@@ -215,7 +213,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
                             result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
                             result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
-
                 #For homo-oligomer
                 if Interaction == "homo_int" : #score homo-oligomer
                     all_homo = dict()
