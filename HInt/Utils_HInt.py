@@ -10,15 +10,16 @@ import pynvml
 import copy
 import signal
 import glob
-from pathlib import Path
-from datetime import datetime
-from Bio import SeqIO
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import random
 import json
 import string
+import time
+from pathlib import Path
+from datetime import datetime
+from Bio import SeqIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 
 # Configure global logger
