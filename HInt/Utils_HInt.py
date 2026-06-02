@@ -485,7 +485,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 "--skip_existing=True",
                 "--use_mmseqs2=True",
                 "--use_precomputed_msas=True"]
-                futures_list.append(executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
+                futures_list.append(executor.submit(create_feature_pkl, protein, pkl_file, prot_no_SP,cmd2))
 
 def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     """
