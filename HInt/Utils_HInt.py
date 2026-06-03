@@ -10,16 +10,14 @@ import pynvml
 import copy
 import signal
 import glob
+from pathlib import Path
+from Bio import SeqIO
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import random
 import json
 import string
-import time
-from pathlib import Path
-from datetime import datetime
-from Bio import SeqIO
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 
 # Configure global logger
@@ -392,7 +390,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
             for protein in generated_msa : #check if prot have an MSA in alphafold database
                 l_p =  len(protein)
-                if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
+                if l_p >= 2 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
                     time.sleep(0.2) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
@@ -406,7 +404,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                         if "429" in err or "Too Many Requests" in err :
                             retry_queue.append(protein)
 
-                    else:
+                    else :
                         nbr_line = sum(1 for _ in open(msa_in))
                         if nbr_line < 3 : #if MSA have only 1 sequence, not useful for AF2 prediction, so generated it with mmseqs2
                             on_afdb = False
@@ -486,7 +484,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 "--skip_existing=True",
                 "--use_mmseqs2=True",
                 "--use_precomputed_msas=True"]
-                futures_list.append(executor.submit(create_feature_pkl, protein, pkl_file, prot_no_SP,cmd2))
+                futures_list.append(executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
 
 def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     """
@@ -1064,7 +1062,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-    env['XLA_CLIENT_MEM_FRACTION'] = '1.2'
+    env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '1.2'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
