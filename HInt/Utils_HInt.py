@@ -390,7 +390,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
             for protein in generated_msa : #check if prot have an MSA in alphafold database
                 l_p =  len(protein)
-                if l_p >= 2 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
+                if l_p >= 5 and l_p <= 10 and "_" not in protein and protein in uniprot_prot : #if not, is not an UniprotID #avoid name with UniprotID but different sequence
                     on_afdb = True
                     time.sleep(0.2) #avoid too many request on AFdb server
                     url = f"https://alphafold.ebi.ac.uk/files/msa/AF-{protein}-F1-msa_v6.a3m" #do it linearly because of error with parallelization, due to too many request on AFdb server
@@ -484,7 +484,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 "--skip_existing=True",
                 "--use_mmseqs2=True",
                 "--use_precomputed_msas=True"]
-                futures_list.append(executor.submit(create_feature_pkl,protein,pkl_file,prot_no_SP,cmd2))
+                futures_list.append(executor.submit(create_feature_pkl, protein, pkl_file, prot_no_SP, cmd2))
 
 def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     """
