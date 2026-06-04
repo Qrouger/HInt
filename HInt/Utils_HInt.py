@@ -134,7 +134,7 @@ def Define_informations() :
             if nbr_baits > 3 :
                 raise ValueError("HInt don't support more than 3 differents baits")
             for prot in list_baits :
-                if "-" in prot :
+                if "-" in prot and "(" in prot and ")" in prot : #if region is specified for the bait :
                     name_prot = prot.split("(")[0]
                     new_baits_list.append(name_prot.strip())
                     regions_dict[name_prot.strip()] = prot.split("(")[1].strip(")")
