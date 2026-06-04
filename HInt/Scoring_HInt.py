@@ -489,9 +489,9 @@ def plot_Distogram (job) :
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
-    out_png = f"{job}/result_{best_model}.dmap.png"
     del ranking_results
     gc.collect()
+    out_png = f"{job}/result_{best_model}.dmap.png"
     if os.path.exists(f'{job}/result_{best_model}.dmap.png') == False :
         if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
             path_file = f'{job}/result_{best_model}.pkl.gz'
@@ -509,17 +509,16 @@ def plot_Distogram (job) :
             bin_edges = np.insert(results["distogram"]["bin_edges"], 0, 0)
 
             logits = results["distogram"]["logits"]  # alias (avoid deep copy)
-
+            lengths = [len(s) for s in results.get("seqs", [])]
+            del results
+            gc.collect()
+            
             logits = logits - np.max(logits, axis=2, keepdims=True)
             exp_logits = np.exp(logits)
             probs = exp_logits / np.sum(exp_logits, axis=2, keepdims=True)
 
             dist = np.tensordot(probs, bin_edges, axes=([2], [0]))
             del logits, exp_logits, probs, bin_edges
-            gc.collect()
-
-            lengths = [len(s) for s in results.get("seqs", [])]
-            del results
             gc.collect()
 
             fig, ax = plt.subplots()
