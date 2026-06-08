@@ -80,8 +80,8 @@ if [ ! -d "deeplocpro" ]; then
 fi
 cd deeplocpro
 
-$CONDA_BIN run -n $ENV_NAME pip install . torch==2.6.0
-$CONDA_BIN run -n $ENV_NAME pip install triton==3.1.0
+$CONDA_BIN run -n $ENV_NAME pip install -q . torch==2.6.0
+$CONDA_BIN run -n $ENV_NAME pip install -q triton==3.1.0
 
 cd ..
 
