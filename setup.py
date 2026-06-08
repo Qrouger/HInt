@@ -17,6 +17,7 @@ setup(
     install_requires=[
         'alphapulldown',
         'matplotlib',
+        'model_cif',
         'nvidia-ml-py',
         'ihm',
         'scipy==1.16.0',
