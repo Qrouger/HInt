@@ -48,7 +48,7 @@ tar xvzf ccp4-9-setup.tar.gz
 <br>
 
 # 2. Download databases
-## 2.1. Download the GPU-indexed MMseqs2 database (2 hours, 1.5T)
+## 2.1. Download the GPU-indexed MMseqs2 database (2 hours, 1.9T)
 To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
