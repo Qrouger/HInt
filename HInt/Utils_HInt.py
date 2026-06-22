@@ -331,11 +331,34 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
                     SP_signal = prot_SP_len[line2[1:len(line2)-1]]
             final_file = final_file + new_line2
 
+    file.set_proteins_sequence_no_SP(new_fasta_dict)
+    file.set_result_dict(result_dict)
+    file.set_prot_SP(if_prot_SP)
+    return need_msa
+
+def check_exist_MSA(file, Informations_dict, need_msa) :
+    """
+    Check for the existence of precomputed MSAs.
+    - Searches for precomputed MSA
+    - Updates the list of proteins requiring MSA generation based on existing files
+
+    Parameters :
+    ----------
+    file : object of class File_proteins
+    Informations_dict : dict
+    need_msa : list
+
+    Returns :
+    ----------
+    new_need_msa : list
+        List of protein identifiers still requiring MSA generation after checking for existing files.
+    """
+    new_fasta_dict = file.get_proteins_sequence_no_SP()
     new_need_msa = list()
     for prot in need_msa : 
         if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == False :
             new_need_msa.append(prot)
-        if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == True and prot in prot_SP_len.keys() : #if MSA already exist but have SP
+        if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == True : #if MSA already exist but have SP
             with open(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m", "r") as msa_file :
                 b = "no"
                 for line in msa_file :
@@ -348,9 +371,6 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
                 cmd_rm = f"rm -r {Informations_dict['Path_Pickle_Feature']}/{prot}*"
                 os.system(cmd_rm)
                 new_need_msa.append(prot)
-    file.set_proteins_sequence_no_SP(new_fasta_dict)
-    file.set_result_dict(result_dict)
-    file.set_prot_SP(if_prot_SP)
     return new_need_msa
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
