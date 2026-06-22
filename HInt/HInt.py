@@ -147,7 +147,7 @@ def main() :
             need_SP.append(protein)
 
     start_SP = time.time()
-    if Informations_dict["Organism"] != "None" : # Run SignalP only if the organism is specified
+    if Informations_dict["Organism"] == "None" : # Run SignalP only if the organism is specified
         need_SP = []
     if len(need_SP) > 0 : # Run SignalP for proteins without signal peptide annotation
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
