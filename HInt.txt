@@ -1,11 +1,11 @@
-###Informations  #All arguments are optional except Organism
+###Informations  #All arguments are optional
 Signal_peptide : Yes #Yes, No or None.
 DeepLoc : Periplasmic, Extracellular
 Max_protein_lenght :
 Min_protein_lenght :
 Homo-oligomer : #Integer between 2-20
 Interact_with : P33790 #UniprotID/Protein Name
-Organism : gram- #gram-, gram+, euk or arch
+Organism : gram- #gram-, gram+, euk, arch or None
 
 
 AlphaFold : 2 #version 3 or 2
