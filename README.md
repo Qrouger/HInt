@@ -71,7 +71,7 @@ cd alphafold3
 You need to download or copy HInt.txt file example. <br>
 ### *A priori* informations
 
-- **Signal_peptide** : Indicates whether the protein has a signal peptide (Options : Yes,No or None). <br>
+- **Signal_peptide** : Filter proteins based on the presence of a predicted signal peptide (Options : Yes,No or None).<br>
 
 - **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. All proteins predicted to be in one of these compartments will be used.<br>
   - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
@@ -116,7 +116,7 @@ And you can mixed up all of theses examples ! <br>
 HInt don't support multiple regions for baits proteins
 </details>
 
-- **Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, or euk). <br>
+- **Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, euk or None). Enables signal peptide prediction and cleavage. <br>
 
 <br>
 
