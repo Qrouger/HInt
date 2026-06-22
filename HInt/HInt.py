@@ -123,7 +123,7 @@ def main() :
     # --------------------------------------------------------------
 
     start_DeepLoc = time.time()
-    if len(need_DeepLoc) > 0 : # Run DeepLoc only for proteins without localization information
+    if len(need_DeepLoc) > 0 and Informations_dict["Organism"] != "None" : # Run DeepLoc only for proteins without localization information
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU)
     time_DeepLoc = format_time(time.time() - start_DeepLoc)
     time_dict["Deeploc"] = [len(need_DeepLoc), time_DeepLoc]
@@ -143,7 +143,7 @@ def main() :
             need_SP.append(protein)
 
     start_SP = time.time()
-    if len(need_SP) > 0 : # Run SignalP for proteins without signal peptide annotation
+    if len(need_SP) > 0 and Informations_dict["Organism"] != "None" : # Run SignalP for proteins without signal peptide annotation
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
     time_SP = format_time(time.time() - start_SP)
     time_dict["SignalP"] = [len(need_SP), time_SP]
