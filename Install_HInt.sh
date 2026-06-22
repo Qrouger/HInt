@@ -30,7 +30,7 @@ fi
 echo "=== Creating environment ==="
 $CONDA_BIN create -n $ENV_NAME -y \
     -c conda-forge -c bioconda \
-    python=3.11 \
+    python=3.12 \
     pdbfixer=1.9 \
     mafft \
     kalign2 \
