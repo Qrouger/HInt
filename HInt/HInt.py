@@ -147,7 +147,9 @@ def main() :
             need_SP.append(protein)
 
     start_SP = time.time()
-    if len(need_SP) > 0 and Informations_dict["Organism"] != "None" : # Run SignalP for proteins without signal peptide annotation
+    if Informations_dict["Organism"] != "None" : # Run SignalP only if the organism is specified
+        need_SP = []
+    if len(need_SP) > 0 : # Run SignalP for proteins without signal peptide annotation
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
     time_SP = format_time(time.time() - start_SP)
     time_dict["SignalP"] = [len(need_SP), time_SP]
@@ -204,9 +206,9 @@ def main() :
                 time_PPI = format_time(time.time() - start_PPI)
                 time_dict["PPI"] = [len(job_with_vram_length), time_PPI]
                 start_Scoring = time.time()
-                Score_interaction(HInt_object, Informations_dict, CPU, "Compounds", bait, multi_scoring)
+                nbr_new_score = Score_interaction(HInt_object, Informations_dict, CPU, "Compounds", bait, multi_scoring)
                 time_Scoring = format_time(time.time() - start_Scoring)
-                time_dict["Scoring"] = [len(job_with_vram_length), time_Scoring]
+                time_dict["Scoring"] = [nbr_new_score, time_Scoring]
             else :
                 job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
                 start_PPI = time.time()
@@ -214,9 +216,9 @@ def main() :
                 time_PPI = format_time(time.time() - start_PPI)
                 time_dict["PPI"] = [len(job_with_vram_length), time_PPI]
                 start_Scoring = time.time()
-                Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait, multi_scoring)
+                nbr_new_score = Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", bait, multi_scoring)
                 time_Scoring = format_time(time.time() - start_Scoring)
-                time_dict["Scoring_PPI"] = [len(job_with_vram_length), time_Scoring]
+                time_dict["Scoring_PPI"] = [nbr_new_score, time_Scoring]
             HInt_object.Make_save_dict()  # Save interaction scores
 
 
@@ -232,9 +234,9 @@ def main() :
         time_homo = format_time(time.time() - start_homo)
         time_dict["Homo"] = [len(job_with_vram_length), time_homo]
         start_Scoring = time.time()
-        Score_interaction(HInt_object, Informations_dict, CPU, "homo_int")
+        nbr_new_score = Score_interaction(HInt_object, Informations_dict, CPU, "homo_int")
         time_Scoring = format_time(time.time() - start_Scoring)
-        time_dict["Scoring_Homo"] = [len(job_with_vram_length), time_Scoring]
+        time_dict["Scoring_Homo"] = [nbr_new_score, time_Scoring]
         HInt_object.Make_save_dict()
 
 
