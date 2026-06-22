@@ -63,9 +63,9 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with", "Organism","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
+            if info in ["Interact_with","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_lenght","Min_protein_lenght"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_lenght","Min_protein_lenght","Organism"] :
                 Informations_dict[info] = ""
 
     ### Normalize all configuration values
@@ -105,6 +105,8 @@ def Define_informations() :
                 logger.info("Minimum lenght for prey protein set by default 20 to AA")
             elif informations_key == "Max_protein_lenght" :
                 Informations_dict[informations_key] = ""
+            elif informations_key == "Organism" :
+                Informations_dict[informations_key] = "None"
         if len(Informations_dict[informations_key]) != 0 :
             if informations_key == "Path_AlphaFold_Data" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
@@ -158,15 +160,20 @@ def Define_informations() :
                 raise ValueError(f"Homo-oligomer is not an integer")
             if Informations_dict[informations_key] == "0" :
                 Informations_dict[informations_key] = "1"
+        ### Organism check
+        if informations_key == "Organism" :
+            if Informations_dict[informations_key] not in ["arch", "gram+", "gram-", "euk", "None"] :
+                raise ValueError(f"Incorrect Organism value : {Informations_dict[informations_key]}")
+        
         ### DeepLoc check
         if informations_key == "DeepLoc" :
             if Informations_dict["Organism"] == "euk" : #euk
                 for value in Informations_dict[informations_key].split(","):
-                    if value.strip()  not in ["Cytoplasm", "Nucleus", "Extracellular", "Cell membrane", "Mitochondrion", "Plastid", "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgo apparatus", "Peroxisome","None"] :
+                    if value.strip()  not in ["Cytoplasm", "Nucleus", "Extracellular", "Cell membrane", "Mitochondrion", "Plastid", "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgo apparatus", "Peroxisome", "None"] :
                         raise ValueError(f"Incorrect DeepLoc value : {value}")
             else : #other
                 for value in Informations_dict[informations_key].split(","):
-                    if value.strip()  not in ["Cell wall & surface","Extracellular","Cytoplasmic","Cytoplasmic Membrane","Outer Membrane","Periplasmic","None"] :
+                    if value.strip()  not in ["Cell wall & surface", "Extracellular", "Cytoplasmic", "Cytoplasmic Membrane", "Outer Membrane", "Periplasmic", "None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
 
     if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
