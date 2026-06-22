@@ -123,7 +123,11 @@ def main() :
     # --------------------------------------------------------------
 
     start_DeepLoc = time.time()
-    if len(need_DeepLoc) > 0 and Informations_dict["Organism"] != "None" : # Run DeepLoc only for proteins without localization information
+    if Informations_dict["Organism"] == "None" :
+        HInt_object.set_proteins_sequence_no_SP(HInt_object.get_proteins_sequence_SP()) #don't remove signal peptide
+        need_DeepLoc = []
+
+    if len(need_DeepLoc) > 0 : # Run DeepLoc only for proteins without localization information
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU)
     time_DeepLoc = format_time(time.time() - start_DeepLoc)
     time_dict["Deeploc"] = [len(need_DeepLoc), time_DeepLoc]
@@ -147,7 +151,7 @@ def main() :
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
     time_SP = format_time(time.time() - start_SP)
     time_dict["SignalP"] = [len(need_SP), time_SP]
-
+    need_msa = check_exist_MSA(HInt_object, Informations_dict, need_msa) # Check for existing MSA files after SignalP processing
     HInt_object.Make_save_dict() # Save sequences without signal peptides
 
     
