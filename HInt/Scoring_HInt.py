@@ -53,6 +53,10 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
         Interaction type ("PPI_int" or "homo_int")
     bait : str
     multi_scoring : str
+
+    Return :
+    ----------
+    len(ppi_list)
     """
     start_time = datetime.now()
     result_dict = file.get_result_dict()
@@ -267,6 +271,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
         file.set_possible_prey(new_possible_prey)
     else :
         logger.info(f"result_{Interaction}/ don't exist")
+    return len(ppi_list)
 
 def run_scoring (args) :
     """
