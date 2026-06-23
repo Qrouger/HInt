@@ -1091,7 +1091,6 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-    env['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '1.2'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
 
