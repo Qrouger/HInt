@@ -13,7 +13,6 @@ import subprocess
 import gzip
 import numpy as np
 import pandas as pd
-from Bio.PDB import MMCIFParser, PDBIO
 from pathlib import Path
 from calculate_mpdockq import *
 
