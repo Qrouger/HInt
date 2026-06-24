@@ -4,7 +4,7 @@ import argparse
 import os
 import shutil
 from interface_assess import *
-from sc_utils import write_sc_script,run_sc, parse_sc_output
+from sc_utils import write_sc_script, run_sc
 from clean_pdb import write_sel_pdb, change_atloc
 from pisa_utils import run_pisa, parse_pisa_xml_outfle
 from pi_score_utils import write_csv_with_features_wc, make_predictions, filter_csv
