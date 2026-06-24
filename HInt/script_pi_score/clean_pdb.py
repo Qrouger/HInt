@@ -1,8 +1,6 @@
 #Adapted from clean_pdb.py (https://gitlab.com/topf-lab/pi_score/-/tree/master/score_scripts)
 
 from Bio.PDB import *
-import sys
-import os
 
 dict_aa = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N',
