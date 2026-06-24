@@ -17,12 +17,8 @@ def run_pisa(pdbfile=None):
         'pisa %s -xml interfaces > %s' % (session_id, outfle),
         'pisa %s -erase' % (session_id)
     ]
-    #cmd = 'pisa %s -analyse %s' % (session_id, pdbfile)
-    #cmd1 = 'pisa %s -xml interfaces > %s' % (session_id, outfle)
-    #cmd2 = 'pisa %s -erase' % (session_id)
+
     for i, cmd in enumerate(cmds):
-        #log_file = f'tmp_pisa_{session_id}_{i}.log'
-        #with open(log_file, 'w') as f:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT,close_fds=True)
         proc.wait() 
     return outfle
