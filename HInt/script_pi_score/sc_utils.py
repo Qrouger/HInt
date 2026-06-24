@@ -26,20 +26,6 @@ def write_sc_script(pdbfile,
     os.system('chmod 777 ' + outfle)
     return outfle
 
-#def run_sc(scriptfile):
-#    session_id = uuid.uuid4().hex[:8]
-
-
-#    unique_script = "%s_%s.sh" % (scriptfile.rsplit('.', 1)[0], session_id)
-#    tmp_out = "tmp_sc_%s.out" % session_id
-#    os.system("cp %s %s" % (scriptfile, unique_script))
-
-#    os.system("sed -i 's/session name/session_%s/g' %s" % (session_id, unique_script))
-
-#    cmd = "./%s > tmp_sc_%s.out" % (unique_script, session_id)
-#    os.system(cmd)
-#    parse_sc_output(tmp_out)
-
 def run_sc(scriptfile):
     session_id = uuid.uuid4().hex[:8]
     unique_script = "%s_%s.sh" % (scriptfile.rsplit('.', 1)[0], session_id)
