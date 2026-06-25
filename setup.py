@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.6.91',
+    version='0.7.0',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -20,20 +20,19 @@ setup(
         'nvidia-ml-py',
         'ihm',
         'scipy==1.16.0',
-        #'jax[cuda12]==0.9.1',
-        'tokamax==0.0.11',
-        #'numpy==1.26.4',
+        'jax[cuda12]==0.5.3',
+        'numpy==1.26.4',
         'pandas',
         'pydantic',
         'packaging',
         'opt_einsum',
         'rdkit==2024.3.5', 
         'zstandard==0.23.0', 
-        #'jaxtyping==0.2.34', 
+        'jaxtyping==0.2.34', 
         'typeguard==2.13.3',
-        #'jax_triton==0.2.0',
-        #'triton==3.1.0',
-        #'torch>=1.6',
+        'jax_triton==0.2.0',
+        'triton==3.1.0',
+        'torch>=1.6',
         'gemmi'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
