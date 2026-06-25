@@ -30,7 +30,7 @@ fi
 echo "=== Creating environment ==="
 $CONDA_BIN create -n $ENV_NAME -y \
     -c conda-forge -c bioconda \
-    python=3.12 \
+    python=3.11 \
     pdbfixer=1.9 \
     mafft \
     kalign2 \
@@ -43,8 +43,6 @@ $CONDA_BIN create -n $ENV_NAME -y \
 echo "=== Installing HInt ==="
 
 $CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi
-
-#$CONDA_BIN run -n $ENV_NAME pip uninstall -y colabfold || true
 
 $CONDA_BIN run -n $ENV_NAME pip install  --no-deps \
 "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
@@ -61,8 +59,7 @@ $CONDA_BIN run -n $ENV_NAME git clone https://github.com/KosinskiLab/alphafold3
 
 cd alphafold3
 
-$CONDA_BIN run -n $ENV_NAME git checkout -b af3_custom_6ad1a6
-
+$CONDA_BIN run -n $ENV_NAME git checkout 6ad1a65994c2111d291a386cdc048d8c9bfae4af
 
 $CONDA_BIN run -n $ENV_NAME pip install . --no-deps
 
@@ -71,8 +68,6 @@ $CONDA_BIN run -n $ENV_NAME build_data || echo "WARNING: build_data failed"
 $CONDA_BIN run -n $ENV_NAME $CONDA_BIN install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
 
 cd ..
-
-$CONDA_BIN install -y -c nvidia/label/cuda-12.4.1 cuda
 
 echo "=== DeepLocPro ==="
 if [ ! -d "deeplocpro" ]; then
