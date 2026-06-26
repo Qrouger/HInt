@@ -641,7 +641,11 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version
             del pae_mtx
             gc.collect()
     if AF_version == "3" or dist_k == False : #if no distogram, use only PAE and distance from pdb
-        with open(os.path.join(path_int, f'{path_int.split("/")[-1]}_confidences.json'), 'rb') as json_f :
+        if os.path.isfile(f'{path_int}/{path_int.split("/")[-1]}_confidences.json') == True :
+            conf_file = f'{path_int.split("/")[-1]}_confidences.json'
+        else :
+            conf_file = 'ranked_0_confidences.json'
+        with open(os.path.join(path_int, conf_file), 'rb') as json_f :
             pae_mtx = np.array(json.load(json_f)['pae'])
         DIST_CUTOFF = 10.0 # Å (CA/CB/C)
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
