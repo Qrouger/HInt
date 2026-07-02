@@ -49,7 +49,7 @@ tar xvzf ccp4-9-setup.tar.gz
 <br>
 
 # 2. Download databases
-## 2.1. Download the GPU-indexed MMseqs2 database (2 hours, 1.9T)
+## 2.1. Download the GPU-indexed MMseqs2 database (1.9T)
 To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
@@ -57,8 +57,14 @@ chmod +x setup_databases.sh
 GPU=1 ./setup_databases.sh ./MMseqs2_GPU_database
 ```
 
+## 2.2. Download AlphaFold2 database (2.2T)
+```bash
+git clone https://github.com/deepmind/alphafold.git
+cd ./alphafold
+scripts/download_all_data.sh <DB_DIR> > download.log 2> download_all.log &
+```
 
-## 2.2. Download AlphaFold3 database (633G)
+## 2.3. Download AlphaFold3 database (633G)
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
