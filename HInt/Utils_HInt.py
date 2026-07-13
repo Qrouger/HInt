@@ -961,7 +961,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-    max_vram = mem_info.total / 1024**3 #Gb
+    max_vram = (mem_info.total / 1024**2) * 0.001  # GiB
     pynvml.nvmlShutdown()
 
     stop_flag = multiprocessing.Event()
