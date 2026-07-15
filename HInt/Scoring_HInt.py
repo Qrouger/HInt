@@ -159,7 +159,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     for row in reader :
                         job = row["jobs"]
                         just_name = job.split("_ranked_")[0]
-                        prey_name = just_name.replace(bait_name,"").replace("_and_","")
+                        prey_name = just_name.split("_and_")[-1]
                         if '_and_' in job and prey_name in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                             if "," in bait : #multimer bait
                                 if row["pi_score"] == 'No interface detected' :
