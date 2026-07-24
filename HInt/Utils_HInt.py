@@ -454,14 +454,14 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         max_workers_mafft = CPU # how many jobs in parallel
 
         #Look for MSA in AlphaFold database
-        logger.info(f"Search MSA in AlphaFold database")
+        logger.info(f"Searching for MSAs in the AlphaFold database")
 
         retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa)
 
     while retry_queue != [] : #retry if error during MSA search in AFdb
         retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
 
-    logger.info("MSA search in AlphaFold database complete")     
+    logger.info("MSA search in the AlphaFold database completed")     
    
     file.create_fasta_file(False, need_msa, need_pkl)
     #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
@@ -494,7 +494,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
             stdout, stderr = process.communicate()
     end = time.time()
     elapsed = end - start
-    logger.info("Create MSA take "+ str(elapsed/60)+" minutes")
+    logger.info("MSA creation took "+ str(elapsed/60)+" minutes")
 
     #Create pkl files for proteins without pkl file (from MSA found in AFdb or error during MSA generation with ColabFold mmseqs2)
     if len(need_pkl) > 0 :
