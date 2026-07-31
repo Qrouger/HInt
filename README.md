@@ -1,6 +1,6 @@
 # <img width="240" height="240" alt="HInt_logo" src="https://github.com/user-attachments/assets/0d85a047-f02c-4819-9bc2-b51ca8bf0aba" />
 # HInt
-HInt accelerates AlphaFold by optimizing computations and parallelizing structure predictions. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions. This enables the systematic discovery of conserved interaction networks that remain undetectable through sequence or structural similarity alone.
+HInt accelerates AlphaFold by optimizing computations and parallelizing structure predictions. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions.  HInt enables the discovery of conserved interaction networks that may remain undetected using sequence or structural similarity alone.
 
 # 1. Installation
 
@@ -14,13 +14,15 @@ bash Install_HInt.sh
 <summary>AlphaFold 3 (optional) </summary>
 
 ⚠️ **Warning** <br>
-You need to have AlphaFold 3 model parameters in Path_AlphaFold_Data (https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md)
-
+AlphaFold 3 model parameters must be downloaded and provided through `Path_AlphaFold_Data`. (https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md) <br>
+<br>
+Access to AlphaFold 3 parameters is subject to the DeepMind terms of use.
 </details>
 
 ## 1.2. DeepLoc2 (Eukaryote)
 
-Download deeploc2 package here : https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
+Download the DeepLoc 2.0 package from: https://services.healthtech.dtu.dk/services/DeepLoc-2.0/
+
 ```bash
 conda activate HInt
 cd  deeploc2_package
@@ -30,7 +32,7 @@ pip install triton==3.1.0
 
 ## 1.3. SignalP5
 
-Download SignalP5 here : [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Linux)<br>
+Download the SignalP5 package from: [https://services.healthtech.dtu.dk/services/SignalP-5.0/9-Downloads.php](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=signalp&version=5.0&packageversion=5.0b&platform=Linux)<br>
 
 ```bash
 tar -xvzf signalp-5.0b.Linux.tar.gz
@@ -41,7 +43,8 @@ sudo cp -r lib/* /usr/local/lib
 
 ## 1.4. CCP4
 
-Download ccp4 package here : https://www.ccp4.ac.uk/download/#os=linux
+Download the ccp4 package from: https://www.ccp4.ac.uk/download/#os=linux
+
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
 ./ccp4-9-setup
@@ -49,15 +52,17 @@ tar xvzf ccp4-9-setup.tar.gz
 <br>
 
 # 2. Download databases
-## 2.1. Download the GPU-indexed MMseqs2 database (1.9T)
-To accelerate MSA generation, it is strongly recommended to store the databases on NVMe or SSD drives rather than on HDD storage.<br>
+## 2.1. Download the GPU-indexed MMseqs2 database (~1.9 TB)
+For optimal performance, store MMseqs2 databases on NVMe or SSD storage rather than HDDs.<br>
+
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh ./MMseqs2_GPU_database
 ```
 
-## 2.2. Download AlphaFold2 database (2.2T)
+## 2.2. Download AlphaFold 2 database (~2.2 TB)
+
 ```bash
 git clone https://github.com/deepmind/alphafold.git
 cd ./alphafold
@@ -75,17 +80,17 @@ cd alphafold3
 # 3. Input parameters
 ## 3.1. Setup HInt.txt <br>
 You need to download or copy HInt.txt file example. <br>
-### *A priori* informations
+### *A priori* information
 
-- **Signal_peptide** : Filter proteins based on the presence of a predicted signal peptide (Options : Yes,No or None).<br>
+- **Signal_peptide** : Filter proteins based on the presence of a predicted signal peptide (Options : Yes, No or None).<br>
 
 - **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. All proteins predicted to be in one of these compartments will be used.<br>
-  - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgo apparatus, Peroxisome.
+  - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgi apparatus, Peroxisome.
   - Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
-- **Max_protein_lenght** : Maximum lenght of the protein you search (integer). <br>
+- **Max_protein_length** : Maximum length of the protein you search (integer). <br>
 
-- **Min_protein_lenght** : Minimum lenght of the protein you search (integer), default set on 20aa. <br>
+- **Min_protein_length** : Minimum length of the protein you search (integer), default set on 20aa. <br>
 
 - **AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
@@ -106,7 +111,7 @@ Region of a bait :
 Interact_with : UniprotID1(20-200)
 ```
 
-Multiple baits : # First has to be the principal. For now you can put a maximum of 3 differents bait
+Multiple baits : # The first protein must correspond to the primary bait. For now you can put a maximum of 3 differents bait
 ```
 Interact_with : UniprotID1, UniprotID2 
 ```
@@ -119,7 +124,7 @@ Interact_with : [Uniprot1, Uniprot2]
 And you can mixed up all of theses examples ! <br>
  <br>
 ⚠️ **Warning** <br>
-HInt don't support multiple regions for baits proteins
+HInt currently does not support multiple regions for bait proteins.
 </details>
 
 - **Organism** : Organism of interest for SignalP5 and DeepLoc (arch, gram+, gram-, euk or None). Enables signal peptide prediction and cleavage. <br>
@@ -149,7 +154,7 @@ HInt don't support multiple regions for baits proteins
 
 ## 3.2. Setup protein file
 The protein file must contain all UniProt IDs or all sequences in FASTA format for both preys and baits. <br>
-This can be protein ncbi fasta file, classic fasta file, uniprotID's or a combination of all. <br>
+This can be an NCBI protein FASTA file, a standard FASTA file, UniProt identifiers, or a combination of these formats. <br>
 
 >[!TIP]
 >The use of UniprotIDs is recommended for pipeline speed.
@@ -202,10 +207,10 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 # Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs.
   --cpu : Integer
 
-# Index(es) of GPU(s) you want to uses. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. 
+# Index(es) of GPU(s) you want to use. Declare multiple GPU allows GPU parallelisation. By default set on GPU 0. 
   --gpu : Integer(s)
   
-# Allows multiple jobs to run on a single GPU, reducing time of modelisation. By default set on True. 
+# Allows multiple jobs to run on a single GPU, reducing time of modeling. By default set on True. 
   --multi_job_per_gpu : Boolean
 ```
 </details>
@@ -287,7 +292,7 @@ Includes:
 
 `<PPI>_rest_int.csv`  
 Table of interface residues identified at the protein-protein interface.  
-Includes residues selected based on PAE and distance criteria (< 10 Å).
+Includes interface residues identified using PAE and inter-chain distance criteria (<10 Å).
 
 `<PPI>_ranked_0.pdb`  
 Structural model of the predicted complex.  
@@ -295,7 +300,7 @@ Interface residues can be visualized by coloring the structure using the B-facto
 
 # Standalone iQ-score Calculation
 
-Compute **iQ-score** independently from the full HInt workflow.
+Compute **iQ-score** independently of the full HInt workflow..
 
 [![GitHub](https://img.shields.io/badge/GitHub-iQ--score-black?style=for-the-badge&logo=github)](https://github.com/Qrouger/iQ-score)
 
