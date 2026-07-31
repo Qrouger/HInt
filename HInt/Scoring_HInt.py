@@ -413,13 +413,13 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     regions = Informations_dict["Regions"]
     possible_prey = file.get_possible_prey()
     result_dict = file.get_result_dict()
-    complete_lenght_prot = file.get_lenght_prot()
+    complete_length_prot = file.get_length_prot()
     complete_seq_prot = file.get_proteins_sequence_no_SP()
     
     interface_dict = dict()
     tasks = []
     baits_seq = {}
-    baits_lenght = {}
+    baits_length = {}
     for baits in Informations_dict["Multimer_bait"] :
         bait_file = baits
         for bait in baits.split(",") :
@@ -428,15 +428,15 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
                 end = int(regions[bait].split("-")[1])
                 bait_file = bait_file.replace(bait,f"{bait}_{start}-{end}")
             baits_seq [bait] = complete_seq_prot[bait]
-            baits_lenght [bait] = complete_lenght_prot[bait]
+            baits_length [bait] = complete_length_prot[bait]
         bait_file = bait_file.replace(",","_and_")
         for prey in possible_prey :
-            lenght_prot = copy.deepcopy(baits_lenght)
-            lenght_prot [prey] = complete_lenght_prot[prey]
+            length_prot = copy.deepcopy(baits_length)
+            length_prot [prey] = complete_length_prot[prey]
             seq_prot = copy.deepcopy(baits_seq)
             seq_prot [prey] = complete_seq_prot[prey]
             if "Reason_for_filtering" not in result_dict[prey].keys() : #only for validate preys
-                tasks.append((AF_version, bait_file, prey, lenght_prot, seq_prot, baits, regions))
+                tasks.append((AF_version, bait_file, prey, length_prot, seq_prot, baits, regions))
     if tasks : #if there is interaction to process            
         with Pool(processes=CPU) as pool :
             results_res_int = pool.map(postprocess_interaction, tasks)
@@ -466,7 +466,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     ----------
     interface_dict : dict
     """
-    (AF_version, bait_file, prey, lenght_prot, seq_prot, baits, region) = args
+    (AF_version, bait_file, prey, length_prot, seq_prot, baits, region) = args
     if os.path.isdir (f"./result_PPI_int/{bait_file}_and_{prey}") == True :
         outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
     if os.path.isdir (f"./result_PPI_int/{prey}_and_{bait_file}") == True :
@@ -475,7 +475,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     if AF_version == "2" :
         plot_Distogram(outdir)
 
-    residues_at_interface, proteins, path_int, color_res = make_table_res_int(lenght_prot, seq_prot, outdir, baits, prey, AF_version, region)
+    residues_at_interface, proteins, path_int, color_res = make_table_res_int(length_prot, seq_prot, outdir, baits, prey, AF_version, region)
 
     if residues_at_interface is not None :
         color_int_residues(path_int, color_res, proteins)
@@ -549,7 +549,7 @@ def plot_Distogram (job) :
             logger.info(f"Distogram created for {job}")
         
 
-def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version, regions) :
+def make_table_res_int (length_prot, seq_prot, path_int, baits, prey, AF_version, regions) :
     """
     Generate a detailed table of residue-residue interactions for a protein-protein complex.
 
@@ -559,7 +559,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version
 
     Parameters :
     ----------
-    lenght_prot : dict
+    length_prot : dict
     seq_prot : dict
     path_int : str
     baits : str
@@ -612,16 +612,16 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version
             del logits
             del bin_edges
             gc.collect()
-            complete_lenght = 0
+            complete_length = 0
             max_hori_index = 0
             for bait in baits.split(",") :
-                complete_lenght += lenght_prot[bait]
+                complete_length += length_prot[bait]
             for bait in baits.split(",") :
                 min_hori_index = max_hori_index
-                max_hori_index += lenght_prot[bait]
+                max_hori_index += length_prot[bait]
                 bait_prey = bait +"_and_" + proteins[-1]
                 dict_int[bait_prey] = [[bait," "+proteins[-1]," Distance_Ä"," PAE_score"]]
-                for line in range(complete_lenght,complete_lenght+lenght_prot[proteins[-1]]) :
+                for line in range(complete_length,complete_length+length_prot[proteins[-1]]) :
                     hori_index = -1
                     for distance in dist[line] :
                         hori_index += 1
@@ -633,10 +633,10 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version
                                     if regions[bait] != "0-0" : #if region selected, need to ajust index
                                         res_in_tot_seq = hori_index - min_hori_index + int(regions[bait].split("-")[0]) - 1
                                     residue1 = seq_prot[bait][res_in_tot_seq]
-                                    residue2 = seq_prot[proteins[-1]][line-complete_lenght]
-                                    dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_lenght+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
+                                    residue2 = seq_prot[proteins[-1]][line-complete_length]
+                                    dict_int[bait_prey].append([residue1+":"+str(res_in_tot_seq+1)," "+residue2+":"+str(line-complete_length+1)," "+str(distance), " "+str(pae_mtx[line][real_hori_index])])
                                     color_res[bait].add(str(res_in_tot_seq+1))
-                                    color_res[proteins[-1]].add(str(line-complete_lenght+1))
+                                    color_res[proteins[-1]].add(str(line-complete_length+1))
             del dist
             del pae_mtx
             gc.collect()
@@ -651,7 +651,7 @@ def make_table_res_int (lenght_prot, seq_prot, path_int, baits, prey, AF_version
         PAE_CUTOFF  = 10.0 #Observation: PAE value for residue at the interaciotn of AF3 model is generally lower than AF2 model
         ATOM_CONTACT = ["C","CA","CB"]
 
-        len_chain_last = lenght_prot[proteins[-1]]
+        len_chain_last = length_prot[proteins[-1]]
         total_len = pae_mtx.shape[0]
         int_already_know = {}
         structure = parser.get_structure('protein',os.path.join(path_int, f"{names_int}_ranked_0.pdb"))

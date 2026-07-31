@@ -17,11 +17,11 @@ from pathlib import Path
 from calculate_mpdockq import *
 
 
-def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
+def examine_inter_pae(pae_mtx, length, cutoff, type_int) :
     """Check inter-chain PAE only between the last chain and the others"""
     pae = pae_mtx.copy()
     if type_int == "PPI" or type_int == "Compounds" :
-        start_last = sum(lenght[:-1])
+        start_last = sum(length[:-1])
         # mask all 
         pae[:] = 50
 
@@ -32,7 +32,7 @@ def examine_inter_pae(pae_mtx, lenght, cutoff, type_int) :
     if type_int == "homo" :
         start = 0
 
-        for l in lenght:
+        for l in length:
             end = start + l
             pae[start:end, start:end] = 50  # masque intra-chaîne
             start = end
@@ -207,7 +207,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     multi_scoring : bool
     """
     seq_no_SP = save_file.get_proteins_sequence_no_SP()
-    prot_lenght = save_file.get_lenght_prot()
+    prot_length = save_file.get_length_prot()
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
@@ -216,13 +216,13 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     logging.info(f"Scoring {job}")
     result_subdir = os.path.join(job)
     interaction = job.split("/")[-1]
-    lenght = list()
+    length = list()
     if "_and_" in interaction and "PPI" in job :
         type_int = "PPI"
         for prot in interaction.split("_and_") :
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
-            lenght.append(prot_lenght[prot])
+            length.append(prot_length[prot])
     if "_homo_" in interaction :
         type_int = "homo"
         prot = interaction.split("_homo_")[0] 
@@ -230,7 +230,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
         for i in range(0,nbr) :
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
-            lenght.append(prot_lenght[prot])
+            length.append(prot_length[prot])
     if "Compounds" in job :
         type_int = "Compounds"
         for prot in interaction.split("_and_") :
@@ -239,8 +239,8 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
             if prot == interaction.split("_and_")[-1] :
                 l = 1
             else :
-                l = prot_lenght[prot]
-            lenght.append(l)
+                l = prot_length[prot]
+            length.append(l)
 
             
 
@@ -266,7 +266,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 json_data = json.load(json_f)
             pae_mtx = np.array(json_data['pae'])
             chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job))
-            check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int)
+            check = examine_inter_pae(pae_mtx,length,cutoff=cutoff,type_int=type_int)
             mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
             if check:
                 good_jobs.append(str(job)+"/"+f"{job.split('/')[-1]}_ranked_0.pdb")
@@ -308,7 +308,7 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
                 pae_mtx = np.array(check_dict['predicted_aligned_error'])
                 chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path = obtain_chain_coord(os.path.join(job),check_dict)
                 if pdb == "ranked_0.pdb" :
-                    check = examine_inter_pae(pae_mtx,lenght,cutoff=cutoff,type_int=type_int) #only check PAE for best model
+                    check = examine_inter_pae(pae_mtx,length,cutoff=cutoff,type_int=type_int) #only check PAE for best model
                 mpDockq_score = obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path)
                 if check :
                     good_jobs.append(str(f"{job}/{job.split('/')[-1]}_{pdb}"))

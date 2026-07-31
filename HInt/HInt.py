@@ -88,7 +88,7 @@ def main() :
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"])
 
     time_dict = HInt_object.get_time_dict() 
-    time_dict["Summarize_info"] = [Informations_dict["Interact_with"], Informations_dict["DeepLoc"], Informations_dict["Signal_peptide"], Informations_dict["Min_protein_lenght"], Informations_dict["Max_protein_lenght"], Informations_dict["Homo-oligomer"],str(len(HInt_object.get_possible_prey())),Informations_dict["Organism"]]
+    time_dict["Summarize_info"] = [Informations_dict["Interact_with"], Informations_dict["DeepLoc"], Informations_dict["Signal_peptide"], Informations_dict["Min_protein_length"], Informations_dict["Max_protein_length"], Informations_dict["Homo-oligomer"],str(len(HInt_object.get_possible_prey())),Informations_dict["Organism"]]
 
     logger.info("GPUs set to: %s", GPU)
     logger.info("Number of CPUs set to: %s", CPU)
@@ -116,7 +116,7 @@ def main() :
 
     # Filter proteins based on sequence length
     # (default: remove proteins shorter than 20 AA)
-    need_msa, need_pkl, need_DeepLoc = filter_lenght(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
+    need_msa, need_pkl, need_DeepLoc = filter_length(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
 
     # --------------------------------------------------------------
     # DeepLoc filtering
@@ -159,11 +159,11 @@ def main() :
     
     for bait in Informations_dict["Interact_with"] : # Adjust bait protein lengths if specific regions are defined
         if Informations_dict["Regions"][bait] != "0-0" :
-            dict_lenght = HInt_object.get_lenght_prot()
+            dict_length = HInt_object.get_length_prot()
             start = int(Informations_dict["Regions"][bait].split("-")[0])
             end = int(Informations_dict["Regions"][bait].split("-")[1])
-            dict_lenght[bait] = end - start + 1
-            HInt_object.set_lenght_prot(dict_lenght)
+            dict_length[bait] = end - start + 1
+            HInt_object.set_length_prot(dict_length)
 
 
     # Filter proteins based on signal peptide criteria

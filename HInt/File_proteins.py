@@ -43,7 +43,7 @@ class File_proteins() :
 
     def set_proteins_sequence_no_SP (self, new_protein_sequence) :
         """
-        Sets a dict of all sequences without Signal peptide and set a lenght dict.
+        Sets a dict of all sequences without Signal peptide and set a length dict.
         
         Parameters:
         ----------
@@ -53,7 +53,7 @@ class File_proteins() :
         ----------
         """
         self.protein_sequence_no_SP = new_protein_sequence
-        self.find_prot_lenght(new_protein_sequence)
+        self.find_prot_length(new_protein_sequence)
 
     def set_proteins (self, new_protein) :
         """
@@ -81,18 +81,18 @@ class File_proteins() :
         """
         self.file_name = filename
 
-    def set_lenght_prot (self, lenght_prot) :
+    def set_length_prot (self, length_prot) :
         """
-        Sets lenght of all proteins.
+        Sets length of all proteins.
         
         Parameters:
         ----------
-        lenght_prot = dictionary
+        length_prot = dictionary
         
         Returns:
         ----------
         """
-        self.lenght_prot = lenght_prot
+        self.length_prot = length_prot
     
     def set_result_dict (self, result_dict) :
         """
@@ -264,18 +264,18 @@ class File_proteins() :
         """
         return self.file_name
     
-    def get_lenght_prot (self) :
+    def get_length_prot (self) :
         """
-        Return the lenght of proteins.
+        Return the length of proteins.
         
         Parameters:
         ----------
         
         Returns:
         ----------
-        lenght_prot : dictionary
+        length_prot : dictionary
         """
-        return self.lenght_prot
+        return self.length_prot
 
     def get_result_dict (self) :
         """
@@ -724,7 +724,7 @@ class File_proteins() :
         with open('log_file/save_dict.pkl', 'wb') as out_file :
             pickle.dump(pkl_dict, out_file)
 
-    def find_prot_lenght (self, prot_dict = None) :
+    def find_prot_length (self, prot_dict = None) :
         """
         Compute and store the length (number of amino acids) of each protein based on sequences without signal peptides.
 
@@ -737,10 +737,10 @@ class File_proteins() :
         else :
             proteins = prot_dict
         sequences = self.get_proteins_sequence_no_SP()
-        lenght_prot = dict()
+        length_prot = dict()
         for protein in proteins :
-            lenght_prot[protein] = len(sequences[protein])
-        self.set_lenght_prot(lenght_prot)
+            length_prot[protein] = len(sequences[protein])
+        self.set_length_prot(length_prot)
 
 
     def create_fasta_file (self, with_SP, need_msa=[], need_pkl=[]) :
