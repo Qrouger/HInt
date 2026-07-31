@@ -53,7 +53,7 @@ def Define_informations() :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_lenght", "Min_protein_lenght", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_length", "Min_protein_length", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -65,7 +65,7 @@ def Define_informations() :
         if info not in Informations_dict.keys() : #if settings file is not authentic
             if info in ["Interact_with","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_lenght","Min_protein_lenght","Organism"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_length","Min_protein_length","Organism"] :
                 Informations_dict[info] = ""
 
     ### Normalize all configuration values
@@ -100,10 +100,10 @@ def Define_informations() :
             elif informations_key == "AlphaFold" :
                 Informations_dict[informations_key] = "2"
                 logger.info("Set AlphaFold version by default on AlphaFold2")
-            elif informations_key == "Min_protein_lenght" :
+            elif informations_key == "Min_protein_length" :
                 Informations_dict[informations_key] = "20"
-                logger.info("Minimum lenght for prey protein set by default 20 to AA")
-            elif informations_key == "Max_protein_lenght" :
+                logger.info("Minimum length for prey protein set by default 20 to AA")
+            elif informations_key == "Max_protein_length" :
                 Informations_dict[informations_key] = ""
             elif informations_key == "Organism" :
                 Informations_dict[informations_key] = "None"
@@ -710,7 +710,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
 
 
 
-def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
+def filter_length(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     """
     Filter proteins based on their sequence length and update the list of possible preys.
 
@@ -735,26 +735,26 @@ def filter_lenght(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     need_DeepLoc : list
     """
     result_dict = file.get_result_dict()
-    sequence_dict = file.get_proteins_sequence_SP() #use sequence with SP for lenght filtering
+    sequence_dict = file.get_proteins_sequence_SP() #use sequence with SP for length filtering
     possible_prey = file.get_possible_prey()
-    if Informations_dict["Max_protein_lenght"] == "" : #not set by default, depend of GPU memory
-        max_lenght = 100000
+    if Informations_dict["Max_protein_length"] == "" : #not set by default, depend of GPU memory
+        max_length = 100000
     else :
-        max_lenght = int(Informations_dict["Max_protein_lenght"])
-    min_lenght = int(Informations_dict["Min_protein_lenght"]) #set by default to 20
+        max_length = int(Informations_dict["Max_protein_length"])
+    min_length = int(Informations_dict["Min_protein_length"]) #set by default to 20
     new_possible_prey = list()
     for protein in possible_prey :
-        if len(sequence_dict[protein]) < max_lenght and len(sequence_dict[protein]) > min_lenght :
+        if len(sequence_dict[protein]) < max_length and len(sequence_dict[protein]) > min_length :
             new_possible_prey.append(protein)
         else :
-            result_dict[protein]["Reason_for_filtering"] = "Lenght filtering"
+            result_dict[protein]["Reason_for_filtering"] = "length filtering"
             if protein in need_msa :
                 need_msa.remove(protein)
             if protein in need_pkl :
                 need_pkl.remove(protein)
             if protein in need_DeepLoc :
                 need_DeepLoc.remove(protein)
-    logger.info("Protein preys remaining after lenght filtering : " + str(len(new_possible_prey)))
+    logger.info("Protein preys remaining after length filtering : " + str(len(new_possible_prey)))
     file.set_possible_prey(new_possible_prey)
     file.set_result_dict(result_dict)
     return(need_msa, need_pkl, need_DeepLoc)
@@ -834,7 +834,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     result_dict = file.get_result_dict()
     AF_version = Informations_dict["AlphaFold"]
     possible_prey = file.get_possible_prey()
-    lenght_prot = file.get_lenght_prot()
+    length_prot = file.get_length_prot()
     regions = Informations_dict["Regions"]
 
     # Estimate max amino acids based on GPU VRAM (choose first GPU as reference)
@@ -852,14 +852,14 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
             save_multimer = bait
             bait_file = save_multimer.replace(",", "_and_")
             bait_for_job = save_multimer.replace(",", ";")
-            lenght = sum(lenght_prot[prot] for prot in save_multimer.split(","))
+            length = sum(length_prot[prot] for prot in save_multimer.split(","))
             for prot in save_multimer.split(",") :
                 if regions[prot] != "0-0":
                     start, end = int(regions[prot].split("-")[0]), int(regions[prot].split("-")[1])
                     bait_file = bait_file.replace(prot, f"{prot}_{start}-{end}")
                     bait_for_job = bait_for_job.replace(prot, f"{prot},{start}-{end}")
         else :
-            lenght = lenght_prot[bait]
+            length = length_prot[bait]
             if regions[bait] != "0-0" :
                 start, end = int(regions[bait].split("-")[0]), int(regions[bait].split("-")[1])
                 bait_file = f"{bait}_{start}-{end}"
@@ -872,7 +872,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     if Interaction_file == "PPI_int" :
         copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
         for prey in copy_possible_prey :
-            int_lenght = lenght + lenght_prot[prey]
+            int_length = length + length_prot[prey]
 
             # Check if model already exists
             if AF_version == "3" :
@@ -883,48 +883,48 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
 
             if len(path1) == 0 and len(path2) == 0 :
-                if int_lenght <= max_aa :
+                if int_length <= max_aa :
                     job_str = f"{bait_for_job};{prey}\n"
-                    vram_lenght = 3.8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
-                    job_with_vram_length.append((job_str, vram_lenght))
+                    vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                    job_with_vram_length.append((job_str, vram_length))
                 else :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
-        vram_lenght = 1.9 + (-0.0000627) * lenght + 0.00000332 * lenght**2 
+        vram_length = 1.9 + (-0.0000627) * length + 0.00000332 * length**2 
         for compound in Compounds.keys() :
             job_str = f"{bait_for_job};{compound}\n"
             path = glob.glob(f"./result_Compounds/{bait_file}_and_{compound}/*_model.cif")
             if len(path) == 0 :
                 if os.path.isdir(f"./result_Compounds/{bait_file}_and_{compound}") : #if dir exist and model not exist, rm dir
                     os.system(f"rm -r ./result_Compounds/{bait_file}_and_{compound}")
-                job_with_vram_length.append((f"{job_str}", vram_lenght)) #consider no vram for compound, only for protein bait
+                job_with_vram_length.append((f"{job_str}", vram_length)) #consider no vram for compound, only for protein bait
             
     if Interaction_file == "homo_int" :
         nbr_oligo = Informations_dict.get("Homo-oligomer", 2)
         for prey in possible_prey :
-            int_lenght = lenght_prot[prey] * int(nbr_oligo)
+            int_length = length_prot[prey] * int(nbr_oligo)
             if AF_version == "3" :
                 path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/*_model.cif")
             else :
                 path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb")
             if len(path) == 0 :
-                if int_lenght <= max_aa :
+                if int_length <= max_aa :
                     if AF_version == "3" :
                         job_str = f"{prey}_af3_input.json:{nbr_oligo}\n"
                     if AF_version == "2" :
                         job_str = f"{prey}:{nbr_oligo}\n"
-                    vram_lenght = 3.8 + (-0.0000627) * int_lenght + 0.00000332 * int_lenght**2
-                    job_with_vram_length.append((job_str, vram_lenght))
+                    vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                    job_with_vram_length.append((job_str, vram_length))
                 else :
                     OOM_int += f"{prey}:{nbr_oligo}\n"
                     result_dict[prey]["Reason_for_filtering"] = "Homo-oligomer too large for your GPU"
                     possible_prey.remove(prey)
 
 
-    # Classify job_list in function of int lenght
+    # Classify job_list in function of int length
     job_with_vram_length.sort(key=lambda x: x[1], reverse=True)
 
 
