@@ -7,7 +7,7 @@ HInt accelerates AlphaFold by optimizing computations and parallelizing structur
 ## 1.1. HInt
 Conda or Mamba must be installed on your system and should not be activated before running the installation.
 ```bash
-wget https://github.com/Qrouger/Install_HInt.sh
+wget https://raw.githubusercontent.com/Qrouger/HInt/main/Install_HInt.sh
 bash Install_HInt.sh
 ```
 <details>
