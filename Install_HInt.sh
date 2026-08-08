@@ -42,7 +42,7 @@ $CONDA_BIN create -n $ENV_NAME -y \
 
 echo "=== Installing HInt ==="
 
-$CONDA_BIN run -n $ENV_NAME pip install -U fast-hint-ppi
+$CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi
 
 
 $CONDA_BIN run -n $ENV_NAME pip install  --no-deps \
