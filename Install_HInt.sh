@@ -5,7 +5,7 @@ set -o pipefail
 
 
 # === CONFIG ===
-ENV_NAME="HInt"
+ENV_NAME="Fast_HInt"
 CONDA_BIN="${CONDA_BIN:-conda}"
 ENV_PATH="$($CONDA_BIN info --base)/envs/$ENV_NAME"
 
@@ -30,8 +30,8 @@ fi
 echo "=== Creating environment ==="
 $CONDA_BIN create -n $ENV_NAME -y \
     -c conda-forge -c bioconda \
-    python=3.11 \
-    pdbfixer=1.9 \
+    python=3.12 \
+    pdbfixer=1.10 \
     mafft \
     kalign2 \
     hhsuite \
@@ -42,15 +42,11 @@ $CONDA_BIN create -n $ENV_NAME -y \
 
 echo "=== Installing HInt ==="
 
-$CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi
+$CONDA_BIN run -n $ENV_NAME pip install -U fast-hint-ppi
 
-#$CONDA_BIN run -n $ENV_NAME pip uninstall -y colabfold || true
 
 $CONDA_BIN run -n $ENV_NAME pip install  --no-deps \
 "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
-
-$CONDA_BIN run -n $ENV_NAME pip install numpy==1.26.4
-
 
 echo "=== Installing AlphaFold3 ==="
 if [ -d "alphafold3" ]; then
@@ -61,18 +57,13 @@ $CONDA_BIN run -n $ENV_NAME git clone https://github.com/KosinskiLab/alphafold3
 
 cd alphafold3
 
-$CONDA_BIN run -n $ENV_NAME git checkout 6ad1a65994c2111d291a386cdc048d8c9bfae4af
+$CONDA_BIN run -n $ENV_NAME git checkout 86b9ea3feacc8934e6e2a581c49eb4c37a2a3d20
 
-
-$CONDA_BIN run -n $ENV_NAME pip install . --no-deps
+$CONDA_BIN run -n $ENV_NAME pip install .
 
 $CONDA_BIN run -n $ENV_NAME build_data || echo "WARNING: build_data failed"
 
-$CONDA_BIN run -n $ENV_NAME $CONDA_BIN install nvidia/label/cuda-12.4.1::cuda -c nvidia/label/cuda-12.4.1 -y
-
 cd ..
-
-$CONDA_BIN install -y -c nvidia/label/cuda-12.4.1 cuda
 
 echo "=== DeepLocPro ==="
 if [ ! -d "deeplocpro" ]; then
@@ -84,6 +75,9 @@ $CONDA_BIN run -n $ENV_NAME pip install -q . torch==2.6.0
 $CONDA_BIN run -n $ENV_NAME pip install -q triton==3.1.0
 
 cd ..
+
+$CONDA_BIN run -n $ENV_NAME pip install nvidia-cudnn-cu12==9.25.0.15
+
 
 echo "=== Installation completed successfully ==="
 
