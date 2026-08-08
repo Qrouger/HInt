@@ -5,7 +5,7 @@ set -o pipefail
 
 
 # === CONFIG ===
-ENV_NAME="Fast_HInt"
+ENV_NAME="HInt"
 CONDA_BIN="${CONDA_BIN:-conda}"
 ENV_PATH="$($CONDA_BIN info --base)/envs/$ENV_NAME"
 
