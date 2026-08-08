@@ -1,5 +1,5 @@
 """
-Main entry point of Fast HInt
+Main entry point of HInt
 
 Author: Quentin Rouger
 
