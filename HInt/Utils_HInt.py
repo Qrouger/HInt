@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from Bio import SeqIO
 from concurrent.futures import ThreadPoolExecutor
-
+from .Scoring_HInt import Score_interaction
 
 
 # Configure global logger
@@ -90,7 +90,7 @@ def Define_informations() :
                 logger.info("Set pickle feature path by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
             elif informations_key == "Path_MMseqs2_Data" :
-                logger.info("/!\ local MMseqs2 GPU will not be used")
+                logger.info("Warning : local MMseqs2 GPU will not be used")
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Homo-oligomer" :
@@ -287,7 +287,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
 
     Returns :
     ----------
-    new_need_msa : list
+    need_msa : list
     """
     final_file = str()
     SP_signal = 0
@@ -392,28 +392,28 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     need_pkl : list
 
     """
-
     Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
+    AF_version = Informations_dict["AlphaFold"]
     uniprot_prot = file.get_uniprot_prot()
     prot_no_SP = file.get_proteins_sequence_no_SP()
     prot_SP = file.get_proteins_sequence_SP()
     file_name = file.get_file_name()
     ext_f = "." + file_name.split(".")[-1]
     msa_name = file_name.replace(ext_f,"_msa.fasta")
+    new_need_pkl = list()
     retry_queue = list()
     GPU_str = str()
     for nbr_GPU in GPU :
         GPU_str += nbr_GPU + ","
     GPU_str = GPU_str.strip(",")
     #logger.info(f"GPU use : {GPU_str}")
-    
     logger.info(f"{len(need_msa)} proteins need MSA")
     logger.info(f"{len(need_pkl)} proteins need pkl files")
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
-
+    
     def AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa) :
         retry_queue = list() #list of protein to retry if error during MSA search in AFdb (too many request on server)
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
@@ -444,7 +444,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                             executor.submit(fetch_trim_mafft, protein, Path_Pickle_Feature, prot_SP, prot_no_SP)
                         logger.info(f"MSA for {protein} processed")
                         need_msa.remove(protein) #msa found
-                        need_pkl.append(protein)
+                        new_need_pkl.append(protein)
         return retry_queue
 
     start = time.time()
@@ -462,36 +462,36 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
 
     logger.info("MSA search in the AlphaFold database completed")     
-   
     file.create_fasta_file(False, need_msa, need_pkl)
-    #Create MSA files with ColabFold mmseq2 GPU accelerated for proteins without MSA
-    if len(need_msa) > 10 and Path_MMseqs2_Data != "" :
+
+    if len(need_msa) >= 10 and Path_MMseqs2_Data != "" : #Just for the first batch
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
             GPU_str = GPU_str[:-2]
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1"  #-e 0.1
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 2>&1 | tee -a ./log_file/HInt.log"  
         os.system(cmd)
-        need_pkl.extend(need_msa)
+        new_need_pkl.extend(need_msa)
         need_msa = list()
-
-    if len(need_msa) < 1 :
-        logger.info("All MSAs have already been generated")
-
-    file.create_fasta_file(False, need_msa, need_pkl)
-
-    #Create MSA files with ColabFold mmseq2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
-    if len(need_msa) > 0 and (len(need_msa) <= 10 or Path_MMseqs2_Data == "") :
-        if os.path.isfile(f"log_file/{msa_name}") == True :
-            cmd = ["create_individual_features.py",
-            f"--fasta_paths=./log_file/{msa_name}",
-            f"--data_dir={Path_AlphaFold_Data}",
-            "--save_msa_files=True",
-            f"--output_dir={Path_Pickle_Feature}",
-            "--max_template_date=2024-05-02",
-            "--skip_existing=True",
-            "--use_mmseqs2=True",
-            "--use_precomputed_msas=True"]
-            process = subprocess.Popen(cmd, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
-            stdout, stderr = process.communicate()
+        
+    #Create MSA files with ColabFold MMseqs2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
+    re_search_templates_mmseqs2 = "True"
+    if AF_version == "3" :
+        re_search_templates_mmseqs2 = "False"
+    if len(need_msa) > 0 :
+        max_workers_feature = CPU
+        futures_list = []
+        with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
+            for protein in need_msa :
+                msa_name = f"./log_file/{protein}_msa.fasta"
+                cmd = ["create_individual_features.py",
+                f"--fasta_paths={msa_name}",
+                f"--data_dir={Path_AlphaFold_Data}",
+                "--save_msa_files=True",
+                f"--output_dir={Path_Pickle_Feature}",
+                "--max_template_date=2024-05-02",
+                "--skip_existing=True",
+                f"--use_mmseqs2=True",
+                "--use_precomputed_msas=True"]
+                futures_list.append(executor.submit(create_ind_feature, protein, msa_name, prot_no_SP, cmd))
     end = time.time()
     elapsed = end - start
     logger.info("MSA creation took "+ str(elapsed/60)+" minutes")
@@ -512,10 +512,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 "--max_template_date=2024-05-02",
                 "--skip_existing=True",
                 "--use_mmseqs2=True",
-                "--use_precomputed_msas=True"]
-                futures_list.append(executor.submit(create_feature_pkl, protein, pkl_file, prot_no_SP, cmd2))
+                "--use_precomputed_msas=True",
+                f"--re_search_templates_mmseqs2={re_search_templates_mmseqs2}"]
+                futures_list.append(executor.submit(create_ind_feature, protein, pkl_file, prot_no_SP, cmd2))
+    return new_need_pkl
 
-def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
+def create_ind_feature(protein, pkl_file, prot_no_SP, cmd) :
     """
     Create a pickle file for a single protein using the create_individual_features.py script. Allow parallelization.
     
@@ -528,11 +530,14 @@ def create_feature_pkl(protein, pkl_file, prot_no_SP, cmd) :
     """
     with open(pkl_file, "w") as pkl_f :
         pkl_f.write(f">{protein}\n{prot_no_SP[protein]}\n")
-    process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
-    for line in process.stdout :
-        print(f"{line}", end="")  # stream live
-    os.remove(pkl_file)
-    process.wait()
+    with open("./log_file/HInt.log", "a") as log_f :
+        process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
+        for line in process.stdout :
+            print(line, end="", flush=True)  # stream live
+            log_f.write(f"[{protein}] {line}")
+            log_f.flush()  
+        os.remove(pkl_file)
+        process.wait()
 
 def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
@@ -640,7 +645,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
 
-def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
+def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits, prey) :
     """
     Generate MSA coverage plots for all proteins and create a shallow_MSA summary file.
 
@@ -655,59 +660,61 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits) :
     file : object of class File_proteins
     Path_Pickle_Feature : string
     baits : list
+    prey : list
     """
     shallow_MSA = str()
     result_dict = file.get_result_dict()
-    all_prot = file.get_possible_prey()
     if baits != [''] :
-        for bait in baits :
-            all_prot.append(bait)
-    new_possible_prey = list()
-    for prot in all_prot :
-        if Path(f'{Path_Pickle_Feature}/{prot}_coverage.pdf').exists() == False :
-            #Make coverage plot
-            pre_feature_dict = pickle.load(open(f"{Path_Pickle_Feature}/{prot}.pkl","rb"))
-            feature_dict = pre_feature_dict.feature_dict
-            msa = feature_dict['msa']
-            seqid = (np.array(msa[0] == msa).mean(-1))
-            seqid_sort = seqid.argsort()
-            non_gaps = (msa != 21).astype(float)
-            non_gaps[non_gaps == 0] = np.nan
-            final = non_gaps[seqid_sort] * seqid[seqid_sort, None]
-            plt.figure(figsize=(14, 4), dpi=100)
-            plt.subplot(1, 2, 1)
-            plt.title(f"Sequence coverage ({prot})")
-            plt.imshow(final, interpolation="nearest", aspect="auto", cmap="rainbow_r", vmin=0, vmax=1, origin="lower")
-            plt.plot((msa != 21).sum(0), color="black")
-            plt.xlim(-0.5, msa.shape[1] - 0.5)
-            plt.ylim(-0.5, msa.shape[0] - 0.5)
-            plt.colorbar(label="Sequence identity to query", )
-            plt.xlabel("Positions")
-            plt.ylabel("Sequences")
-            plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
-            plt.close()
-        #Evaluate MSA depth
-        with open(f'{Path_Pickle_Feature}/{prot}.a3m') as msa_f :
-            line_msa = sum(1 for _ in msa_f)
-            real_nb_msa = line_msa/2
-        if real_nb_msa <= 100 and prot not in baits :
-            if real_nb_msa < 2 :
-               shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
-               result_dict[prot]["shallow_MSA"] = "No MSA"
-               result_dict[prot]["Reason_for_filtering"] = "No MSA"
-            else :
-               shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
-               result_dict[prot]["shallow_MSA"] = "Shallow MSA"
-               new_possible_prey.append(prot)
-        if real_nb_msa > 100 and prot not in baits :
-            new_possible_prey.append(prot)
-        if real_nb_msa <= 100 and prot in baits :
-            logger.warning(f"This bait : {prot} have a shallow MSA with {int(real_nb_msa)} sequences. Predicted interactions involving this protein should be interpreted with caution.")
-    with open("log_file/shallow_MSA.txt", "w") as MSA_file :
-        MSA_file.write(shallow_MSA)
-    file.set_possible_prey(new_possible_prey)
-    file.set_result_dict(result_dict)
+        prey.extend(baits)
+    prot_path = Path(Path_Pickle_Feature)
+    for prot in prey :
+        pkl_path = prot_path / f"{prot}.pkl"
+        pdf_path = prot_path / f"{prot}_coverage.pdf"
+        a3m_path = prot_path / f"{prot}.a3m"
+        
+        if pkl_path.exists() == True :
+            if pdf_path.exists() == False :
+                #Make coverage plot
+                pre_feature_dict = pickle.load(open(f"{Path_Pickle_Feature}/{prot}.pkl","rb"))
+                feature_dict = pre_feature_dict.feature_dict
+                msa = feature_dict['msa']
+                seqid = (np.array(msa[0] == msa).mean(-1))
+                seqid_sort = seqid.argsort()
+                non_gaps = (msa != 21).astype(float)
+                non_gaps[non_gaps == 0] = np.nan
+                final = non_gaps[seqid_sort] * seqid[seqid_sort, None]
+                plt.figure(figsize=(14, 4), dpi=100)
+                plt.subplot(1, 2, 1)
+                plt.title(f"Sequence coverage ({prot})")
+                plt.imshow(final, interpolation="nearest", aspect="auto", cmap="rainbow_r", vmin=0, vmax=1, origin="lower")
+                plt.plot((msa != 21).sum(0), color="black")
+                plt.xlim(-0.5, msa.shape[1] - 0.5)
+                plt.ylim(-0.5, msa.shape[0] - 0.5)
+                plt.colorbar(label="Sequence identity to query", )
+                plt.xlabel("Positions")
+                plt.ylabel("Sequences")
+                plt.savefig(f"{Path_Pickle_Feature}/{prot+('_' if prot else '')}coverage.pdf")
+                plt.close()
+            #Evaluate MSA depth
+            with open(a3m_path) as msa_f :
+                real_nb_msa = sum(line.startswith(">") for line in msa_f)
+            if real_nb_msa <= 100 and prot not in baits :
+                if real_nb_msa < 2 :
+                    shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
+                    result_dict[prot]["shallow_MSA"] = "No MSA"
+                    result_dict[prot]["Reason_for_filtering"] = "No MSA"
+                else :
+                    shallow_MSA += prot + " : " + str(int(real_nb_msa)) + " sequences\n"
+                    result_dict[prot]["shallow_MSA"] = "Shallow MSA"
 
+            if real_nb_msa <= 100 and prot in baits :
+                logger.warning(f"This bait : {prot} have a shallow MSA with {int(real_nb_msa)} sequences. Predicted interactions involving this protein should be interpreted with caution.")
+        else :
+            result_dict[prot]["shallow_MSA"] = "No MSA"
+            shallow_MSA += prot + " : 0  sequences\n"
+    with open("log_file/shallow_MSA.txt", "a") as MSA_file :
+        MSA_file.write(shallow_MSA)
+    file.set_result_dict(result_dict)
 
 
 def filter_length(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
@@ -912,10 +919,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 path = glob.glob(f"./result_homo_int/{prey}_homo_{nbr_oligo}er/ranked_0.pdb")
             if len(path) == 0 :
                 if int_length <= max_aa :
-                    if AF_version == "3" :
-                        job_str = f"{prey}_af3_input.json:{nbr_oligo}\n"
-                    if AF_version == "2" :
-                        job_str = f"{prey}:{nbr_oligo}\n"
+                    job_str = f"{prey}:{nbr_oligo}\n"
                     vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
                     job_with_vram_length.append((job_str, vram_length))
                 else :
@@ -938,10 +942,139 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     return job_with_vram_length
 
 
+def Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) :
+    """
+    Select the first set of proteins for MSA and PPI generatione
 
+    Parameters :
+    ----------
+    job_with_vram_length : list of tuple
+    GPU : list
+    multi_job_per_gpu : str
 
+    Returns :
+    ----------
+    gpu_jobs : list
+    gpu_vram_used : set
+    """
+    if not job_with_vram_length :
+        return
 
-def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
+    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    vram = (mem_info.total / 1024**2) * 0.001  # GiB 
+    pynvml.nvmlShutdown()
+    gpu_vram_used = {gpu: 0.0 for gpu in GPU}
+    gpu_jobs = []
+
+    multi_job_per_gpu = False if multi_job_per_gpu == "False" else True
+
+    pending = list(job_with_vram_length)
+
+    for interaction, job_vram in pending :
+
+        sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g])
+
+        launched = False
+
+        for gpu_id in sorted_gpus :
+
+            free = vram - gpu_vram_used[gpu_id]
+
+            if job_vram <= free and (multi_job_per_gpu or len(gpu_jobs[gpu_id]) == 0) :
+
+                gpu_jobs.append(interaction.split(";")[-1].split(":")[0].strip("\n"))
+                gpu_vram_used[gpu_id] += job_vram
+
+                launched = True
+                break
+
+        if not launched :
+            continue
+
+    return gpu_jobs, gpu_vram_used
+
+def prioritize_by_vram_fit(jobs, first_batch, GPU, max_per_batch=3) :
+    """
+    Predict algorithm repartition to prioritize MSA generation for the next PPI.
+
+    Parameters :
+    ----------
+    jobs : list of tuple
+    GPU : list
+    max_per_batch : int
+
+    Returns :
+    ----------
+    all_batches : list of list
+    """
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
+    max_vram = (pynvml.nvmlDeviceGetMemoryInfo(handle).total / 1024**2) * 0.001  # GiB 
+    pynvml.nvmlShutdown()
+
+    jobs = [(job.strip().split(";")[-1].split(":")[0], vram) for job, vram in jobs]
+    jobs_dict = dict(jobs)
+
+    current_batch = [(job, jobs_dict[job]) for job in first_batch[0] if job in jobs_dict]
+
+    current_jobs = [job for job, _ in current_batch]
+
+    remaining = [(job, vram) for job, vram in jobs if job not in current_jobs]
+
+    all_batches = []
+    pending = []
+    alternate = 1
+
+    while remaining :
+        current_batch.sort(key=lambda x: x[1]) #small finish first
+
+        finished_job, finished_vram = current_batch.pop(0)
+
+        total_vram = sum(vram for _, vram in current_batch)
+        batch = []
+
+        remaining.sort(key=lambda x: x[1], reverse=True)
+
+        while len(batch) < max_per_batch :
+            added = False
+            for job, vram in remaining :
+                if total_vram + vram <= max_vram or (vram <= finished_vram and alternate % 2 == 0) :
+                    alternate += 1
+                    batch.append(job)
+                    total_vram += vram
+                    added = True
+                    break
+                    
+            if not added :
+                break
+
+        if not batch :
+            continue
+
+        remaining = [
+            (job, vram)
+            for job, vram in remaining
+            if job not in batch
+        ]
+
+        for job in batch :
+            current_batch.append((job, jobs_dict[job]))
+
+        for job in batch :
+            if job not in pending :
+                pending.append(job)
+
+        while len(pending) >= max_per_batch :
+            all_batches.append(pending[:max_per_batch])
+            pending = pending[max_per_batch:]
+
+    if pending :
+        all_batches.append(pending)
+    return all_batches
+
+def Generate_3D_model(HInt_object, CPU, multi_scoring, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -961,7 +1094,7 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-    max_vram = (mem_info.total / 1024**2) * 0.001  # GiB
+    max_vram = (mem_info.total / 1024**2) * 0.001  # GiB 
     pynvml.nvmlShutdown()
 
     stop_flag = multiprocessing.Event()
@@ -971,48 +1104,46 @@ def Generate_3D_model(Informations_dict, interaction_type, job_with_vram_length,
     )
     monitor.start()
 
-    AF_version = Informations_dict["AlphaFold"]
-    Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
-    Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    Baits = Informations_dict["Interact_with"]
-
     with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
         for job, _ in job_with_vram_length :
             f.write(job)
     manager(jobs_pending=list(job_with_vram_length),
+            HInt_object=HInt_object,
+            CPU=CPU,
+            multi_scoring=multi_scoring,
+            Informations_dict=Informations_dict,
             GPU=GPU,
             max_vram=max_vram,
-            Path_AlphaFold_Data=Path_AlphaFold_Data,
-            Path_Pickle_Feature=Path_Pickle_Feature,
             interaction_type=interaction_type,
-            AF_version=AF_version,
             multi_job_per_gpu=multi_job_per_gpu,
             seq_bait=seq_bait,
-            Baits=Baits,
             compounds_dict=compounds_dict
         )
 
     stop_flag.set()
     monitor.join()
 
-def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, multi_job_per_gpu, seq_bait, Baits, compounds_dict) :
+def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GPU, max_vram, interaction_type, multi_job_per_gpu, seq_bait, compounds_dict) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
     Parameters :
     ----------
     jobs_pending : list
+    HInt_object : 
+    CPU : int
+    multi_scoring : str
     GPU : list
     max_vram : float
-    Path_AlphaFold_Data : str
-    Path_Pickle_Feature : str
     interaction_type : str
-    AF_version : str
     multi_job_per_gpu : str
     seq_bait : dict
-    Baits : list
     compounds_dict : dict
     """
+    AF_version = Informations_dict["AlphaFold"]
+    Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
+    Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+    Baits = Informations_dict["Interact_with"]
     compound = None
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
@@ -1029,6 +1160,8 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
                 if j == job:
                     p.join() 
                     jobs_running[gpu_id].pop(i)
+                    Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
+                    HInt_object.Make_save_dict()
                     break
 
         launched = False
@@ -1041,28 +1174,29 @@ def manager(jobs_pending, GPU, max_vram, Path_AlphaFold_Data, Path_Pickle_Featur
 
                 free = max_vram - gpu_vram_used[gpu_id]
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
-                    p = multiprocessing.Process(target=gpu_job_runner,
-                        args=(gpu_id,
-                            interaction,
-                            job_vram,
-                            result_queue,
-                            Path_AlphaFold_Data,
-                            Path_Pickle_Feature,
-                            interaction_type,
-                            AF_version,
-                            seq_bait, 
-                            Baits,
-                            compound
-                        ),
-                    )
-
-                    p.start()
-
-                    gpu_vram_used[gpu_id] += job_vram
-                    jobs_running[gpu_id].append((interaction, p))
-                    jobs_pending.remove((interaction, job_vram))
-                    launched = True
-                    break
+                   if interaction_type == "Compounds" or os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0]}.pkl") :
+                        p = multiprocessing.Process(target=gpu_job_runner,
+                            args=(gpu_id,
+                                interaction,
+                                job_vram,
+                                result_queue,
+                                Path_AlphaFold_Data,
+                                Path_Pickle_Feature,
+                                interaction_type,
+                                AF_version,
+                                seq_bait, 
+                                Baits,
+                                compound
+                            ),
+                        )
+    
+                        p.start()
+    
+                        gpu_vram_used[gpu_id] += job_vram
+                        jobs_running[gpu_id].append((interaction, p))
+                        jobs_pending.remove((interaction, job_vram))
+                        launched = True
+                        break
 
             if launched :
                 break
@@ -1157,7 +1291,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 f"--data_dir={Path_AlphaFold_Data} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
-                "--remove_keys_from_pickles=False"
+                "--remove_keys_from_pickles=False "
             )
         if AF_version == "3" and interaction_type != "Compounds" :
             cmd = (
@@ -1173,22 +1307,31 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
         if AF_version == "3" and interaction_type == "Compounds" :
             cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_AlphaFold_Data} --model_dir={Path_AlphaFold_Data} --json_path=log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
-        proc = subprocess.Popen(
-            cmd,
-            shell=True,
-            env=env,
-            preexec_fn=os.setsid
-        )
+        
+        with open("./log_file/HInt.log", "a") as log_f :
+            proc = subprocess.Popen(
+                cmd,
+                shell=True,
+                env=env,
+                preexec_fn=os.setsid,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1)
 
-        while True :
+            for line in proc.stdout :
+                print(line, end="", flush=True)
+                log_f.write(line)
+                log_f.flush()
 
-            ret = proc.poll()
-            if ret is not None:
-                if ret != 0 :
-                    raise RuntimeError(f"Crash ({ret})")
-                break
+            while True :
+                ret = proc.poll()
+                if ret is not None :
+                    if ret != 0 :
+                        raise RuntimeError(f"Crash ({ret})")
+                    break
 
-            time.sleep(0.5)
+                time.sleep(0.5)
 
         result_queue.put(("done", interaction_file, gpu_id, vram))
         os.system(f"rm log_file/{file_name}")
@@ -1202,18 +1345,23 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
 def monitor_vram(GPU, stop_flag) :
     """
     Monitor VRAM usage for given GPUs every `interval` seconds.
+
+    Parameters :
+    ----------
+    GPU : list
+    stop_flag : multiprocessing.Event()
     """
     
     pynvml.nvmlInit()
     handles = {int(gpu): pynvml.nvmlDeviceGetHandleByIndex(int(gpu)) for gpu in GPU}
 
     try:
-        while not stop_flag.is_set():
+        while not stop_flag.is_set() :
             lines = []
-            for gpu, handle in handles.items():
+            for gpu, handle in handles.items() :
                 mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                used = mem.used / 1024**3
-                total = mem.total / 1024**3
+                used = (mem.used/ 1024**2) * 0.001
+                total = (mem.total/ 1024**2) * 0.001
                 pct = (used / total) * 100
                 lines.append(f"GPU {gpu}: {used:.1f}/{total:.1f} GiB ({pct:.0f}%)")
 
@@ -1238,3 +1386,29 @@ def kill_hint_processes(proc) :
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL) #kill all PID
     except ProcessLookupError :
         pass
+
+def First_need_sorted (First_batch, need_msa, need_pkl) :
+    """
+    Update need_pkl according to the first batch.
+
+    Parameters :
+    ----------
+    First_batch : tuple
+    need_msa : list
+    need_pkl : list
+
+    Returns :
+    ----------
+    need_msa : list
+    need_pkl : list
+    first_need_pkl : list
+    """
+    first_need_pkl = []
+    if First_batch != None :
+        for prot in First_batch[0] :
+            if prot in need_msa :
+                first_need_pkl.append(prot)
+            if prot in need_pkl :
+                first_need_pkl.append(prot)
+                need_pkl.remove(prot)
+    return(need_msa, need_pkl, first_need_pkl)

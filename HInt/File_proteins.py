@@ -438,7 +438,7 @@ class File_proteins() :
             new_fasta = str()
             for line in check_f :
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
-                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1]
+                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","")
                     if scrap_name in list_new_prot_name :
                         for i in range(1,100) :
                             new_name = scrap_name + "_" + str(i)
@@ -447,8 +447,8 @@ class File_proteins() :
                                 break
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
-                elif line[0] == ">" and " "in line :
-                    scrap_name = line.split(" ")[0][1:]
+                elif line[0] == ">" and " " in line :
+                    scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","")
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 else :
@@ -607,7 +607,6 @@ class File_proteins() :
                         if protein not in all_info["sequence_no_SP"].keys() :
                             need_msa.append(protein)
                         if protein not in all_info["deeploc"].keys() :
-
                             need_DeepLoc.append(protein)
                 if protein not in all_info["sequence_SP"].keys() :
                     if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
@@ -616,7 +615,7 @@ class File_proteins() :
                             urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
                         except Exception as e :
                             raise Exception(f"{protein} is not a compliant UniprotID")
-                            break
+
                         with open("log_file/temp_file.txt","r") as in_file:
                             for seq in re.finditer(pattern, in_file.read()) :
                                 sequences_SP[protein] = seq.group(1)
@@ -635,8 +634,8 @@ class File_proteins() :
                     need_msa.append(protein)
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files
                     os.system(cmd)
-                    int_score[protein] = dict() #remove int score
-                    homo_score[protein] = dict()
+                    #int_score[protein] = dict() #remove int score
+                    #homo_score[protein] = dict()
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") == False and os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True : #proteins with msa without pkl file
                     need_pkl.append(protein)
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == True and protein not in need_msa : #check sequence in msa file match with save dict
@@ -663,14 +662,19 @@ class File_proteins() :
             #Check is save score interaction are still valid or delete it
             for protein in all_info["int_score"].keys() :
                 for key in all_info["int_score"][protein].keys() :
-                    bait = key.split("iQ_score_vs_")[1]
-                    if not glob.glob(f"./result_PPI_int/{bait}_and_{protein}/ranked_0*") and not glob.glob(f"./result_PPI_int/{protein}_and_{bait}/ranked_0*") : #if no model for this interaction, remove score
+                    bait = key.split(f"iQ_score_vs_")[1]
+                    if not glob.glob(f"./result_PPI_int/{bait}_and_{protein}/*ranked_0*") and not glob.glob(f"./result_PPI_int/{protein}_and_{bait}/*ranked_0*") : #if no model for this interaction, remove score
                         if f"iQ_score_vs_{bait}" in int_score[protein].keys() :
                             del int_score[protein][f"iQ_score_vs_{bait}"]
 
 
             #Check is save homo score interaction are valid 
-
+            for protein in all_info["homo_score"].keys() :
+                for key in all_info["homo_score"][protein].keys() :
+                    oligo = key.split("_")[-1]
+                    if not glob.glob(f"./result_homo_int/{protein}_homo_{oligo}/*ranked_0*") : #if no model for this interaction, remove score
+                        if key in homo_score[protein].keys() :
+                            del homo_score[protein][key]
 
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
@@ -698,7 +702,6 @@ class File_proteins() :
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
                 
-        
         self.set_prot_SP(prot_SP)
         self.set_result_dict(result_dict)
         self.set_deeploc(deeploc_prot)
@@ -773,7 +776,6 @@ class File_proteins() :
                 line_msa += ">" + protein + "\n" + sequences[protein] + "\n"
             with open(f"log_file/{file_msa}","w") as f_msa :
                 f_msa.write(line_msa)
-
         line_pkl = str()
         if len(need_pkl) != 0 :
             for protein in need_pkl :

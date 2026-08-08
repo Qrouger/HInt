@@ -6,7 +6,7 @@ import os
 import csv
 import logging
 import multiprocessing
-import HInt.get_good_inter_pae
+import Fast_HInt.get_good_inter_pae
 import gc
 import pandas as pd
 import json
@@ -24,8 +24,6 @@ import shutil
 from pathlib import Path
 from multiprocessing import Pool
 from tqdm import tqdm
-from datetime import datetime
-from scipy.special import softmax
 from Bio import PDB
 
 # Configure global logger
@@ -37,7 +35,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi_scoring="False") :
+def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -53,19 +51,14 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
     CPU : int
     Interaction : str
         Interaction type ("PPI_int" or "homo_int")
-    bait : str
+    job : str
     multi_scoring : str
+    bait : str
 
-    Return :
-    ----------
-    len(ppi_list)
     """
-    start_time = datetime.now()
     result_dict = file.get_result_dict()
-    possible_prey = file.get_possible_prey()
     int_score = file.get_int_score() #saved scores
     homo_score = file.get_homo_score()
-    new_possible_prey = list()
     Path_ccp4 = Informations_dict["Path_ccp4"]
     regions = Informations_dict["Regions"]
     nbr_homo = Informations_dict["Homo-oligomer"]
@@ -76,26 +69,42 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
     already_dict = dict()
     mean_iQ_score = dict()
     cv_iQ_score = dict()
-    
+    new_possible_prey = list()
     for t in ["micromamba", "mamba", "conda"] :
         if shutil.which(t) :
             tool = t
 
-    multi_scoring = False if multi_scoring == "False" else True
     result = subprocess.run([tool, "env", "list", "--json"],capture_output=True, text=True, check=True)
     envs = json.loads(result.stdout)["envs"]
     exists = any("pi_score" in env for env in envs)
     if not exists :
         subprocess.run([tool, "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
 
-    if bait != "" : #setup bait name
-        bait_name = bait.replace(",","_and_")
-        for prot in bait.split(",") :
+    possible_prey = file.get_possible_prey()
+    if bait != "" and job == "" : #setup bait name for all interactions
+        bait_name = bait.replace(";","_and_")
+        for prot in bait.split(";") :
             if regions[prot] != "0-0" :
                 start = int(regions[prot].split("-")[0])
                 end = int(regions[prot].split("-")[1])
                 bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
 
+
+    if job != "" and Interaction == "PPI_int" : #setup bait name for only one interaction
+        bait = job.replace(job.split(";")[-1],"").strip(";")
+        bait_name = bait.replace(";","_and_")
+        save_possible_prey = copy.deepcopy(possible_prey)
+        possible_prey = [job.split(";")[-1].strip("\n")] #change possible_prey
+        for prot in bait.split(";") :
+            if regions[prot] != "0-0" :
+                start = int(regions[prot].split("-")[0])
+                end = int(regions[prot].split("-")[1])
+                bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+
+    if job != "" and Interaction == "homo_int" : #setup bait name for only one interaction
+        save_possible_prey = copy.deepcopy(possible_prey)
+        possible_prey = [job.split(":")[0]]
+    
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
         if Interaction == "homo_int" : #for homo-oligomer
@@ -107,6 +116,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     if homo_score[protein][f"hiQ_score_{nbr_homo}er"] > 0 :
                         new_possible_prey.append(protein)
                     if homo_score[protein][f"hiQ_score_{nbr_homo}er"] == 0 :
+
                         result_dict[protein]["Reason_for_filtering"] = f"Bad homo-oligomer PAE : AF"
         if Interaction == "PPI_int" : #for one vs all
             for protein in possible_prey : #check if protein is already score
@@ -151,15 +161,19 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
         if ppi_list : #Add result in dict result if there is new ppi scored
             #Resume all score and set new possible prey
             with open(f"result_{Interaction}/predictions_with_good_interpae.csv", "r") as result_file :
-                reader = csv.DictReader(result_file)
-
+                list_reader = list(csv.DictReader(result_file))
+                if job != "" :
+                    nb_lines = sum(1 for _ in list_reader)
+                    new_possible_prey = save_possible_prey #if only one interaction, don't change possible prey
+                    if nb_lines == 0 :
+                        new_possible_prey.remove(possible_prey[0])
                 #For one vs all
                 if Interaction == "PPI_int" or Interaction == "Compounds" : #make int_score
                     all_lines = "jobs,pi_score,iptm_ptm,pDockQ,iQ_score\n"
-                    for row in reader :
+                    for row in list_reader :
                         job = row["jobs"]
                         just_name = job.split("_ranked_")[0]
-                        prey_name = just_name.split("_and_")[-1]
+                        prey_name = just_name.replace(bait_name,"").replace("_and_","")
                         if '_and_' in job and prey_name in possible_prey and bait_name in job : #check if interaction is a PPI and if prey is in possible prey list
                             if "," in bait : #multimer bait
                                 if row["pi_score"] == 'No interface detected' :
@@ -224,7 +238,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                     all_homo = dict()
                     save_pi_score = dict()
                     all_lines = "jobs,pi_score,iptm_ptm,hiQ_score\n"
-                    for row in reader :
+                    for row in list_reader :
                         job = row["jobs"]
                         if row["pi_score"] != 'No interface detected' :
                             if job not in all_homo.keys() :
@@ -265,15 +279,13 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, bait="", multi
                 if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
                     with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
                         file2.write(all_lines)
-            end_time = datetime.now()
-            logger.info("Time scoring interactions : %s\n", end_time - start_time)
             file.set_homo_score(homo_score)
             file.set_int_score(int_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
     else :
         logger.info(f"result_{Interaction}/ don't exist")
-    return len(ppi_list)
+
 
 def run_scoring (args) :
     """
@@ -287,13 +299,10 @@ def run_scoring (args) :
     ----------
     args : tuple
 
-    Returns :
-    ----------
-    result : pandas.DataFrame
     """
     interaction, file, AF_version, Path_ccp4, multi_scoring = args
     try :
-        result = HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
+        result = Fast_HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
@@ -336,6 +345,8 @@ def Resume_file(file, Informations_dict) :
     nbr_homo = Informations_dict["Homo-oligomer"]
     big_csv_lines = "Name,Localization,Signal_peptide\n"
     small_csv_lines = "Name,Reason_for_filtering\n"
+
+
     for protein in Informations_dict["Interact_with"] :
         result_dict.pop(protein, None) #remove bait from result dict
     if Informations_dict["Interact_with"] != [""] : #sorted in function of all baits
@@ -404,10 +415,6 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     AF_version : str
     sorted_proteins : list
     CPU : int
-
-    Returns :
-    ----------
-    tasks : list of tuples
     """
     logger.info("Create figures for all validate preys")
     regions = Informations_dict["Regions"]
@@ -449,8 +456,7 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
 
         interface_dict = cluster_interface(interface_dict, sorted_proteins)
         plot_sequence_interface(file, interface_dict)
-    
-    return tasks
+
 
 
 
@@ -496,8 +502,6 @@ def plot_Distogram (job) :
     """
     ranking_results = json.load(open(os.path.join(f'{job}/ranking_debug.json')))
     best_model = ranking_results["order"][0]
-    del ranking_results
-    gc.collect()
     out_png = f"{job}/result_{best_model}.dmap.png"
     if os.path.exists(f'{job}/result_{best_model}.dmap.png') == False :
         if os.path.isfile(f'{job}/result_{best_model}.pkl.gz') :
@@ -515,17 +519,15 @@ def plot_Distogram (job) :
 
             bin_edges = np.insert(results["distogram"]["bin_edges"], 0, 0)
 
-            logits = results["distogram"]["logits"]  # alias (avoid deep copy)
-            lengths = [len(s) for s in results.get("seqs", [])]
-            del results
-            gc.collect()
-            
-            logits = logits - np.max(logits, axis=2, keepdims=True)
-            exp_logits = np.exp(logits)
-            probs = exp_logits / np.sum(exp_logits, axis=2, keepdims=True)
+            logits = results["distogram"]["logits"]
 
-            dist = np.tensordot(probs, bin_edges, axes=([2], [0]))
-            del logits, exp_logits, probs, bin_edges
+            logits -= logits.max(axis=2, keepdims=True)
+            np.exp(logits, out=logits)
+
+            logits /= logits.sum(axis=2, keepdims=True)
+
+            dist = np.tensordot(logits, bin_edges, axes=([2], [0]))
+            del logits, bin_edges
             gc.collect()
 
             fig, ax = plt.subplots()
@@ -534,17 +536,19 @@ def plot_Distogram (job) :
             plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
             ax.set_title("Distance map")
-
             pos = 0
+            lengths = [len(s) for s in results.get("seqs", [])]
             for L in lengths[:-1]:
                 pos += L
                 ax.axhline(pos, color="black", linewidth=1)
                 ax.axvline(pos, color="black", linewidth=1)
 
             fig.savefig(out_png, dpi=300, bbox_inches="tight")
+            fig.clf()
             plt.close(fig)
+            del fig
 
-            del dist
+            del dist, lengths, pos, results
             gc.collect()
             logger.info(f"Distogram created for {job}")
         
