@@ -6,7 +6,7 @@ import os
 import csv
 import logging
 import multiprocessing
-import Fast_HInt.get_good_inter_pae
+import HInt.get_good_inter_pae
 import gc
 import pandas as pd
 import json
@@ -302,7 +302,7 @@ def run_scoring (args) :
     """
     interaction, file, AF_version, Path_ccp4, multi_scoring = args
     try :
-        result = Fast_HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
