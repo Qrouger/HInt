@@ -861,10 +861,8 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
 
             save_multimer = bait
             bait_file = save_multimer.replace(",", "_and_")
-            print(bait_file)
             counts = Counter(bait_file.split("_and_"))
             bait_file = "_and_".join(f"{u}_homo_{n}er" if n > 1 else u for u, n in counts.items())
-            print(bait_file)
             bait_for_job = save_multimer.replace(",", ";")
             length = sum(length_prot[prot] for prot in save_multimer.split(","))
             for prot in save_multimer.split(",") :
