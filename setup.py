@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.7.3',
+    version='0.7.4',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -15,7 +15,7 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
-        'alphapulldown==2.5.0',
+        'alphapulldown',
         'matplotlib',
         'nvidia-ml-py',
         'ihm',
