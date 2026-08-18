@@ -16,6 +16,7 @@ import json
 import string
 import time
 
+from collections import Counter
 from pathlib import Path
 from Bio import SeqIO
 from concurrent.futures import ThreadPoolExecutor
@@ -664,10 +665,11 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits, prey) :
     """
     shallow_MSA = str()
     result_dict = file.get_result_dict()
+    prots = copy.copy(prey)
     if baits != [''] :
-        prey.extend(baits)
+        prots.extend(baits)
     prot_path = Path(Path_Pickle_Feature)
-    for prot in prey :
+    for prot in prots :
         pkl_path = prot_path / f"{prot}.pkl"
         pdf_path = prot_path / f"{prot}_coverage.pdf"
         a3m_path = prot_path / f"{prot}.a3m"
@@ -856,8 +858,13 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
         # Determine bait length and region
         complexe = "," in bait
         if complexe :
+
             save_multimer = bait
             bait_file = save_multimer.replace(",", "_and_")
+            print(bait_file)
+            counts = Counter(bait_file.split("_and_"))
+            bait_file = "_and_".join(f"{u}_homo_{n}er" if n > 1 else u for u, n in counts.items())
+            print(bait_file)
             bait_for_job = save_multimer.replace(",", ";")
             length = sum(length_prot[prot] for prot in save_multimer.split(","))
             for prot in save_multimer.split(",") :

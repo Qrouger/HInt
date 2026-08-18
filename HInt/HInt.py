@@ -105,7 +105,6 @@ def main() :
 
     # Remove bait proteins from the prey list
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]])
-
     # --------------------------------------------------------------
     # Length-based filtering
     # --------------------------------------------------------------
@@ -157,7 +156,6 @@ def main() :
             end = int(Informations_dict["Regions"][bait].split("-")[1])
             dict_length[bait] = end - start + 1
             HInt_object.set_length_prot(dict_length)
-
 
     # Filter proteins based on signal peptide criteria
     need_msa, need_pkl = filter_signalP(HInt_object, Informations_dict, need_msa, need_pkl)
@@ -214,7 +212,6 @@ def main() :
     HInt_object.Make_save_dict()
     # --------------------------------------------------------------
     # Homo-oligomer modeling
-    # --------------------------------------------------------------
 
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
@@ -240,7 +237,6 @@ def main() :
             gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu))
             gpu_thread.start()
             for batch in batch_MSA :
-                print(batch)
                 create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
             Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey())
             gpu_thread.join()

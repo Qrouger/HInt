@@ -220,10 +220,15 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     if "_and_" in interaction and "PPI" in job :
         type_int = "PPI"
         for prot in interaction.split("_and_") :
+            if "_homo_" in prot :
+                oligo = int(prot.split("_homo_")[1].replace("er",""))
+                prot = prot.split("_homo_")[0]
+                for _ in range (0,oligo) :
+                    length.append(prot_length[prot])
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
             length.append(prot_length[prot])
-    if "_homo_" in interaction :
+    if "_homo_" in interaction and "PPI" not in job:
         type_int = "homo"
         prot = interaction.split("_homo_")[0] 
         nbr = int(interaction.split("_homo_")[1].replace("er",""))
@@ -234,6 +239,11 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     if "Compounds" in job :
         type_int = "Compounds"
         for prot in interaction.split("_and_") :
+            if "_homo_" in prot :
+                oligo = int(prot.split("_homo_")[1].replace("er",""))
+                prot = prot.split("_homo_")[0]
+                for _ in range (0,oligo) :
+                    length.append(prot_length[prot])
             if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
                 prot = prot.split("_")[0]
             if prot == interaction.split("_and_")[-1] :

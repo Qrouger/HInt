@@ -21,6 +21,7 @@ import string
 import subprocess
 import math
 import shutil
+from collections import Counter
 from pathlib import Path
 from multiprocessing import Pool
 from tqdm import tqdm
@@ -81,30 +82,25 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
         subprocess.run([tool, "create", "-y", "-n", "pi_score","python=2.7", "scikit-learn=0.20.4", "biopython", "biopandas"], check=True)
 
     possible_prey = file.get_possible_prey()
-    if bait != "" and job == "" : #setup bait name for all interactions
-        bait_name = bait.replace(";","_and_")
-        for prot in bait.split(";") :
-            if regions[prot] != "0-0" :
-                start = int(regions[prot].split("-")[0])
-                end = int(regions[prot].split("-")[1])
-                bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+
+    if bait and not job :
+        bait_name = setup_bait_name(bait, ",", regions)
 
 
-    if job != "" and Interaction == "PPI_int" : #setup bait name for only one interaction
-        bait = job.replace(job.split(";")[-1],"").strip(";")
-        bait_name = bait.replace(";","_and_")
+    elif job and Interaction == "PPI_int" :
+        bait, prey = job.rsplit(";", 1)
+        bait = bait.rstrip(";")
+
+        bait_name = setup_bait_name(bait, ";", regions)
+
         save_possible_prey = copy.deepcopy(possible_prey)
-        possible_prey = [job.split(";")[-1].strip("\n")] #change possible_prey
-        for prot in bait.split(";") :
-            if regions[prot] != "0-0" :
-                start = int(regions[prot].split("-")[0])
-                end = int(regions[prot].split("-")[1])
-                bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+        possible_prey = [prey.strip()]
 
-    if job != "" and Interaction == "homo_int" : #setup bait name for only one interaction
+
+    elif job and Interaction == "homo_int" :
         save_possible_prey = copy.deepcopy(possible_prey)
         possible_prey = [job.split(":")[0]]
-    
+
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
         if Interaction == "homo_int" : #for homo-oligomer
@@ -286,6 +282,36 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
     else :
         logger.info(f"result_{Interaction}/ don't exist")
 
+def setup_bait_name(bait, separator, regions) :
+    """
+    Fonction to determine Bait dir/file name.
+
+    Parameters :
+    ----------
+    bait : str
+    separator : str
+    regions : dict
+
+    Return :
+    ----------
+    str
+    """
+    proteins = bait.split(separator)
+    counts = Counter(proteins)
+
+    bait_names = []
+
+    for prot, count in counts.items():
+        prot_name = f"{prot}_homo_{count}er" if count > 1 else prot
+
+        if regions[prot] != "0-0":
+            start, end = regions[prot].split("-")
+            prot_name += f"_{start}-{end}"
+
+        bait_names.append(prot_name)
+
+    return "_and_".join(bait_names)
+
 
 def run_scoring (args) :
     """
@@ -319,7 +345,7 @@ def Resume_file(file, Informations_dict) :
     - Filtering reasons (OOM, size limits, etc.)
     - Protein-level annotations (DeepLoc, signal peptide)
 
-    Two CSV files are produced:
+    Two CSV files are produced :
     ------------------------
     1. All_Final_result_HInt.csv
        Detailed table containing score, SignalP and DeepLoc informations for each protein.
@@ -350,13 +376,9 @@ def Resume_file(file, Informations_dict) :
     for protein in Informations_dict["Interact_with"] :
         result_dict.pop(protein, None) #remove bait from result dict
     if Informations_dict["Interact_with"] != [""] : #sorted in function of all baits
-        for multimer in possible_baits :
-            bait_name = multimer.replace(",","_and_")
-            for prot in multimer.split(",") :
-                if regions[prot] != "0-0" :
-                    start = int(regions[prot].split("-")[0])
-                    end = int(regions[prot].split("-")[1])
-                    bait_name = bait_name.replace(prot,f"{prot}_{start}-{end}")
+        
+        for multimer in possible_baits:
+            bait_name = setup_bait_name(multimer, ",", regions)
             informations.append(f"iQ_score_vs_{bait_name}")
             list_name_baits.append(bait_name)
             big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score_vs_{bait_name}\n"
@@ -428,15 +450,12 @@ def Create_figures (file, Informations_dict, AF_version, sorted_proteins, CPU) :
     baits_seq = {}
     baits_length = {}
     for baits in Informations_dict["Multimer_bait"] :
-        bait_file = baits
+        bait_file = setup_bait_name(baits, ",", regions)
+
         for bait in baits.split(",") :
-            if regions[bait] != "0-0" :
-                start = int(regions[bait].split("-")[0])
-                end = int(regions[bait].split("-")[1])
-                bait_file = bait_file.replace(bait,f"{bait}_{start}-{end}")
-            baits_seq [bait] = complete_seq_prot[bait]
-            baits_length [bait] = complete_length_prot[bait]
-        bait_file = bait_file.replace(",","_and_")
+            baits_seq[bait] = complete_seq_prot[bait]
+            baits_length[bait] = complete_length_prot[bait]
+
         for prey in possible_prey :
             length_prot = copy.deepcopy(baits_length)
             length_prot [prey] = complete_length_prot[prey]
@@ -644,9 +663,12 @@ def make_table_res_int (length_prot, seq_prot, path_int, baits, prey, AF_version
             del dist
             del pae_mtx
             gc.collect()
+
     if AF_version == "3" or dist_k == False : #if no distogram, use only PAE and distance from pdb
-        if os.path.isfile(f'{path_int}/{path_int.split("/")[-1]}_confidences.json') == True :
-            conf_file = f'{path_int.split("/")[-1]}_confidences.json'
+        files = [f for f in os.listdir(path_int) if f.endswith("_confidences.json")]
+
+        if len(files) == 2 :#if two file end with _confidences.json, take the shorter
+            conf_file =  min(files, key=len)
         else :
             conf_file = 'ranked_0_confidences.json'
         with open(os.path.join(path_int, conf_file), 'rb') as json_f :
