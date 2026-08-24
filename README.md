@@ -304,4 +304,8 @@ Compute **iQ-score** independently of the full HInt workflow..
 
 [![GitHub](https://img.shields.io/badge/GitHub-iQ--score-black?style=for-the-badge&logo=github)](https://github.com/Qrouger/iQ-score)
 
+# Citations
+**HInt**: interaction-based homology discovery through accelerated genome-scale AlphaFold screening
+Quentin Rouger, Pierre Paillard, Manon Thomet, Emma Touquet, Gwenaël Rabut, Emmanuel Giudice, Damien F. Meyer, Kévin Macé
+bioRxiv 2026.07.31.741991; doi: https://doi.org/10.64898/2026.07.31.741991
 </div>
