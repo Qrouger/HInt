@@ -30,7 +30,8 @@ setup(
         'triton==3.1.0',
         'jax_triton==0.2.0',
         'rdkit==2025.9.4',
-        'gemmi'
+        'gemmi',
+        'scipy==1.18.1'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
