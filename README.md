@@ -69,7 +69,7 @@ cd ./alphafold
 scripts/download_all_data.sh <DB_DIR> > download.log 2> download_all.log &
 ```
 
-## 2.3. Download AlphaFold3 database (633G)
+## 2.3. Download AlphaFold 3 database (633G)
 ```bash
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
