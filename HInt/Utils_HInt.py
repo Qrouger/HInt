@@ -211,15 +211,6 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
     ext_f = "." + file_name.split(".")[-1]
     fasta_file = file_name.replace(ext_f,"_msa.fasta")
 
-
-    if os.path.exists("log_file/result_deeploc") == True :
-        os.system("rm -r log_file/result_deeploc")
-    dp_lines = str()
-    for protein in need_DeepLoc :
-        dp_lines += ">"+protein+"\n"+prot_seq[protein]+"\n"
-    with open(f"log_file/{fasta_file}", "w") as dp_file :
-        dp_file.write(dp_lines)
-
     if org == "euk" :
         logger.info("Start DeepLoc eucaryote")
         software = "deeploc2"
@@ -234,31 +225,46 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
         if org == "arch" :
             group = "archaea"
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} {software} -f log_file/{fasta_file} -o log_file/result_deeploc -d cuda -g {group}" #deeplocpro don't use all GPU
-    os.system(cmd)
-    DeepLoc_file = os.listdir(f"log_file/result_deeploc")
-    if software == "deeplocpro" :
-        min_index = 3
-        min_score = 0.1
-        index_name = 1
-    else :
-        min_index = 4
-        min_score = 0.4
-        index_name = 0
-    with open(f"log_file/result_deeploc/{DeepLoc_file[0]}", "r") as DL_file :
-        reader = csv.reader(DL_file, delimiter=',')
-        for index, line in enumerate(reader) :
-            compartment = str()
-            if index == 0 :
-                first_line = line #save title name
-            else :
-                protein = line[index_name]
-                for index, score in enumerate(line) :
-                    if index >= min_index and float(score) > min_score :
-                        compartment += first_line[index] + "|"
-                compartment = compartment.strip("|")
-                
-                deeploc[protein] = compartment
-                result_dict[protein]["DeepLoc"] = deeploc[protein]
+
+
+    batch_size = 5000 #limits DeepLoc OOM error
+    for batch_start in range(0, len(need_DeepLoc), batch_size):
+        if os.path.exists("log_file/result_deeploc") == True :
+            os.system("rm -r log_file/result_deeploc")
+        dp_lines = str()
+        batch = need_DeepLoc[batch_start:batch_start + batch_size]
+        for protein in batch :
+            dp_lines += ">"+protein+"\n"+prot_seq[protein]+"\n"
+        with open(f"log_file/{fasta_file}", "w") as dp_file :
+            dp_file.write(dp_lines)
+
+
+
+        os.system(cmd)
+        DeepLoc_file = os.listdir(f"log_file/result_deeploc")
+        if software == "deeplocpro" :
+            min_index = 3
+            min_score = 0.1
+            index_name = 1
+        else :
+            min_index = 4
+            min_score = 0.4
+            index_name = 0
+        with open(f"log_file/result_deeploc/{DeepLoc_file[0]}", "r") as DL_file :
+            reader = csv.reader(DL_file, delimiter=',')
+            for index, line in enumerate(reader) :
+                compartment = str()
+                if index == 0 :
+                    first_line = line #save title name
+                else :
+                    protein = line[index_name]
+                    for index, score in enumerate(line) :
+                        if index >= min_index and float(score) > min_score :
+                            compartment += first_line[index] + "|"
+                    compartment = compartment.strip("|")
+                    
+                    deeploc[protein] = compartment
+                    result_dict[protein]["DeepLoc"] = deeploc[protein]
     file.set_result_dict(result_dict)
     file.set_deeploc(deeploc)
 
