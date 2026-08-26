@@ -449,6 +449,8 @@ class File_proteins() :
                     list_new_prot_name.append(scrap_name)
                 elif line[0] == ">" and " " in line :
                     scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","")
+                    if "|" in scrap_name :
+                        scrap_name = scrap_name.split("|")[1]
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 else :
