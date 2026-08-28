@@ -437,6 +437,15 @@ class File_proteins() :
         with open(path_txt,"r") as check_f : #clean ncbi file
             new_fasta = str()
             for line in check_f :
+                if line[0] == ">" and "|" in line :
+                    scrap_name = line.split("|")[1]
+                    if scrap_name in list_new_prot_name :
+                        for i in range(1,100) :
+                            new_name = scrap_name + "_" + str(i)
+                            if new_name not in list_new_prot_name :
+                                scrap_name = new_name
+                                break
+                    new_fasta += ">" + scrap_name + "\n"
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","")
                     if scrap_name in list_new_prot_name :
