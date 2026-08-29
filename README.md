@@ -53,7 +53,7 @@ tar xvzf ccp4-9-setup.tar.gz
 
 # 2. Download databases
 ## 2.1. Download the GPU-indexed MMseqs2 database (~1.9 TB)
-For optimal performance, store MMseqs2 databases on NVMe or SSD storage rather than HDDs.<br>
+For optimal performance, store MMseqs2 databases and MSA on NVMe or SSD storage rather than HDDs.<br>
 
 ```bash
 wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
