@@ -111,7 +111,7 @@ Region of a bait :
 Interact_with : UniprotID1(20-200)
 ```
 
-Multiple baits : # The first protein must correspond to the primary bait. For now you can put a maximum of 3 differents bait
+Multiple baits : # The first protein must correspond to the primary bait. For now, you can specify a maximum of three different baits
 ```
 Interact_with : UniprotID1, UniprotID2 
 ```
