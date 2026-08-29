@@ -19,5 +19,5 @@ Path_MMseqs2_Data : /mmseqs2_database
 ###Input Path
 Path_Uniprot_ID : sequences.txt
 
-###Output Path
+###MSA Path
 Path_Pickle_Feature : ./msa_feature
