@@ -861,7 +861,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 4*0.00000332*(3.8 - vram))) / (2*0.00000332))
     pynvml.nvmlShutdown()
     
-    if Interaction_file == "PPI_int" or Interaction_file == "Compounds" :
+    if (Interaction_file == "PPI_int" or Interaction_file == "Compounds") and bait != "" :
         # Determine bait length and region
         complexe = "," in bait
         if complexe :
@@ -888,7 +888,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                 bait_for_job = bait
 
         # Build job list
-    if Interaction_file == "PPI_int" :
+    if Interaction_file == "PPI_int" and bait != "" :
         copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
         for prey in copy_possible_prey :
             int_length = length + length_prot[prey]
@@ -910,6 +910,31 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
                     OOM_int += f"{bait_for_job};{prey}\n"
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
+    
+    if Interaction_file == "PPI_int" and bait == "" :
+        copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
+        for prey in copy_possible_prey :
+            int_length = length_prot[prey]
+
+            # Check if model already exists
+            if AF_version == "3" :
+                path = glob.glob(f"./result_PPI_int/{prey}/*_model.cif")
+            else : # AF_version == "2"
+                path = glob.glob(f"./result_PPI_int/{prey}/ranked_0.pdb")
+
+            if len(path) == 0 :
+                if int_length <= max_aa :
+                    job_str = f"{prey}\n"
+                    vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                    job_with_vram_length.append((job_str, vram_length))
+                else :
+                    OOM_int += f"{prey}\n"
+                    result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
+                    possible_prey.remove(prey)
+
+
+
+
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
         vram_length = 1.9 + (-0.0000627) * length + 0.00000332 * length**2 
