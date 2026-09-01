@@ -466,10 +466,11 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
 
         retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa)
 
-    while retry_queue != [] : #retry if error during MSA search in AFdb
-        retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
+        while retry_queue != [] : #retry if error during MSA search in AFdb
+            retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
 
-    logger.info("MSA search in the AlphaFold database completed")     
+        logger.info("MSA search in the AlphaFold database completed")
+        
     file.create_fasta_file(False, need_msa, need_pkl)
 
     if len(need_msa) >= 10 and Path_MMseqs2_Data != "" : #Just for the first batch
@@ -502,7 +503,9 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 futures_list.append(executor.submit(create_ind_feature, protein, msa_name, prot_no_SP, cmd))
     end = time.time()
     elapsed = end - start
-    logger.info("MSA creation took "+ str(elapsed/60)+" minutes")
+
+    if len(generated_msa) > 0 :
+        logger.info("MSA creation took "+ str(elapsed/60)+" minutes")
 
     #Create pkl files for proteins without pkl file (from MSA found in AFdb or error during MSA generation with ColabFold mmseqs2)
     if len(need_pkl) > 0 :
