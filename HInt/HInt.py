@@ -172,47 +172,48 @@ def main() :
 
     #Create batch just for loop on
     job_with_vram_length = []
-    if Informations_dict["Interact_with"] != [''] :
-        for bait in Informations_dict["Multimer_bait"] :
-            job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
-            First_batch = Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) #correspond to the first batch of proteins to process, based on the number of available GPUs and CPUs
-            if First_batch != None :
-                First_batch[0].extend([b for b in bait.split(",")])
-            need_msa, need_pkl, first_need_pkl = First_need_sorted(First_batch, need_msa, need_pkl)
-            if first_need_pkl != [] or need_msa != [] :
-                need_pkl.extend(create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, first_need_pkl))#generate MSA for all and pkl only for first batch
-            logger.info("Generating MSA depth figures")
-            Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], []) # Just for bait prot
-            HInt_object.Make_save_dict()
-            prio_list_MSA = []
-            if First_batch != None :
-                prio_list_MSA = prioritize_by_vram_fit(job_with_vram_length, First_batch, GPU)
-            batch_MSA = []
-            if prio_list_MSA != [] :
-                for batch in prio_list_MSA :
-                    new_prio_list = []
-                    for prot in batch :
-                        if prot in need_pkl :
-                            new_prio_list.append(prot)
-                    if new_prio_list != [] :
-                        batch_MSA.append(new_prio_list)
-            if HInt_object.get_compounds() != {} :
-                gpu_thread = threading.Thread(
-                target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
-                gpu_thread.start()
-                gpu_thread.join()
-            else :
-                gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
-                gpu_thread.start()
-                for batch in batch_MSA :
-                    create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
-                Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey())
-                gpu_thread.join()
-            Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", "", multi_scoring, bait) #if score is not done in Generate_3D_model, do it here
+    for bait in Informations_dict["Multimer_bait"] :
+        job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
+        First_batch = Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) #correspond to the first batch of proteins to process, based on the number of available GPUs and CPUs
+        if First_batch != None :
+            First_batch[0].extend([b for b in bait.split(",")])
+        need_msa, need_pkl, first_need_pkl = First_need_sorted(First_batch, need_msa, need_pkl)
+        if first_need_pkl != [] or need_msa != [] :
+            need_pkl.extend(create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, first_need_pkl))#generate MSA for all and pkl only for first batch
+        logger.info("Generating MSA depth figures")
+        Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], []) # Just for bait prot
+        HInt_object.Make_save_dict()
+        prio_list_MSA = []
+        if First_batch != None :
+            prio_list_MSA = prioritize_by_vram_fit(job_with_vram_length, First_batch, GPU)
+        batch_MSA = []
+        if prio_list_MSA != [] :
+            for batch in prio_list_MSA :
+                new_prio_list = []
+                for prot in batch :
+                    if prot in need_pkl :
+                        new_prio_list.append(prot)
+                if new_prio_list != [] :
+                    batch_MSA.append(new_prio_list)
+        if HInt_object.get_compounds() != {} :
+            gpu_thread = threading.Thread(
+            target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
+            gpu_thread.start()
+            gpu_thread.join()
+        else :
+            gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
+            gpu_thread.start()
+            for batch in batch_MSA :
+                create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
+            Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey())
+            gpu_thread.join()
+        Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", "", multi_scoring, bait) #if score is not done in Generate_3D_model, do it here
     HInt_object.Make_save_dict()
+    
     # --------------------------------------------------------------
     # Homo-oligomer modeling
-
+    # --------------------------------------------------------------
+    
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "homo_int", "")
         if Informations_dict["Interact_with"] == [''] :
