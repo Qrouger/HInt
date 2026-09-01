@@ -95,7 +95,9 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
 
         save_possible_prey = copy.deepcopy(possible_prey)
         possible_prey = [prey.strip()]
-
+        
+    elif Interaction == "PPI_int" and ";" not in job : #if no bait can't score with iQ-score
+        return
 
     elif job and Interaction == "homo_int" :
         save_possible_prey = copy.deepcopy(possible_prey)
