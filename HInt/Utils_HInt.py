@@ -1205,8 +1205,12 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
                     break
 
         launched = False
-
+        jobs_rdy = []
         for interaction, job_vram in list(jobs_pending) :
+            if os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0]}.pkl") :
+                jobs_rdy.append((interaction, job_vram))
+
+        for interaction, job_vram in list(jobs_rdy) :
             sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
             if interaction_type == "Compounds" :
                 compound = compounds_dict[interaction.strip("\n").split(";")[-1]] #to just select one compound for each interaction
@@ -1214,29 +1218,28 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
 
                 free = max_vram - gpu_vram_used[gpu_id]
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
-                   if interaction_type == "Compounds" or os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0]}.pkl") :
-                        p = multiprocessing.Process(target=gpu_job_runner,
-                            args=(gpu_id,
-                                interaction,
-                                job_vram,
-                                result_queue,
-                                Path_AlphaFold_Data,
-                                Path_Pickle_Feature,
-                                interaction_type,
-                                AF_version,
-                                seq_bait, 
-                                Baits,
-                                compound
-                            ),
-                        )
+                    p = multiprocessing.Process(target=gpu_job_runner,
+                        args=(gpu_id,
+                            interaction,
+                            job_vram,
+                            result_queue,
+                            Path_AlphaFold_Data,
+                            Path_Pickle_Feature,
+                            interaction_type,
+                            AF_version,
+                            seq_bait, 
+                            Baits,
+                            compound
+                        ),
+                    )
     
-                        p.start()
+                    p.start()
     
-                        gpu_vram_used[gpu_id] += job_vram
-                        jobs_running[gpu_id].append((interaction, p))
-                        jobs_pending.remove((interaction, job_vram))
-                        launched = True
-                        break
+                    gpu_vram_used[gpu_id] += job_vram
+                    jobs_running[gpu_id].append((interaction, p))
+                    jobs_pending.remove((interaction, job_vram))
+                    launched = True
+                    break
 
             if launched :
                 break
