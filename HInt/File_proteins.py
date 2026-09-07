@@ -447,7 +447,7 @@ class File_proteins() :
                                 break
                     new_fasta += ">" + scrap_name + "\n"
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
-                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","")
+                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","").replace("-","")
                     if scrap_name in list_new_prot_name :
                         for i in range(1,100) :
                             new_name = scrap_name + "_" + str(i)
@@ -457,7 +457,7 @@ class File_proteins() :
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 elif line[0] == ">" and " " in line :
-                    scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","")
+                    scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","").replace("-","")
                     if "|" in scrap_name :
                         scrap_name = scrap_name.split("|")[1]
                     new_fasta += ">" + scrap_name + "\n"
