@@ -299,6 +299,8 @@ def setup_bait_name(bait, separator, regions) :
     str
     """
     proteins = bait.split(separator)
+    proteins = [prot.split(",")[0] for prot in proteins] #if separator is ; and regions is present with a ,
+
     counts = Counter(proteins)
 
     bait_names = []
