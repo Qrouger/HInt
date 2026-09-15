@@ -1022,7 +1022,7 @@ def Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) :
 
             free = vram - gpu_vram_used[gpu_id]
 
-            if job_vram <= free and (multi_job_per_gpu or len(gpu_jobs[gpu_id]) == 0) :
+            if job_vram <= free and (multi_job_per_gpu or len(gpu_jobs) == 0) :
 
                 gpu_jobs.append(interaction.split(";")[-1].split(":")[0].strip("\n"))
                 gpu_vram_used[gpu_id] += job_vram
