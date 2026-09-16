@@ -16,6 +16,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 import copy
 import string
 import subprocess
@@ -503,7 +504,8 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     interface_dict = dict()
     if AF_version == "2" :
         plot_Distogram(outdir)
-
+    if AF_version == "3" :
+        plot_PAE(outdir)
     residues_at_interface, proteins, path_int, color_res = make_table_res_int(length_prot, seq_prot, outdir, baits, prey, AF_version, region)
 
     if residues_at_interface is not None :
@@ -511,6 +513,54 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
         interface_dict = define_interface(residues_at_interface)
 
     return interface_dict
+
+
+def plot_PAE (job) :
+    """
+    Generate PAE matrix for interaction.
+
+    Parameters :
+    ----------
+    job : str
+    """
+    #need to put black bar and check for homo-oligo and domain bait
+    int_name = job.split("/")[-1]
+    json_file = f"{job}/{int_name}_confidences.json"
+    output_file = f"{job}/{int_name}_PAE.png"
+
+    vmin = 0
+    vmax = 30
+
+    pae_cmap = LinearSegmentedColormap.from_list("PAE_blue_white_red",[(0.0, "blue"),(0.5, "white"),(1.0, "red")])
+
+    with open(json_file, "r") as summary_f :
+       pae = np.asarray(json.load(summary_f)["pae"], dtype=float)
+
+    if pae.shape[0] != pae.shape[1] :
+       raise ValueError(f"Matrix shape error: {pae.shape}")
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+
+    im = ax.imshow(pae, cmap=pae_cmap, vmin=vmin, vmax=vmax, interpolation="nearest", origin="upper")
+
+    n = pae.shape[0]
+    ax.set_xlabel("Residue index", fontsize=12)
+    ax.set_ylabel("Residue index", fontsize=12)
+    ax.set_xlim(0, n - 1)
+    ax.set_ylim(n - 1, 0)
+    ax.set_aspect("equal")
+
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    cbar.set_label("Predicted Aligned Error (Å)", fontsize=11)
+
+    cbar.set_ticks([0, 5, 10, 15, 20, 25, 30])
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.tight_layout()
+
+    plt.savefig(output_file, dpi=600, bbox_inches="tight")
 
 def plot_Distogram (job) :
     """
