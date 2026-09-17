@@ -10,14 +10,6 @@ Conda or Mamba must be installed on your system and should not be activated befo
 wget https://raw.githubusercontent.com/Qrouger/HInt/main/Install_HInt.sh
 bash Install_HInt.sh
 ```
-<details>
-<summary>AlphaFold 3 (optional) </summary>
-
-⚠️ **Warning** <br>
-AlphaFold 3 model parameters must be downloaded and provided through `Path_AlphaFold_Data`. (https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md) <br>
-<br>
-Access to AlphaFold 3 parameters is subject to the DeepMind terms of use.
-</details>
 
 ## 1.2. DeepLoc2 (Eukaryote)
 
@@ -74,6 +66,7 @@ scripts/download_all_data.sh <DB_DIR> > download.log 2> download_all.log &
 git clone https://github.com/google-deepmind/alphafold3.git
 cd alphafold3
 ./fetch_databases.sh <DB_DIR>
+wget https://storage.googleapis.com/alphafold3/af3.bin.zst <DB_DIR>
 ```
 <br>
 
