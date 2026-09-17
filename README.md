@@ -43,32 +43,14 @@ tar xvzf ccp4-9-setup.tar.gz
 ```
 <br>
 
-# 2. Download databases
-## 2.1. Download the GPU-indexed MMseqs2 database (~1.9 TB)
+# 2. Download databases (~1.9 TB)
 For optimal performance, store MMseqs2 databases and MSA on NVMe or SSD storage rather than HDDs.<br>
 
 ```bash
-wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
+wget wget https://raw.githubusercontent.com/Qrouger/HInt/main/setup_databases.sh
 chmod +x setup_databases.sh 
-GPU=1 ./setup_databases.sh ./MMseqs2_GPU_database
+GPU=1 ./setup_databases.sh ./HInt_database
 ```
-
-## 2.2. Download AlphaFold 2 database (~2.2 TB)
-
-```bash
-git clone https://github.com/deepmind/alphafold.git
-cd ./alphafold
-scripts/download_all_data.sh <DB_DIR> > download.log 2> download_all.log &
-```
-
-## 2.3. Download AlphaFold 3 database (633G)
-```bash
-git clone https://github.com/google-deepmind/alphafold3.git
-cd alphafold3
-./fetch_databases.sh <DB_DIR>
-wget https://storage.googleapis.com/alphafold3/af3.bin.zst <DB_DIR>
-```
-<br>
 
 # 3. Input parameters
 ## 3.1. Setup HInt.txt <br>
