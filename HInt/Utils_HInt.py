@@ -54,7 +54,7 @@ def Define_informations() :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_length", "Min_protein_length", "Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature", "Path_Singularity_Image", "Path_MMseqs2_Data"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_length", "Min_protein_length", "Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature", "Path_Singularity_Image"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -64,9 +64,9 @@ def Define_informations() :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with","Path_Uniprot_ID", "Path_AlphaFold_Data", "Path_Pickle_Feature"] :
+            if info in ["Interact_with","Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Path_MMseqs2_Data","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_length","Min_protein_length","Organism"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_length","Min_protein_length","Organism"] :
                 Informations_dict[info] = ""
 
     ### Normalize all configuration values
@@ -81,17 +81,15 @@ def Define_informations() :
                     Informations_dict[informations_key] = "/opt/xtal/ccp4-9"
                 else :
                     raise ValueError("Path_ccp4 is empty and ccp4 is not found in /opt/xtal/ccp4-9. You need to install ccp4 or set the path of ccp4 in HInt.txt")
-            elif informations_key == "Path_AlphaFold_Data" :
+            elif informations_key == "Path_Database" :
                 if os.path.isdir("./alphadata") == True :
                     logger.info("Set AlphaFold data by default on ./alphadata")
                     Informations_dict[informations_key] = "./alphadata"
                 else :
-                    raise ValueError("Path_AlphaFold_Data is empty and AlphaFold data is not found in ./alphadata. You need to download AlphaFold data or set the path of AlphaFold data in HInt.txt")
+                    raise ValueError("Path_Database is empty. You need to download database or set the path of AlphaFold data in HInt.txt")
             elif informations_key == "Path_Pickle_Feature" :
                 logger.info("Set pickle feature path by default on ./feature")
                 Informations_dict[informations_key] = "./feature"
-            elif informations_key == "Path_MMseqs2_Data" :
-                logger.info("Warning : local MMseqs2 GPU will not be used")
             elif informations_key == "Signal_peptide" :
                 Informations_dict[informations_key] = "None"
             elif informations_key == "Homo-oligomer" :
@@ -109,12 +107,9 @@ def Define_informations() :
             elif informations_key == "Organism" :
                 Informations_dict[informations_key] = "None"
         if len(Informations_dict[informations_key]) != 0 :
-            if informations_key == "Path_AlphaFold_Data" :
+            if informations_key == "Path_Database" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
-                    raise ValueError(f"Path set for AlphaFold database doesn't exist : {Informations_dict[informations_key]}")
-            elif informations_key == "Path_MMseqs2_Data" :
-                if os.path.isdir(Informations_dict[informations_key]) == False :
-                    raise ValueError (f"Path set for MMseq database doesn't exist : {Informations_dict[informations_key]}")
+                    raise ValueError(f"Path set for database doesn't exist : {Informations_dict[informations_key]}")
             elif informations_key == "Path_ccp4" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
                     raise ValueError (f"Path set for ccp4 doesn't exist : {Informations_dict[informations_key]}")
@@ -169,7 +164,7 @@ def Define_informations() :
         ### DeepLoc check
         if informations_key == "DeepLoc" :
             if Informations_dict["Organism"] == "euk" : #euk
-                for value in Informations_dict[informations_key].split(","):
+                for value in Informations_dict[informations_key].split(",") :
                     if value.strip()  not in ["Cytoplasm", "Nucleus", "Extracellular", "Cell membrane", "Mitochondrion", "Plastid", "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgo apparatus", "Peroxisome", "None"] :
                         raise ValueError(f"Incorrect DeepLoc value : {value}")
             else : #other
@@ -399,9 +394,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     need_pkl : list
 
     """
-    Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
+    Path_Database = Informations_dict["Path_Database"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    Path_MMseqs2_Data = Informations_dict["Path_MMseqs2_Data"]
     AF_version = Informations_dict["AlphaFold"]
     uniprot_prot = file.get_uniprot_prot()
     prot_no_SP = file.get_proteins_sequence_no_SP()
@@ -473,10 +467,10 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         
     file.create_fasta_file(False, need_msa, need_pkl)
 
-    if len(need_msa) >= 10 and Path_MMseqs2_Data != "" : #Just for the first batch
+    if len(need_msa) >= 10 : #Just for the first batch
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
             GPU_str = GPU_str[:-2]
-        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_MMseqs2_Data} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 2>&1 | tee -a ./log_file/HInt.log"  
+        cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_Database} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 2>&1 | tee -a ./log_file/HInt.log"  
         os.system(cmd)
         new_need_pkl.extend(need_msa)
         need_msa = list()
@@ -493,7 +487,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 msa_name = f"./log_file/{protein}_msa.fasta"
                 cmd = ["create_individual_features.py",
                 f"--fasta_paths={msa_name}",
-                f"--data_dir={Path_AlphaFold_Data}",
+                f"--data_dir={Path_Database}",
                 "--save_msa_files=True",
                 f"--output_dir={Path_Pickle_Feature}",
                 "--max_template_date=2024-05-02",
@@ -517,7 +511,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 pkl_file = f"./log_file/{protein}_pkl.fasta"
                 cmd2 = ["create_individual_features.py",
                 f"--fasta_paths={pkl_file}",
-                f"--data_dir={Path_AlphaFold_Data}",
+                f"--data_dir={Path_Database}",
                 "--save_msa_files=True",
                 f"--output_dir={Path_Pickle_Feature}",
                 "--max_template_date=2024-05-02",
@@ -1181,7 +1175,7 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
     compounds_dict : dict
     """
     AF_version = Informations_dict["AlphaFold"]
-    Path_AlphaFold_Data = Informations_dict["Path_AlphaFold_Data"]
+    Path_Database = Informations_dict["Path_Database"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Baits = Informations_dict["Interact_with"]
     compound = None
@@ -1223,7 +1217,7 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
                             interaction,
                             job_vram,
                             result_queue,
-                            Path_AlphaFold_Data,
+                            Path_Database,
                             Path_Pickle_Feature,
                             interaction_type,
                             AF_version,
@@ -1247,7 +1241,7 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
             time.sleep(1)
 
 
-def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_Data, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
+def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1257,7 +1251,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
     interaction_file : str
     vram : float
     result_queue : multiprocessing.Queue
-    Path_AlphaFold_Data : str
+    Path_Database : str
     Path_Pickle_Feature : str
     interaction_type : str
     AF_version : str
@@ -1331,7 +1325,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
                 "--num_predictions_per_model=1 "
                 "--compress_result_pickles=True "
                 f"--output_path=./result_{interaction_type} "
-                f"--data_dir={Path_AlphaFold_Data} "
+                f"--data_dir={Path_Database} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
                 "--remove_keys_from_pickles=False "
@@ -1340,7 +1334,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
             cmd = (
                 "run_multimer_jobs.py --mode=custom "
                 f"--output_path=./result_{interaction_type} "
-                f"--data_dir={Path_AlphaFold_Data} "
+                f"--data_dir={Path_Database} "
                 f"--protein_lists=log_file/{file_name} "
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
                 "--fold_backend=alphafold3 "
@@ -1348,7 +1342,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_AlphaFold_
             )
 
         if AF_version == "3" and interaction_type == "Compounds" :
-            cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_AlphaFold_Data} --model_dir={Path_AlphaFold_Data} --json_path=log_file/{file_name}")
+            cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_Database} --model_dir={Path_Database} --json_path=log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         
         with open("./log_file/HInt.log", "a") as log_f :
