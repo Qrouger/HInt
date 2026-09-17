@@ -447,7 +447,7 @@ class File_proteins() :
                                 break
                     new_fasta += ">" + scrap_name + "\n"
                 if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
-                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","").replace("-","")
+                    scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","").replace("-","_")
                     if scrap_name in list_new_prot_name :
                         for i in range(1,100) :
                             new_name = scrap_name + "_" + str(i)
@@ -457,7 +457,7 @@ class File_proteins() :
                     new_fasta += ">" + scrap_name + "\n"
                     list_new_prot_name.append(scrap_name)
                 elif line[0] == ">" and " " in line :
-                    scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","").replace("-","")
+                    scrap_name = line.split(" ")[0][1:].replace("(","").replace(")","").replace("-","_")
                     if "|" in scrap_name :
                         scrap_name = scrap_name.split("|")[1]
                     new_fasta += ">" + scrap_name + "\n"
@@ -512,7 +512,7 @@ class File_proteins() :
                     int_score[save_prot] = dict()
                     homo_score[save_prot] = dict()
                 elif len(line) > 1 and save_prot != "" :
-                    sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","")
+                    sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","_")
                     for aa in ["O", "B", "Z", "J", "U"] : #"X"
                         if aa in line.strip("\n") :
                             raise ValueError(f"Sequence {save_prot} contains {aa}.")
