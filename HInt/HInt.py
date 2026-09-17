@@ -185,7 +185,7 @@ def main() :
 
     #Create batch just for loop on
     job_with_vram_length = []
-    if Informations_dict["Interact_with"] != [''] or Informations_dict["Interact_with"] == ['']:
+    if Informations_dict["Interact_with"] != [''] or (Informations_dict["Interact_with"] == [''] and Informations_dict["Homo-oligomer"] == ['']) :
         for bait in Informations_dict["Multimer_bait"] :
             job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "PPI_int", bait)
             First_batch = Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) #correspond to the first batch of proteins to process, based on the number of available GPUs and CPUs
