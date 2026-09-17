@@ -496,7 +496,7 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     ----------
     interface_dict : dict
     """
-    (AF_version, bait_file, prey, length_prot, seq_prot, baits, region) = args
+    (AF_version, bait_file, prey, lenght_prot, seq_prot, baits, region) = args
     if os.path.isdir (f"./result_PPI_int/{bait_file}_and_{prey}") == True :
         outdir = f"./result_PPI_int/{bait_file}_and_{prey}"
     if os.path.isdir (f"./result_PPI_int/{prey}_and_{bait_file}") == True :
@@ -505,17 +505,16 @@ def postprocess_interaction (args) : #maybe split first and second part of funct
     if AF_version == "2" :
         plot_Distogram(outdir)
     if AF_version == "3" :
-        plot_PAE(outdir)
-    residues_at_interface, proteins, path_int, color_res = make_table_res_int(length_prot, seq_prot, outdir, baits, prey, AF_version, region)
+        plot_PAE(outdir, lenght_prot)
+    residues_at_interface, proteins, path_int, color_res = make_table_res_int(lenght_prot, seq_prot, outdir, baits, prey, AF_version, region)
 
     if residues_at_interface is not None :
         color_int_residues(path_int, color_res, proteins)
         interface_dict = define_interface(residues_at_interface)
-
     return interface_dict
 
 
-def plot_PAE (job) :
+def plot_PAE (job, lenght_prot) :
     """
     Generate PAE matrix for interaction.
 
@@ -523,10 +522,20 @@ def plot_PAE (job) :
     ----------
     job : str
     """
-    #need to put black bar and check for homo-oligo and domain bait
     int_name = job.split("/")[-1]
     json_file = f"{job}/{int_name}_confidences.json"
     output_file = f"{job}/{int_name}_PAE.png"
+
+    list_lenght = list()
+    for prot in int_name.split("_and_") :
+        if "_homo_" in prot :
+            oligo = int(prot.split("_homo_")[1].replace("er",""))
+            prot = prot.split("_homo_")[0]
+            for _ in range (1,oligo) :
+                list_lenght.append(lenght_prot[prot])
+        if "-" in prot :
+            prot = prot.split("_")[0]
+        list_lenght.append(lenght_prot[prot])
 
     vmin = 0
     vmax = 30
@@ -543,6 +552,20 @@ def plot_PAE (job) :
 
     im = ax.imshow(pae, cmap=pae_cmap, vmin=vmin, vmax=vmax, interpolation="nearest", origin="upper")
 
+    cumulative_length = 0
+    for length in list_lenght[:-1] :
+        cumulative_length += length
+        boundary = cumulative_length - 0.5
+        ax.axvline(
+            boundary,
+            color="black",
+            linewidth=1
+        )
+        ax.axhline(
+            boundary,
+            color="black",
+            linewidth=1
+        )
     n = pae.shape[0]
     ax.set_xlabel("Residue index", fontsize=12)
     ax.set_ylabel("Residue index", fontsize=12)
@@ -733,13 +756,13 @@ def make_table_res_int (length_prot, seq_prot, path_int, baits, prey, AF_version
 
         len_chain_last = length_prot[proteins[-1]]
         total_len = pae_mtx.shape[0]
-        int_already_know = {}
         structure = parser.get_structure('protein',os.path.join(path_int, f"{names_int}_ranked_0.pdb"))
         for model in structure :
             chains = model.get_list()
             last_chain = chains[-1]
             baits = baits.split(",")
             for i, chain1 in enumerate(chains[:-1]) :
+                int_already_know = {}
                 chain2 = last_chain
                 interaction = baits[i] +"_and_"+ proteins[-1]
 
