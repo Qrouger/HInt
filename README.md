@@ -49,7 +49,7 @@ For optimal performance, store MMseqs2 databases and MSA on NVMe or SSD storage 
 ```bash
 wget wget https://raw.githubusercontent.com/Qrouger/HInt/main/setup_databases.sh
 chmod +x setup_databases.sh 
-GPU=1 ./setup_databases.sh ./HInt_database
+GPU=1 ./setup_databases.sh <DB_DIR>
 ```
 
 # 3. Input parameters
