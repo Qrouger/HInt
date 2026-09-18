@@ -69,7 +69,7 @@ You need to download or copy HInt.txt file example. <br>
 
 - **AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
-- **Homo-oligomer** : Known homo-oligomerization state of the protein (integer : 1 to 20), default set on 1 (monomer). <br>
+- **Homo-oligomer** : Known homo-oligomerization state of the target protein (integer : 1 to 20), default set on 1 (monomer). <br>
 
 - **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
 
