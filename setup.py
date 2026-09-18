@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.8.2',
+    version='0.8.2.1',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -15,12 +15,12 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
-        'alphapulldown==2.7.0',
+        'AlphaPulldown @ git+https://github.com/Qrouger/AlphaPulldown.git',
         'matplotlib',
         'nvidia-ml-py',
         'ihm',
         'tokamax==0.0.11',
-        'jax[cuda]==0.9.1',
+        'jax[cuda]==0.11.2',
         'pandas',
         'pydantic',
         'packaging',
@@ -31,7 +31,8 @@ setup(
         'jax_triton==0.2.0',
         'rdkit==2025.9.4',
         'gemmi',
-        'scipy==1.18.1'
+        'scipy==1.18.1',
+        'alphafold-colabfold==2.3.20'
     ],
     entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
 )
