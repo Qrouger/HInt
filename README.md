@@ -43,7 +43,7 @@ tar xvzf ccp4-9-setup.tar.gz
 ```
 <br>
 
-# 2. Download databases (~1.9 TB)
+# 2. Download databases (~1.5 TB)
 For optimal performance, store MMseqs2 databases and MSA on NVMe or SSD storage rather than HDDs.<br>
 
 ```bash
