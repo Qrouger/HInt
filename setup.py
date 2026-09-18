@@ -15,7 +15,6 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
-        'AlphaPulldown @ git+https://github.com/Qrouger/AlphaPulldown.git#egg=alphapulldown',
         'matplotlib',
         'nvidia-ml-py',
         'ihm',
