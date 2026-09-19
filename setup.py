@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='HInt-ppi',
-    version='0.8.2.1',
+    version='0.8.2.2',
     description=(
         'A tool to find homologous interactions and speed up AlphaFold-based structural modeling.'
     ),
@@ -18,8 +18,11 @@ setup(
         'matplotlib',
         'nvidia-ml-py',
         'ihm',
-        'tokamax==0.0.11',
+        'tokamax==0.0.12',
         'jax[cuda]==0.11.2',
+        'jax==0.10.2',
+        "jax[cuda12]==0.10.2; sys_platform != 'darwin'",
+        "jax-mps==0.10.9; sys_platform == 'darwin' and platform_machine == 'arm64'",
         'pandas',
         'pydantic',
         'packaging',
