@@ -40,13 +40,16 @@ $CONDA_BIN create -n $ENV_NAME -y \
     git \
     setuptools=81
 
+
 echo "=== Installing HInt ==="
 
 $CONDA_BIN run -n $ENV_NAME pip install -U hint-ppi
 
+$CONDA_BIN run -n $ENV_NAME pip install -v "alphapulldown @ git+https://github.com/Qrouger/AlphaPulldown.git"
 
 $CONDA_BIN run -n $ENV_NAME pip install  --no-deps \
 "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold"
+
 
 echo "=== Installing AlphaFold3 ==="
 if [ -d "alphafold3" ]; then
@@ -75,9 +78,6 @@ $CONDA_BIN run -n $ENV_NAME pip install -q . torch==2.6.0
 $CONDA_BIN run -n $ENV_NAME pip install -q triton==3.1.0
 
 cd ..
-
-$CONDA_BIN run -n $ENV_NAME pip install nvidia-cudnn-cu12==9.25.0.15
-
 
 echo "=== Installation completed successfully ==="
 
