@@ -62,7 +62,7 @@ cd alphafold3
 
 $CONDA_BIN run -n $ENV_NAME git checkout 86b9ea3feacc8934e6e2a581c49eb4c37a2a3d20
 
-$CONDA_BIN run -n $ENV_NAME pip install .
+$CONDA_BIN run -n $ENV_NAME pip install . --no-deps
 
 $CONDA_BIN run -n $ENV_NAME build_data || echo "WARNING: build_data failed"
 
