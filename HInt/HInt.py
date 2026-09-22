@@ -222,7 +222,7 @@ def main() :
                 gpu_thread.start()
                 for batch in batch_MSA :
                     create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
-                Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey())
+                Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey()) # For preys
                 gpu_thread.join()
             time_PPI = format_time(time.time() - start_PPI)
             time_dict["PPI"] = [len(job_with_vram_length), time_PPI]
