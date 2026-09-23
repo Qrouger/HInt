@@ -35,7 +35,7 @@ logger = logging.getLogger()
 
 
 
-def Define_informations() :
+def Define_informations () :
     """
     Parse the HInt.txt configuration file and collect all user-defined parameters into a single dictionary.
 
@@ -338,7 +338,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     file.set_prot_SP(if_prot_SP)
     return need_msa
 
-def check_exist_MSA(file, Informations_dict, need_msa) :
+def check_exist_MSA (file, Informations_dict, need_msa) :
     """
     Check for the existence of precomputed MSAs.
     - Searches for precomputed MSA
@@ -522,7 +522,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 futures_list.append(executor.submit(create_ind_feature, protein, pkl_file, prot_no_SP, cmd2))
     return new_need_pkl
 
-def create_ind_feature(protein, pkl_file, prot_no_SP, cmd) :
+def create_ind_feature (protein, pkl_file, prot_no_SP, cmd) :
     """
     Create a pickle file for a single protein using the create_individual_features.py script. Allow parallelization.
     
@@ -544,7 +544,7 @@ def create_ind_feature(protein, pkl_file, prot_no_SP, cmd) :
         os.remove(pkl_file)
         process.wait()
 
-def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
+def fetch_trim_mafft (protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
     """
     Trim signal peptides if present, and realign the MSA using MAFFT.
 
@@ -608,7 +608,7 @@ def fetch_trim_mafft(protein, Path_Pickle_Feature, prot_SP, prot_no_SP) :
 
 
 
-def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
+def filter_signalP (file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on the presence of a signal peptide using SignalP results.
 
@@ -650,7 +650,7 @@ def filter_signalP(file, Informations_dict, need_msa, need_pkl) :
     file.set_result_dict(result_dict)
     return need_msa, need_pkl
 
-def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits, prey) :
+def Make_all_MSA_coverage (file, Path_Pickle_Feature, baits, prey) :
     """
     Generate MSA coverage plots for all proteins and create a shallow_MSA summary file.
 
@@ -723,7 +723,7 @@ def Make_all_MSA_coverage(file, Path_Pickle_Feature, baits, prey) :
     file.set_result_dict(result_dict)
 
 
-def filter_length(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
+def filter_length (file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     """
     Filter proteins based on their sequence length and update the list of possible preys.
 
@@ -773,7 +773,7 @@ def filter_length(file, Informations_dict, need_msa, need_pkl, need_DeepLoc) :
     return(need_msa, need_pkl, need_DeepLoc)
 
 
-def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
+def filter_deeploc (file, Informations_dict, need_msa, need_pkl) :
     """
     Filter proteins based on predicted cellular localization and update the prey list as well as the MSA and pickle processing lists.
 
@@ -822,7 +822,7 @@ def filter_deeploc(file, Informations_dict, need_msa, need_pkl) :
     return(new_need_msa, new_need_pkl)
 
 
-def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
+def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     """
     Prepare the list of interaction jobs, taking into account protein lengths and GPU VRAM constraints to avoid out-of-memory (OOM) errors.
 
@@ -976,7 +976,7 @@ def Generate_scripts(file, Informations_dict, Interaction_file, bait) :
     return job_with_vram_length
 
 
-def Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) :
+def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu) :
     """
     Select the first set of proteins for MSA and PPI generatione
 
@@ -1029,7 +1029,7 @@ def Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu) :
 
     return gpu_jobs, gpu_vram_used
 
-def prioritize_by_vram_fit(jobs, first_batch, GPU, max_per_batch=3) :
+def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
     """
     Predict algorithm repartition to prioritize MSA generation for the next PPI.
 
@@ -1108,7 +1108,7 @@ def prioritize_by_vram_fit(jobs, first_batch, GPU, max_per_batch=3) :
         all_batches.append(pending)
     return all_batches
 
-def Generate_3D_model(HInt_object, CPU, multi_scoring, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
+def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -1141,6 +1141,7 @@ def Generate_3D_model(HInt_object, CPU, multi_scoring, Informations_dict, intera
     with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
         for job, _ in job_with_vram_length :
             f.write(job)
+            
     manager(jobs_pending=list(job_with_vram_length),
             HInt_object=HInt_object,
             CPU=CPU,
@@ -1157,7 +1158,7 @@ def Generate_3D_model(HInt_object, CPU, multi_scoring, Informations_dict, intera
     stop_flag.set()
     monitor.join()
 
-def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GPU, max_vram, interaction_type, multi_job_per_gpu, seq_bait, compounds_dict) :
+def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GPU, max_vram, interaction_type, multi_job_per_gpu, seq_bait, compounds_dict) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
@@ -1185,13 +1186,13 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
     gpu_vram_used = {gpu: 0.0 for gpu in GPU}
     jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
 
-    while jobs_pending or any(jobs_running.values()):
+    while jobs_pending or any(jobs_running.values()) :
 
         while not result_queue.empty() :
             status, job, gpu_id, vram = result_queue.get()[:4]
             gpu_vram_used[gpu_id] -= vram
-            for i, (j, p) in enumerate(jobs_running[gpu_id]):
-                if j == job:
+            for i, (j, p) in enumerate(jobs_running[gpu_id]) :
+                if j == job :
                     p.join() 
                     jobs_running[gpu_id].pop(i)
                     Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
@@ -1241,7 +1242,7 @@ def manager(jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GP
             time.sleep(1)
 
 
-def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
+def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1379,7 +1380,7 @@ def gpu_job_runner(gpu_id, interaction_file, vram, result_queue, Path_Database, 
 
 
 
-def monitor_vram(GPU, stop_flag) :
+def monitor_vram (GPU, stop_flag) :
     """
     Monitor VRAM usage for given GPUs every `interval` seconds.
 
@@ -1392,7 +1393,7 @@ def monitor_vram(GPU, stop_flag) :
     pynvml.nvmlInit()
     handles = {int(gpu): pynvml.nvmlDeviceGetHandleByIndex(int(gpu)) for gpu in GPU}
 
-    try:
+    try :
         while not stop_flag.is_set() :
             lines = []
             for gpu, handle in handles.items() :
@@ -1410,7 +1411,7 @@ def monitor_vram(GPU, stop_flag) :
 
 
 @staticmethod
-def kill_hint_processes(proc) :
+def kill_hint_processes (proc) :
     """
     Kill all processes related to the current Python executable, typically used to terminate any remaining AlphaFold jobs after a KeyboardInterrupt (Ctrl+C).
 
