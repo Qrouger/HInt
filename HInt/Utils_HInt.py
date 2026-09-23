@@ -1213,6 +1213,16 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
 
                 free = max_vram - gpu_vram_used[gpu_id]
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
+                    print(
+                       f"[GPU {gpu_id}] VRAM available for scheduling: "
+                       f"{free:.2f} GB"
+                    )
+
+                    print(
+                       f"[GPU {gpu_id}] Predicted VRAM requirement for job "
+                       f"'{interaction.strip()}' : {job_vram:.2f} GB"
+                    )
+
                     p = multiprocessing.Process(target=gpu_job_runner,
                         args=(gpu_id,
                             interaction,
@@ -1233,6 +1243,13 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     gpu_vram_used[gpu_id] += job_vram
                     jobs_running[gpu_id].append((interaction, p))
                     jobs_pending.remove((interaction, job_vram))
+                    print(
+                       f"[GPU {gpu_id}] Job started: '{interaction.strip()}' | "
+                       f"PID: {p.pid} | "
+                       f"Predicted VRAM: {job_vram:.2f} GB | "
+                       f"Predicted total VRAM usage: {gpu_vram_used[gpu_id]:.2f} GB | "
+                       f"Active jobs: {len(jobs_running[gpu_id])}"
+                    )
                     launched = True
                     break
 
@@ -1358,7 +1375,7 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
                 bufsize=1)
 
             for line in proc.stdout :
-                print(line, end="", flush=True)
+                #print(line, end="", flush=True)
                 log_f.write(line)
                 log_f.flush()
 
