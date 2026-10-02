@@ -1278,6 +1278,15 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     compound : str
     """
     env = os.environ.copy()
+    cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)],text=True,).strip().replace(".", "")
+    if os.path.exists(f"/scratch") :
+        jax_cache_dir = f"/scratch"
+    else :
+        jax_cache_dir = f"{os.path.dirname(Path_Database)}"
+        
+    env['JAX_COMPILATION_CACHE_DIR'] = f"{jax_cache_dir}/jax_cache/sm{cc}"
+    env['JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS'] = '0'
+    env['JAX_PERSISTENT_CACHE_MIN_ENTRY_SIZE_BYTES'] = '0'
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
