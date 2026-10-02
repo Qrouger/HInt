@@ -76,6 +76,8 @@ cd deeplocpro
 
 $CONDA_BIN run -n $ENV_NAME pip install -q . torch==2.6.0
 $CONDA_BIN run -n $ENV_NAME pip install -q triton==3.1.0
+$CONDA_BIN run -n $ENV_NAME pip install -q nvidia-cudnn-cu12==9.26.0.51
+
 
 cd ..
 
