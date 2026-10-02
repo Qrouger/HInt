@@ -19,7 +19,7 @@ Download the DeepLoc 2.0 package from: https://services.healthtech.dtu.dk/servic
 conda activate HInt
 cd  deeploc2_package
 pip install . torch==2.6.0
-pip install triton==3.1.0 nvidia-cudnn-cu12==9.25.0.15
+pip install triton==3.1.0 nvidia-cudnn-cu12==9.26.0.51
 ```
 
 ## 1.3. SignalP5
