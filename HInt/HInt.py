@@ -87,8 +87,10 @@ def main() :
     
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"])
 
-    logger.info("GPUs set to: %s", GPU)
-    logger.info("Number of CPUs set to: %s", CPU)
+    logger.info(f"GPUs set to: {GPU}")
+    logger.info(f"Multi-job per GPU set to: {multi_job_per_gpu}")
+    logger.info(f"Number of CPUs set to: {CPU}")
+    logger.info(f"AlphaFold version set to: {Informations_dict['AlphaFold']}")
 
     time_dict = HInt_object.get_time_dict() 
     time_dict["Summarize_info"] = [Informations_dict["Interact_with"], Informations_dict["DeepLoc"], Informations_dict["Signal_peptide"], Informations_dict["Min_protein_length"], Informations_dict["Max_protein_length"], Informations_dict["Homo-oligomer"],str(len(HInt_object.get_possible_prey())),Informations_dict["Organism"]]
