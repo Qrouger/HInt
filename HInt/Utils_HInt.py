@@ -1180,7 +1180,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Baits = Informations_dict["Interact_with"]
 
-    cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)],text=True,).strip().replace(".", "")
+    cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(GPU[0])],text=True,).strip().replace(".", "")
     if os.path.exists(f"/scratch") :
         jax_cache_dir = f"/scratch/jax_cache/sm_{cc}"
     else :
