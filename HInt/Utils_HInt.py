@@ -1179,6 +1179,13 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
     Path_Database = Informations_dict["Path_Database"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
     Baits = Informations_dict["Interact_with"]
+
+    cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)],text=True,).strip().replace(".", "")
+    if os.path.exists(f"/scratch") :
+        jax_cache_dir = f"/scratch/jax_cache/sm_{cc}"
+    else :
+        jax_cache_dir = f"{os.path.dirname(Path_Database)}/jax_cache/sm_{cc}"
+        
     compound = None
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
@@ -1234,7 +1241,8 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                             AF_version,
                             seq_bait, 
                             Baits,
-                            compound
+                            compound,
+                            jax_cache_dir
                         ),
                     )
     
@@ -1259,7 +1267,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
             time.sleep(1)
 
 
-def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound) :
+def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound, jax_cache_dir) :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1276,15 +1284,11 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     seq_bait : dict
     Baits : list
     compound : str
+    jax_cache_dir : str
     """
     env = os.environ.copy()
-    cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)],text=True,).strip().replace(".", "")
-    if os.path.exists(f"/scratch") :
-        jax_cache_dir = f"/scratch"
-    else :
-        jax_cache_dir = f"{os.path.dirname(Path_Database)}"
-        
-    env['JAX_COMPILATION_CACHE_DIR'] = f"{jax_cache_dir}/jax_cache/sm{cc}"
+    
+    env['JAX_COMPILATION_CACHE_DIR'] = str(jax_cache_dir)
     env['JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS'] = '0'
     env['JAX_PERSISTENT_CACHE_MIN_ENTRY_SIZE_BYTES'] = '0'
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -1366,6 +1370,7 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
                 f"--monomer_objects_dir={Path_Pickle_Feature} "
                 "--fold_backend=alphafold3 "
                 "--use_ap_style=True "
+                f"--jax_compilation_cache_dir={jax_cache_dir}"
             )
 
         if AF_version == "3" and interaction_type == "Compounds" :
