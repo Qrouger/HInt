@@ -1,11 +1,11 @@
 # <img width="240" height="240" alt="HInt_logo" src="https://github.com/user-attachments/assets/0d85a047-f02c-4819-9bc2-b51ca8bf0aba" />
 # HInt
-HInt accelerates AlphaFold by optimizing computations and parallelizing structure predictions. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions.  HInt enables the discovery of conserved interaction networks that may remain undetected using sequence or structural similarity alone.
+HInt accelerates AlphaFold by optimizing computations and parallelizing structure prediction. It is a scalable pipeline for high-throughput identification of homologous proteins and interologues—proteins that maintain functional interactions.  HInt enables the discovery of conserved interaction networks that may remain undetected using sequence or structural similarity alone.
 
 # 1. Installation
 
 ## 1.1. HInt
-Conda or Mamba must be installed on your system and should not be activated before running the installation.
+Conda or Mamba must be installed on your system and must not be activated before running the installation.
 ```bash
 wget https://raw.githubusercontent.com/Qrouger/HInt/main/Install_HInt.sh
 bash Install_HInt.sh
@@ -44,10 +44,10 @@ tar xvzf ccp4-9-setup.tar.gz
 <br>
 
 # 2. Download databases (~1.5 TB)
-For optimal performance, store MMseqs2 databases and MSA on NVMe or SSD storage rather than HDDs.<br>
+For optimal performance, store MMseqs2 database and MSAs on SSD storage rather than HDDs.<br>
 
 ```bash
-wget wget https://raw.githubusercontent.com/Qrouger/HInt/main/setup_databases.sh
+wget https://raw.githubusercontent.com/Qrouger/HInt/main/setup_databases.sh
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh <DB_DIR>
 ```
@@ -59,22 +59,22 @@ You need to download or copy HInt.txt file example. <br>
 
 - **Signal_peptide** : Filter proteins based on the presence of a predicted signal peptide (Options : Yes, No or None).<br>
 
-- **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. All proteins predicted to be in one of these compartments will be used.<br>
+- **DeepLoc** : Cellular localisation(s) of the protein. Multiple localizations can be specified, separated by commas. All proteins predicted to localize to one of these compartments will be used.<br>
   - Eukaryotes : Cytoplasm, Nucleus, Extracellular, Cell membrane, Mitochondrion, Plastid, Endoplasmic reticulum, Lysosome/Vacuole, Golgi apparatus, Peroxisome.
   - Prokaryotes : Cell wall & surface, Extracellular, Cytoplasmic, Cytoplasmic Membrane, Outer Membrane, Periplasmic.
 
 - **Max_protein_length** : Maximum length of the protein you search (integer). <br>
 
-- **Min_protein_length** : Minimum length of the protein you search (integer), default set on 20aa. <br>
+- **Min_protein_length** : Minimum length of the protein you search (integer), default set on 20 aa. <br>
 
 - **AlphaFold** : AlphaFold version (Options : 2 or 3). <br>
 
-- **Homo-oligomer** : Known homo-oligomerization state of the target protein (integer : 1 to 20), default set on 1 (monomer). <br>
+- **Homo-oligomer** : Known homo-oligomerization state of the target protein (integer : 1 to 20), default set to 1 (monomer). <br>
 
-- **Interact_with** : Names of proteins expected to interact with the query protein (UniprotID or protein fasta name).
+- **Interact_with** : Names of proteins expected to interact with the query protein (Uniprot ID or protein fasta name).
 
 <details>
-<summary>Advanced Interact_with uses and examples </summary>
+<summary>Advanced Interact_with usage and examples </summary>
 
 One bait :
 ```
@@ -107,13 +107,13 @@ HInt currently does not support multiple regions for bait proteins.
 <br>
 
 >[!TIP]
->If you don’t know an information or want to skip it, you can leave this field blank.
+>If you don’t know the information or want to skip it, you can leave this field blank.
 
 <br>
 
 ### Paths
 
-- **Path_AlphaFold_Data** : Path of AlphaFold database (string).
+- **Path_AlphaFold_Data** : Path to the AlphaFold database (string).
 
 - **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
 
@@ -128,7 +128,7 @@ HInt currently does not support multiple regions for bait proteins.
 <br>
 
 ## 3.2. Setup protein file
-The protein file must contain all UniProt IDs or all sequences in FASTA format for both preys and baits. <br>
+The protein file must contain all UniProt IDs and/or all sequences in FASTA format for both preys and baits. <br>
 This can be an NCBI protein FASTA file, a standard FASTA file, UniProt identifiers, or a combination of these formats. <br>
 
 >[!TIP]
@@ -170,13 +170,13 @@ MNEVYVIAGGEWLRNNLNAIAAFMGTWTWDSIEKIALTLSVLAVAVMWVQRHNVMDLLGWVAVFVLISLLVNVRTSVQII
 <br>
 
 # 4. Run HInt
-You need to be in the directory with HInt.txt file.
+You need to be in the directory containing HInt.txt file.
 
 ```bash
 HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 ```
 <details>
-<summary>Flags description </summary>
+<summary>Flag descriptions </summary>
 
 ```yaml
 # Number of CPUs available for computation. Enables CPU parallelization. By default, set to half of the available CPUs.
