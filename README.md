@@ -170,7 +170,7 @@ MNEVYVIAGGEWLRNNLNAIAAFMGTWTWDSIEKIALTLSVLAVAVMWVQRHNVMDLLGWVAVFVLISLLVNVRTSVQII
 <br>
 
 # 4. Run HInt
-You need to be in the directory containing HInt.txt file.
+You need to be in the directory containing the HInt.txt file and activate the HInt Conda environment.
 
 ```bash
 HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
