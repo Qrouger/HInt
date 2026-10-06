@@ -279,6 +279,13 @@ Compute **iQ-score** independently of the full HInt workflow..
 
 [![GitHub](https://img.shields.io/badge/GitHub-iQ--score-black?style=for-the-badge&logo=github)](https://github.com/Qrouger/iQ-score)
 
+<img width="480" height="480" alt="ROC_curve" src="https://github.com/user-attachments/assets/16dd98f7-b6ed-4a4c-b89f-06b79199af16" />
+
+# HInt modelisation acceleration
+
+Time required to predict the structures of a set of PPIs using four RTX 4500 Ada GPUs compared with the conventional pipeline.
+<img width="916" height="132" alt="Screenshot from 2026-10-06 11-48-40" src="https://github.com/user-attachments/assets/ae5c4279-b95c-455c-9b08-546fa7947f8f" />
+
 # Citations
 **HInt**: interaction-based homology discovery through accelerated genome-scale AlphaFold screening
 Quentin Rouger, Pierre Paillard, Manon Thomet, Emma Touquet, Gwenaël Rabut, Emmanuel Giudice, Damien F. Meyer, Kévin Macé
