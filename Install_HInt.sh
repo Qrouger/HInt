@@ -38,6 +38,7 @@ $CONDA_BIN create -n $ENV_NAME -y \
     hmmer \
     mmseqs2 \
     git \
+    libstdcxx-ng>=13 \
     setuptools=81
 
 
