@@ -61,7 +61,7 @@ $CONDA_BIN run -n $ENV_NAME git clone https://github.com/KosinskiLab/alphafold3
 
 cd alphafold3
 
-$CONDA_BIN run -n $ENV_NAME git checkout 86b9ea3feacc8934e6e2a581c49eb4c37a2a3d20
+$CONDA_BIN run -n $ENV_NAME git checkout 98785987139da9781ba271b159c93efaaf23a06f
 
 $CONDA_BIN run -n $ENV_NAME pip install . --no-deps
 
