@@ -362,6 +362,7 @@ def check_exist_MSA (file, Informations_dict, need_msa) :
             new_need_msa.append(prot)
         if os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m") == True : #if MSA already exist but have SP
             with open(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m", "r") as msa_file :
+                first_line = ""
                 b = "no"
                 for line in msa_file :
                     if b == "yes" :
