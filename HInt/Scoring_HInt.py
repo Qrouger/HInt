@@ -394,7 +394,8 @@ def Resume_file(file, Informations_dict) :
     if Informations_dict["Interact_with"] == [""] and Informations_dict["Homo-oligomer"] != "1" : #if no PPI interactions filter on hiQ_score
         sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get(f"hiQ_score_{nbr_homo}er", 0), len(x[1]),), reverse=True)
     if Informations_dict["Homo-oligomer"] == "1" and Informations_dict["Interact_with"] == [""] : #no bait and no homo-oligomer
-        sorted_proteins = result_dict
+        sorted_proteins = sorted(result_dict.items(), key=lambda item: "Reason_for_filtering" in item[1])
+
 
     sorted_dict = dict(sorted_proteins)
 
