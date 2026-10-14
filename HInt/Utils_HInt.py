@@ -1226,11 +1226,6 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                        f"{free:.2f} GB"
                     )
 
-                    print(
-                       f"[GPU {gpu_id}] Predicted VRAM requirement for job "
-                       f"'{interaction.strip()}' : {job_vram:.2f} GB"
-                    )
-
                     p = multiprocessing.Process(target=gpu_job_runner,
                         args=(gpu_id,
                             interaction,
