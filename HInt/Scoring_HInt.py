@@ -525,6 +525,8 @@ def plot_PAE (job, lenght_prot) :
     """
     int_name = job.split("/")[-1]
     json_file = f"{job}/{int_name}_confidences.json"
+    if Path(json_file).is_file() == False :
+        json_file = next((str(f) for f in Path(job).iterdir() if f.is_file() and f.name.endswith("confidences.json") and "summary" not in f.name),)
     output_file = f"{job}/{int_name}_PAE.png"
 
     list_lenght = list()
