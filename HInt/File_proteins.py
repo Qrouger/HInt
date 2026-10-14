@@ -512,10 +512,13 @@ class File_proteins() :
                     int_score[save_prot] = dict()
                     homo_score[save_prot] = dict()
                 elif len(line) > 1 and save_prot != "" :
-                    sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","_")
                     for aa in ["O", "B", "Z", "J", "U"] : #"X"
                         if aa in line.strip("\n") :
-                            raise ValueError(f"Sequence {save_prot} contains {aa}.")
+                            if aa == "U" :
+                                line = line.replace("U","X")
+                            else :
+                                raise ValueError(f"Sequence {save_prot} contains {aa}.")
+                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","_")
         if new_compounds != {} :
             if AF_version != "3" : 
                 raise ValueError("Compounds screening need AlphaFold3.")
