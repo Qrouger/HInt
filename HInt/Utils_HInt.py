@@ -260,7 +260,7 @@ def run_deeploc(file, org, need_DeepLoc, GPU) :
                     
                     deeploc[protein] = compartment
                     result_dict[protein]["DeepLoc"] = deeploc[protein]
-    file.set_result_dict(result_dict)
+        file.set_result_dict(result_dict)
     file.set_deeploc(deeploc)
 
 
