@@ -431,6 +431,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                         err = result.stderr.decode()
                         on_afdb = False
                         if "403" in err : #403 error mean that MSA is not available in AFdb
+                            os.remove(msa_in)
                             break
                         if "429" in err or "Too Many Requests" in err :
                             retry_queue.append(protein)
