@@ -518,7 +518,7 @@ class File_proteins() :
                                 line = line.replace("U","X")
                             else :
                                 raise ValueError(f"Sequence {save_prot} contains {aa}.")
-                     sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","_")
+                    sequence_SP[save_prot] = sequence_SP[save_prot] + line.strip("\n").strip("\t").replace(" ","").replace("-","_")
         if new_compounds != {} :
             if AF_version != "3" : 
                 raise ValueError("Compounds screening need AlphaFold3.")
