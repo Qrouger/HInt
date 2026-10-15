@@ -1200,12 +1200,16 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
         while not result_queue.empty() :
             status, job, gpu_id, vram = result_queue.get()[:4]
             gpu_vram_used[gpu_id] -= vram
-            for i, (j, p) in enumerate(jobs_running[gpu_id]) :
+            for i, (j, p, v) in enumerate(jobs_running[gpu_id]) :
                 if j == job :
                     p.join() 
                     jobs_running[gpu_id].pop(i)
-                    Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
-                    HInt_object.Make_save_dict()
+                    if status == "done" :
+                        Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
+                        HInt_object.Make_save_dict()
+                    elif status == "error" :
+                        logger.error(f"Error {job}, put on the waiting list")
+                        jobs_pending.append((job, v))
                     break
 
         launched = False
@@ -1213,7 +1217,19 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
         for interaction, job_vram in list(jobs_pending) :
             if os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0]}.pkl") :
                 jobs_rdy.append((interaction, job_vram))
-
+                
+        for gpu_id in GPU :
+            for job, p, vram in list(jobs_running[gpu_id]) :
+    
+                if p.exitcode is not None and p.exitcode != 0 :
+                    jobs_running[gpu_id].remove((job, p, vram))
+        
+                    gpu_vram_used[gpu_id] = max(0.0, gpu_vram_used[gpu_id] - vram)
+        
+                    logger.error(f"[GPU {gpu_id}] Job {job} crash" f"(exit code {p.exitcode}), put on the waiting list")
+        
+                    jobs_pending.append((job, vram))
+                        
         for interaction, job_vram in list(jobs_rdy) :
             sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use
             if interaction_type == "Compounds" :
@@ -1246,7 +1262,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     p.start()
     
                     gpu_vram_used[gpu_id] += job_vram
-                    jobs_running[gpu_id].append((interaction, p))
+                    jobs_running[gpu_id].append((interaction, p, job_vram))
                     jobs_pending.remove((interaction, job_vram))
                     print(
                        f"[GPU {gpu_id}] Job started: '{interaction.strip()}' | "
