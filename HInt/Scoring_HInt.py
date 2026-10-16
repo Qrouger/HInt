@@ -37,7 +37,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (seq_no_SP, prot_length, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
+def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -48,8 +48,7 @@ def Score_interaction (seq_no_SP, prot_length, Informations_dict, CPU, Interacti
 
     Parameters :
     ----------
-    seq_no_SP : dict
-    prot_length : dict
+    file : HInt object
     Informations_dict : dictionary
     CPU : int
     Interaction : str
@@ -67,6 +66,8 @@ def Score_interaction (seq_no_SP, prot_length, Informations_dict, CPU, Interacti
     nbr_homo = Informations_dict["Homo-oligomer"]
     AF_version = Informations_dict["AlphaFold"]
     Compounds = file.get_compounds().keys() 
+    seq_no_SP = file.get_proteins_sequence_no_SP()
+    prot_length = file.get_length_prot()
     ppi_list = list()
     already_done = list()
     already_dict = dict()
