@@ -332,9 +332,9 @@ def run_scoring (args) :
     args : tuple
 
     """
-    interaction, file, AF_version, Path_ccp4, multi_scoring = args
+    interaction, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring = args
     try :
-        result = HInt.get_good_inter_pae.main(interaction, 10, 2, file, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
+        result = HInt.get_good_inter_pae.main(interaction, 10, 2, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring) #normal PAE is 10
         return  result
     except Exception as e:
         pid = os.getpid()
