@@ -1116,6 +1116,9 @@ def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, inter
 
     Parameters :
     ----------
+    HInt_object :  HInt object
+    CPU : int
+    multi_scoring : bool
     Informations_dict : dict
     interaction_files : str
     job_with_vram_length : list of tuple
@@ -1167,9 +1170,10 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
     Parameters :
     ----------
     jobs_pending : list
-    HInt_object : 
+    HInt_object : HInt object
     CPU : int
     multi_scoring : str
+    Informations_dict : dict
     GPU : list
     max_vram : float
     interaction_type : str
