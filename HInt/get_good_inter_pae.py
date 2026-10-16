@@ -188,7 +188,7 @@ def get_last_chain_from_pdb(pdb_file) :
     return last_chain
 
 
-def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_scoring) :
+def main(job, cutoff, surface_thres, seq_no_SP, prot_length, AF_version, ccp4_setup, multi_scoring) :
     """
     Main function to check inter-PAE and run pi_score for good models. Returns a pandas df with all scores.
     structure confidence (ipTM)
@@ -201,13 +201,12 @@ def main(job, cutoff, surface_thres, save_file, AF_version, ccp4_setup, multi_sc
     job : str
     cutoff : int
     surface_thres : int
-    save_file : File_proteins object
+    seq_no_SP : dict
+    prot_length : dict
     AF_version : str
     ccp4_setup : str
     multi_scoring : bool
     """
-    seq_no_SP = save_file.get_proteins_sequence_no_SP()
-    prot_length = save_file.get_length_prot()
     good_jobs = []
     iptm_ptm = list()
     iptm = list()
