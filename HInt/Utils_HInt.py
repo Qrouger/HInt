@@ -1205,7 +1205,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     p.join() 
                     jobs_running[gpu_id].pop(i)
                     if status == "done" :
-                        Score_interaction(HInt_object.get_proteins_sequence_no_SP(), HInt_object.get_length_prot(), Informations_dict, CPU, interaction_type, job, multi_scoring, "")
+                        Score_interaction(file, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
                         HInt_object.Make_save_dict()
                     elif status == "error" :
                         logger.error(f"Error {job}, put on the waiting list")
