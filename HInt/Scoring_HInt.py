@@ -37,7 +37,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
+def Score_interaction (seq_no_SP, prot_length, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -48,7 +48,8 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
 
     Parameters :
     ----------
-    file : object of class File_proteins
+    seq_no_SP : dict
+    prot_length : dict
     Informations_dict : dictionary
     CPU : int
     Interaction : str
@@ -147,7 +148,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
                         result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
         results = []
         with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
-            tasks = [(ppi, file, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
+            tasks = [(ppi, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
                 if df is not None and not df.empty :
