@@ -147,7 +147,8 @@ def Score_interaction (seq_no_SP, prot_length, Informations_dict, CPU, Interacti
                     if int_score[compound][f"iQ_score_vs_{compound}"] == 0 :
                         result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
         results = []
-        with multiprocessing.Pool(CPU) as pool : #just run scoring for interactions without score
+        n_workers = min(CPU, len(ppi_list))
+        with multiprocessing.Pool(n_workers) as pool : #just run scoring for interactions without score
             tasks = [(ppi, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
             results_iter = pool.imap_unordered(run_scoring, tasks)
             for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
