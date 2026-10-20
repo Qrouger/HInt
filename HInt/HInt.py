@@ -27,11 +27,12 @@ from .File_proteins import *
 from .Scoring_HInt import Score_interaction, Resume_file, Create_figures
 
 # Reset existing handlers to avoid duplicated logs
+open("log_file/HInt.log", "w").close()
 logging.getLogger().handlers.clear()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-file_handler = logging.FileHandler(log_filename, mode='w')
+file_handler = logging.FileHandler(log_filename, mode='a')
 file_handler.setFormatter(formatter)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
