@@ -1242,9 +1242,8 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
 
                 free = max_vram - gpu_vram_used[gpu_id]
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
-                    print(
-                       f"[GPU {gpu_id}] VRAM available for scheduling: "
-                       f"{free:.2f} GB"
+                    logging.info(f"[GPU {gpu_id}] VRAM available for scheduling: "
+                          f"{free:.2f} GB"
                     )
 
                     p = multiprocessing.Process(target=gpu_job_runner,
@@ -1268,7 +1267,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     gpu_vram_used[gpu_id] += job_vram
                     jobs_running[gpu_id].append((interaction, p, job_vram))
                     jobs_pending.remove((interaction, job_vram))
-                    print(
+                    logging.info(
                        f"[GPU {gpu_id}] Job started: '{interaction.strip()}' | "
                        f"PID: {p.pid} | "
                        f"Predicted VRAM: {job_vram:.2f} GB | "
