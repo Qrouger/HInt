@@ -149,14 +149,15 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
                         result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
         results = []
         n_workers = min(CPU, len(ppi_list))
-        with multiprocessing.Pool(n_workers) as pool : #just run scoring for interactions without score
-            tasks = [(ppi, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
-            results_iter = pool.imap_unordered(run_scoring, tasks)
-            for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
-                if df is not None and not df.empty :
-                    results.append(df)
-            pool.close()
-            pool.join()
+        if n_workers > 0 :
+            with multiprocessing.Pool(n_workers) as pool : #just run scoring for interactions without score
+                tasks = [(ppi, seq_no_SP, prot_length, AF_version, Path_ccp4, multi_scoring) for ppi in ppi_list]
+                results_iter = pool.imap_unordered(run_scoring, tasks)
+                for df in tqdm(results_iter, total=len(ppi_list), desc="Scoring interactions") :
+                    if df is not None and not df.empty :
+                        results.append(df)
+                pool.close()
+                pool.join()
 
         merged_df = pd.concat(results, ignore_index=True) if results else pd.DataFrame() #write an empty dataframe if no result
         merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
