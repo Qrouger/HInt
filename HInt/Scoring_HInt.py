@@ -286,6 +286,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
             file.set_int_score(int_score)
         file.set_result_dict(result_dict)
         file.set_possible_prey(new_possible_prey)
+        file.Make_save_dict()
     else :
         logger.info(f"result_{Interaction}/ don't exist")
 

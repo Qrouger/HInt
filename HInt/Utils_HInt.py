@@ -1199,6 +1199,9 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
     gpu_vram_used = {gpu: 0.0 for gpu in GPU}
     jobs_running = {gpu: [] for gpu in GPU}  # {gpu_id: {job_str: process}}
 
+    scoring_pool = ThreadPoolExecutor(max_workers=1) #scoring in background, one at a time
+    scoring_futures = []
+
     while jobs_pending or any(jobs_running.values()) :
 
         while not result_queue.empty() :
@@ -1208,12 +1211,14 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                 if j == job :
                     p.join() 
                     jobs_running[gpu_id].pop(i)
+
                     if status == "done" :
-                        Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, "")
-                        HInt_object.Make_save_dict()
+                        scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, ""))
+
                     elif status == "error" :
                         logger.error(f"Error {job}, put on the waiting list")
                         jobs_pending.append((job, v))
+
                     break
 
         launched = False
