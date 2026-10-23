@@ -1110,7 +1110,7 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
         all_batches.append(pending)
     return all_batches
 
-def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
+def Generate_3D_model (HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
     """
     Generate 3D models using multiple GPUs and multiprocessing.
 
@@ -1118,7 +1118,8 @@ def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, inter
     ----------
     HInt_object :  HInt object
     CPU : int
-    multi_scoring : bool
+    multi_scoring : str
+    send_to_database : str
     Informations_dict : dict
     interaction_files : str
     job_with_vram_length : list of tuple
@@ -1151,6 +1152,7 @@ def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, inter
             HInt_object=HInt_object,
             CPU=CPU,
             multi_scoring=multi_scoring,
+            send_to_database=send_to_database,
             Informations_dict=Informations_dict,
             GPU=GPU,
             max_vram=max_vram,
@@ -1163,7 +1165,7 @@ def Generate_3D_model (HInt_object, CPU, multi_scoring, Informations_dict, inter
     stop_flag.set()
     monitor.join()
 
-def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, GPU, max_vram, interaction_type, multi_job_per_gpu, seq_bait, compounds_dict) :
+def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, GPU, max_vram, interaction_type, multi_job_per_gpu, seq_bait, compounds_dict) :
     """
     Manage repartition of jobs on GPUs, monitor VRAM usage, and handle job completion.
 
@@ -1173,6 +1175,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
     HInt_object : HInt object
     CPU : int
     multi_scoring : str
+    send_to_database : str
     Informations_dict : dict
     GPU : list
     max_vram : float
@@ -1213,7 +1216,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     jobs_running[gpu_id].pop(i)
 
                     if status == "done" :
-                        scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, job, multi_scoring, ""))
+                        scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, send_to_database, job, multi_scoring, ""))
 
                     elif status == "error" :
                         logger.error(f"Error {job}, put on the waiting list")
@@ -1247,7 +1250,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
 
                 free = max_vram - gpu_vram_used[gpu_id]
                 if job_vram <= free and (multi_job_per_gpu or len(jobs_running[gpu_id]) == 0) :
-                    logging.info(f"[GPU {gpu_id}] VRAM available for scheduling: "
+                    logger.info(f"[GPU {gpu_id}] VRAM available for scheduling: "
                           f"{free:.2f} GB"
                     )
 
@@ -1272,7 +1275,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, Informations_dict, G
                     gpu_vram_used[gpu_id] += job_vram
                     jobs_running[gpu_id].append((interaction, p, job_vram))
                     jobs_pending.remove((interaction, job_vram))
-                    logging.info(
+                    logger.info(
                        f"[GPU {gpu_id}] Job started: '{interaction.strip()}' | "
                        f"PID: {p.pid} | "
                        f"Predicted VRAM: {job_vram:.2f} GB | "

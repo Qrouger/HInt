@@ -6,7 +6,7 @@ import os
 import csv
 import logging
 import multiprocessing
-import HInt.get_good_inter_pae
+import HInt.get_good_inter_pae, HInt.Send_to_database
 import gc
 import pandas as pd
 import json
@@ -37,7 +37,7 @@ logging.basicConfig(
 
 logger = logging.getLogger()
 
-def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_scoring="False", bait="") :
+def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_database, job="", multi_scoring="False", bait="") :
     """
     Compute interaction scores (PPI or homo-oligomer) from AlphaFold predictions, aggregate them into meaningful metrics (iQ_score / hiQ_score), and update the list of valid prey proteins accordingly.
 
@@ -55,6 +55,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
         Interaction type ("PPI_int" or "homo_int")
     job : str
     multi_scoring : str
+    send_to_database : str
     bait : str
 
     """
@@ -220,10 +221,16 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
                             mean_iQ_score[prey_name].append(iQ_score)
                             int_score[prey_name][f"iQ_score_vs_{bait_name}"] = iQ_score
                             result_dict[prey_name][f"iQ_score_vs_{bait_name}"] = iQ_score
+                            if send_to_database == "All" :
+                                zip_path = HInt.Send_to_database.HInt_to_QSProteome(f"./result_{Interaction}/{just_name}", AF_version)
+                                HInt.Send_to_database.send_to_QSproteome(zip_path)
+
+
                             if prey_name not in new_possible_prey :
                                 new_possible_prey.append(prey_name)
                             if "ranked_0" in job :
                                 all_lines = all_lines + line
+
                     for protein in possible_prey :
                         if multi_scoring == True and protein in mean_iQ_score.keys() :
                             scores = mean_iQ_score[protein]
@@ -236,6 +243,16 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, job="", multi_
                             int_score[protein][f"iQ_score_vs_{bait_name}"] = 0
                             result_dict[protein][f"iQ_score_vs_{bait_name}"] = 0 #if prey don't have interaction, set iQ_score to 0
                             result_dict[protein]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+                            if send_to_database == "All" or send_to_database == "Negative" :
+                                dir_path = Path(f"./result_{Interaction}/{bait_name}_and_{protein}")
+                                inv_dir = Path(f"./result_{Interaction}/{protein}_and_{bait_name}")
+                                if dir_path.exists() and dir_path.is_dir() :
+                                    job = dir_path
+                                elif inv_dir.exists() and inv_dir.is_dir() :
+                                    job = inv_dir
+                                zip_path = HInt.Send_to_database.HInt_to_QSProteome(job, AF_version)
+                                HInt.Send_to_database.send_to_QSproteome(zip_path)
+                                
                 #For homo-oligomer
                 if Interaction == "homo_int" : #score homo-oligomer
                     all_homo = dict()

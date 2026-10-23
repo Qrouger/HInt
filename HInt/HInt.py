@@ -59,6 +59,7 @@ def add_arguments(parser) :
     parser.add_argument("--cpu", help="Number of CPUs available for computation (default: half of the CPUs)", required=False, default=default_cpu, type=int)
     parser.add_argument("--multi_job_per_gpu", help="Allow multiple jobs to run on the same GPU if VRAM allows it (default: True)", required=False, default="True")
     parser.add_argument("--multi_scoring", help="Score all models of each interaction (default: False) and make a mean score.", required=False, default="False")
+    parser.add_argument("--send_to_database", help="Publish models to the public QSProteome database (https://qsproteome.org/). All, Negative or None", required=False, default="None")
 
 # ------------------------------------------------------------------
 # Main execution
@@ -80,6 +81,9 @@ def main() :
     multi_scoring = args.multi_scoring
     if multi_scoring not in ["True", "False"] :
         raise ValueError("Invalid value for --multi_scoring. Need True or False.")
+    send_to_database = args.send_to_database
+    if send_to_database not in ["All", "Negative", "None"] :
+        raise ValueError("Invalid value for --send_to_database. Need All, Negative or None.")
     Informations_dict = Define_informations()
     
     # --------------------------------------------------------------
@@ -92,6 +96,7 @@ def main() :
     logger.info(f"Multi-job per GPU set to: {multi_job_per_gpu}")
     logger.info(f"Number of CPUs set to: {CPU}")
     logger.info(f"AlphaFold version set to: {Informations_dict['AlphaFold']}")
+    logger.info(f"Send to database option set to: {send_to_database}")
 
     time_dict = HInt_object.get_time_dict() 
     time_dict["Summarize_info"] = [Informations_dict["Interact_with"], Informations_dict["DeepLoc"], Informations_dict["Signal_peptide"], Informations_dict["Min_protein_length"], Informations_dict["Max_protein_length"], Informations_dict["Homo-oligomer"],str(len(HInt_object.get_possible_prey())),Informations_dict["Organism"]]
@@ -217,11 +222,11 @@ def main() :
                         batch_MSA.append(new_prio_list)
             start_PPI = time.time()
             if HInt_object.get_compounds() != {} :
-                gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "Compounds", job_with_vram_length, GPU, multi_job_per_gpu))
+                gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, "Compounds", job_with_vram_length, GPU, multi_job_per_gpu))
                 gpu_thread.start()
                 gpu_thread.join()
             else :
-                gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
+                gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, "PPI_int", job_with_vram_length, GPU, multi_job_per_gpu))
                 gpu_thread.start()
                 for batch in batch_MSA :
                     create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
@@ -229,7 +234,7 @@ def main() :
                 gpu_thread.join()
             time_PPI = format_time(time.time() - start_PPI)
             time_dict["PPI"] = [len(job_with_vram_length), time_PPI]
-            Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", "", multi_scoring, bait) #if score is not done in Generate_3D_model, do it here
+            Score_interaction(HInt_object, Informations_dict, CPU, "PPI_int", send_to_database, "", multi_scoring, bait) #if score is not done in Generate_3D_model, do it here
     HInt_object.Make_save_dict()
 
 
