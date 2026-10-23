@@ -187,6 +187,9 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
   
 # Allows multiple jobs to run on a single GPU, reducing time of modeling. By default set on True. 
   --multi_job_per_gpu : Boolean
+
+# Allows to sending interaction generated in a public database (https://qsproteome.org/). All PPI, only negative PPI or none.
+  --send_to_database : All, Negative or None.
 ```
 </details>
 
