@@ -173,7 +173,7 @@ MNEVYVIAGGEWLRNNLNAIAAFMGTWTWDSIEKIALTLSVLAVAVMWVQRHNVMDLLGWVAVFVLISLLVNVRTSVQII
 You need to be in the directory containing the HInt.txt file and activate the HInt Conda environment.
 
 ```bash
-HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
+HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean> --send_to_database <All,Negative,None>
 ```
 <details>
 <summary>Flag descriptions </summary>
@@ -188,7 +188,7 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean>
 # Allows multiple jobs to run on a single GPU, reducing time of modeling. By default set on True. 
   --multi_job_per_gpu : Boolean
 
-# Allows to sending interaction generated in a public database (https://qsproteome.org/). All PPI, only negative PPI or none.
+# Allows to sending interaction generated in a public database (https://qsproteome.org/). All PPI, only negative PPI or none. By default set on None.
   --send_to_database : All, Negative or None.
 ```
 </details>
