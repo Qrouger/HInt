@@ -138,6 +138,8 @@ def Define_informations () :
                     name_prot = prot.split("(")[0]
                     new_baits_list.append(name_prot.strip())
                     regions_dict[name_prot.strip()] = prot.split("(")[1].strip(")")
+                    if regions_dict[name_prot.strip()].split("-")[0] == "0" or regions_dict[name_prot.strip()].split("-")[1] == "0" :
+                        raise ValueError(f"HInt don't support region with 0 for protein bait : {name_prot.strip()}")
                     for i,multimer in enumerate(Informations_dict["Multimer_bait"]) :
                         if prot in multimer :
                             new_multimer = multimer.replace(prot,name_prot.strip())
