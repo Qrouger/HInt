@@ -264,7 +264,7 @@ def main() :
                             new_prio_list.append(prot)
                     if new_prio_list != [] :
                         batch_MSA.append(new_prio_list)
-            gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu))
+            gpu_thread = threading.Thread(target=Generate_3D_model, args=(HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu))
             gpu_thread.start()
             for batch in batch_MSA :
                 create_feature(HInt_object, Informations_dict, GPU, CPU, [], batch)
