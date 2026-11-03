@@ -113,17 +113,16 @@ HInt currently does not support multiple regions for bait proteins.
 
 ### Paths
 
-- **Path_AlphaFold_Data** : Path to the AlphaFold database (string).
+- **Path_Database** : Path to the HInt database (string).
 
 - **Path_ccp4** : Path of CCP4 package (string). Default set on /opt/xtal/ccp4-9.
 
-- **Path_MMseqs2_Data** : Path of GPU-indexed MMseqs2 database (string).
 >[!NOTE]
 >This path is not mandatory. If not set also MMseqs2-GPU will not be used.
 
 - **Path_Uniprot_ID** : Path to the protein sequence file (string).
 
-- **Path_Pickle_Feature** : Path where MSA files will be saved (string).
+- **Path_Pickle_Feature** : Path where MSA and pkl files will be saved (string).
 
 <br>
 
