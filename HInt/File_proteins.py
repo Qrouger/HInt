@@ -446,7 +446,7 @@ class File_proteins() :
                                 scrap_name = new_name
                                 break
                     new_fasta += ">" + scrap_name + "\n"
-                if line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
+                elif line[0] == ">" and  "[protein_id=" in line or "[locus_tag=" in line or "[gbkey=" in line : #clean ncbi file
                     scrap_name = line.split(" ")[1].split("=")[1][0:len(line.split(" ")[1].split("=")[1])-1].replace("(","").replace(")","").replace("-","_")
                     if scrap_name in list_new_prot_name :
                         for i in range(1,100) :
