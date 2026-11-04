@@ -47,6 +47,7 @@ tar xvzf ccp4-9-setup.tar.gz
 For optimal performance, store MMseqs2 database and MSAs on SSD storage rather than HDDs.<br>
 
 ```bash
+conda activate HInt
 wget https://raw.githubusercontent.com/Qrouger/HInt/main/setup_databases.sh
 chmod +x setup_databases.sh 
 GPU=1 ./setup_databases.sh <DB_DIR>
