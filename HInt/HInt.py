@@ -186,10 +186,6 @@ def main() :
     if os.path.exists("log_file/shallow_MSA.txt") :
         os.remove("log_file/shallow_MSA.txt")
 
-    # --------------------------------------------------------------
-    # Feature generation (MSA + pickle files)
-    # --------------------------------------------------------------
-
 
     #Create batch just for loop on
     job_with_vram_length = []
@@ -272,7 +268,7 @@ def main() :
             gpu_thread.join()
             Score_interaction(HInt_object, Informations_dict, CPU, "homo_int", "", multi_scoring) 
         else :
-            Generate_3D_model(HInt_object, CPU, multi_scoring, Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu)
+            Generate_3D_model(HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, "homo_int", job_with_vram_length, GPU, multi_job_per_gpu)
             Score_interaction(HInt_object, Informations_dict, CPU, "homo_int", "", multi_scoring) 
             HInt_object.Make_save_dict()
 
