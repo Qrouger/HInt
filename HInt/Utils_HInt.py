@@ -417,7 +417,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     logger.info(f"{len(need_pkl)} proteins need pkl files")
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
-    
+        
+    os.environ.setdefault("ALPHAPULLDOWN_SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/uniprot_species_cache.sqlite")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
+    local_species_db = os.path.join(Path_Database, "uniref30_2302_species.sqlite")
+    if os.path.exists(local_species_db) :
+        os.environ.setdefault("ALPHAPULLDOWN_LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
+
     def AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa) :
         retry_queue = list() #list of protein to retry if error during MSA search in AFdb (too many request on server)
         with ThreadPoolExecutor(max_workers=max_workers_mafft) as executor :
