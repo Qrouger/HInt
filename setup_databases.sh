@@ -218,6 +218,17 @@ if [ ! -f PDB100_READY ] && [ ! -f SKIP_TEMPLATES ]; then
   touch PDB100_READY
 fi
 
+### Build local taxonomy accession
+
+SPECIES_DB="$(pwd)/${UNIREF30DB}_species.sqlite"
+if [ -e "${UNIREF30DB}_db_mapping" ] && [ ! -f "${SPECIES_DB}" ]; then
+  if hasCommand build_local_species_db.py; then
+    build_local_species_db.py --colabfold-db-dir "$(pwd)" --db-name "${UNIREF30DB}_db" --out "${SPECIES_DB}" \
+      || echo "WARNING: building ${SPECIES_DB} failed, species will be fetched from UniProt"
+  else
+    echo "WARNING: build_local_species_db.py not found (activate the HInt environment), skipping ${SPECIES_DB}"
+  fi
+fi
 
 ### AF2 weights
 
@@ -249,3 +260,5 @@ aria2c \
     --continue=true \
     -d "${WORKDIR}" \
     https://storage.googleapis.com/alphafold3/af3.bin.zst
+
+
