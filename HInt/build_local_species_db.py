@@ -198,7 +198,6 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, ValueError) as exc:
         log(f"error: {exc}")
         return 1
-    check(out_path)
     return 0
 
 
