@@ -312,11 +312,11 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     with open(f"log_file/{file_signalp}","r") as fh :
         for line in fh :
             new_line = line.split("\t")
-            if new_line[1] != "OTHER" and new_line[0][0] != "#" :
+            if new_line[1] != "OTHER" and new_line[0][0] != "#" and  "-" in new_line :
                 prot_SP_len[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
                 result_dict[new_line[0]]["Signal_peptide"] = "Yes"
                 if_prot_SP[new_line[0]] = "Yes"
-            elif new_line[1] == "OTHER" and new_line[0][0] != "#" :
+            elif new_line[0][0] != "#" :
                 result_dict[new_line[0]]["Signal_peptide"] = "No"
                 if_prot_SP[new_line[0]] = "No"
     with open(f"log_file/{fasta_file}", "r") as fa_file :
