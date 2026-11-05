@@ -193,6 +193,89 @@ HInt --cpu <Integer> --gpu <Integer(s)> --multi_job_per_gpu <Boolean> --send_to_
 ```
 </details>
 
+## 4.1. Run HInt on an HPC cluster (Slurm)
+
+`HInt-slurm` splits the pipeline into Slurm jobs chained with dependencies. Run it on a login node, from the directory containing HInt.txt, with the HInt environment activated. The screen directory, the databases and `Path_Pickle_Feature` must be on a shared file system.
+
+```bash
+HInt-slurm submit --partition <partition> --account <account> --gpu_vram <GiB> --predict_tasks 20
+```
+
+| Stage | Slurm job | Work |
+|---|---|---|
+| fetch | 1 job, only with `--offline_compute` | UniProt sequences, on the partition with internet access |
+| prepare | 1 job (GPU only if `Organism` is set, for DeepLoc) | Sequences, DeepLoc, SignalP, filters, job list of the first round |
+| afdb | 1 job, only with `--offline_compute` | MSAs of the AlphaFold database, on the partition with internet access |
+| msa | 1 GPU job | MSAs (AlphaFold database + MMseqs2-GPU `colabfold_search` on all proteins at once) |
+| features | job array (CPU) | AlphaFold feature pkl files |
+| predict | job array (GPU), one per round | 3D models, packed on the GPUs of each task by predicted VRAM |
+| score | 1 CPU job per round | Scoring, job list of the next round, final results after the last round |
+
+A round is one bait of `Interact_with` (in the given order: the next bait is only modeled with the preys validated with the previous one, as with `HInt`) or the homo-oligomer modeling. The predict arrays of a round run in parallel on as many GPUs as the cluster gives.
+
+<details>
+<summary>HInt-slurm options </summary>
+
+```yaml
+# Cluster
+  --cluster : generic or jean-zay (IDRIS profile, with --jz_project and --jz_gpu a100|h100|v100)
+  --offline_compute, --internet_partition : compute nodes without internet access, partition used for the steps that need it
+
+# Slurm
+  --partition / --gpu_partition / --cpu_partition : partition of all jobs, GPU jobs, CPU jobs
+  --account, --qos : Slurm account and QOS
+  --gpu_type : GPU type in --gres (gpu:<type>:N), e.g. a100
+  --sbatch_extra : extra #SBATCH line, repeatable, e.g. --sbatch_extra="--constraint=a100"
+  --setup : shell line run in each job before HInt, repeatable, e.g. --setup "module load cuda/12.4"
+  --conda_env : conda environment activated in each job (default: the current one), --no_conda to disable
+  --max_parallel : maximum number of array tasks running at the same time
+  --dry_run : write the scripts in slurm_scripts/ without submitting them
+
+# Work distribution
+  --features_tasks : array tasks for pkl files (default: 10)
+  --predict_tasks : array tasks per modeling round (default: 10)
+  --gpus_per_task : GPUs per predict task (default: 1)
+  --<stage>_cpus, --<stage>_mem, --<stage>_time : resources of each stage (fetch, prepare, afdb, msa, features, predict, score)
+  --start_at, --start_round : resume a run from a stage (fetch, prepare, afdb, msa, features, predict) and a round
+
+# HInt
+  --gpu_vram : VRAM (GiB) of the GPUs used for modeling. Recommended: the job lists are built before the predict jobs start
+  --multi_job_per_gpu, --multi_scoring, --send_to_database : same as HInt
+  --max_retries : retries of a crashed AlphaFold job (default: 1)
+  --no_afdb : do not download MSAs from the AlphaFold database
+  --local_search_threshold : use local colabfold_search from this number of MSAs, below use the ColabFold server (default: 1)
+  --jax_cache_dir : shared JAX compilation cache (default: next to Path_Database)
+```
+</details>
+
+```bash
+HInt-slurm status                            # progress of each stage and round
+scancel $(cat log_file/slurm/job_ids.txt)    # cancel the pipeline
+```
+
+Logs of each job are written in `log_file/slurm/` (Slurm outputs, one log per stage/task, AlphaFold logs per round, `round_<N>/failed_jobs.txt`). The results are the same files as with `HInt`. Every stage skips the work already done, so a run can be submitted again after a timeout or a crash.
+
+### Compute nodes without internet access
+
+Use `--offline_compute --internet_partition <partition>`: the UniProt sequences (`fetch` stage), the MSAs of the AlphaFold database (`afdb` stage), the pkl files (AF2 template search uses the ColabFold server) and the scoring (`--send_to_database`) run on that partition. Create the `pi_score` conda environment on the login node (`HInt-slurm submit` warns if it is missing). Build the local species database (`uniref30_2302_species.sqlite`, done by `setup_databases.sh`) so the pkl files do not query UniProt to pair MSAs. Each features task uses its own species cache (`Path_Pickle_Feature/uniprot_species_cache_task_<N>.sqlite`), SQLite cannot be shared between nodes on a network file system.
+
+### IDRIS Jean Zay
+
+```bash
+HInt-slurm submit --cluster jean-zay --jz_project <project> --jz_gpu a100 --predict_tasks 20
+```
+
+The `jean-zay` profile applies the IDRIS rules:
+- GPU jobs (DeepLoc, MSA, modeling): `--constraint=a100|h100|v100-32g`, `--account=<project>@<gpu>`, `--gres=gpu:N`, the CPUs matching the GPU share of the node (8 per A100, 24 per H100, 10 per V100), `--hint=nomultithread`, no `--mem` (memory is proportional to the CPUs), QoS `qos_gpu_<gpu>-t3` (20h) or `-t4` above 20h, `module load arch/h100` on H100.
+- Compute nodes have no internet access: sequences download, AlphaFold database MSAs, pkl files and scoring run on the `prepost` partition (internet access, hours not deducted, 20h max) with `--account=<project>@cpu` (change it with `--jz_internet_account`).
+- `--gpu_vram` is set to 80 (A100/H100) or 32 (V100).
+
+Recommendations:
+- Install the conda environments in `$WORK`, not in `$HOME` (3 GB quota): `conda config --add envs_dirs $WORK/conda/envs` and `conda config --add pkgs_dirs $WORK/conda/pkgs` before running `Install_HInt.sh` on a login node (internet access through the proxy).
+- Put the screen directory, the databases and `Path_Pickle_Feature` in `$WORK` (quota of 5 TB and 500k inodes per project, check with `idr_quota_project`). `$SCRATCH` is purged after 30 days without access and `$STORE` is not reachable from compute nodes.
+- Keep `--predict_time` at 20h or less and increase `--predict_tasks` instead. If a predict task reaches its time limit, the scoring stops the pipeline and prints the command to resume it (models already done are skipped).
+- Check the current limits on the IDRIS documentation (http://www.idris.fr/jean-zay/), they change with the machine extensions.
+
 <details>
 <summary>Initial folder structure </summary>
   
