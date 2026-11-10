@@ -20,3 +20,7 @@ Path_Uniprot_ID : sequences.txt
 
 ###MSA Path
 Path_Pickle_Feature : ./msa_feature
+
+
+###Custom
+Custom_interactions : #A custom file for interest-based interactions. It must not be used at the same time as Interact_with.
