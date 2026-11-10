@@ -148,6 +148,22 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
                     result_dict[compound][f"iQ_score_vs_{compound}"] = int_score[compound][f"iQ_score_vs_{compound}"]
                     if int_score[compound][f"iQ_score_vs_{compound}"] == 0 :
                         result_dict[compound]["Reason_for_filtering"] = f"Bad interactions with {bait_name} : inter PAE > 10 A"
+        if Interaction == "custom" : #for custom interactions
+            with open(Informations_dict["Custom_interactions"], "r") as custom_file :
+                for line in custom_file :
+                    int_file = line.replace("(", ",").replace(")", "").replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
+                    if "_homo_" in int_file :
+                        nbr = int_file.split("_homo_")[1].split("_")[0]
+                        int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                    if f"iQ_score/hiQ_score" not in int_score[int_file].keys() :
+                        dir_path = Path(f"./result_{Interaction}/{int_file}")
+                        if dir_path.exists() and dir_path.is_dir() :
+                            ppi_list.append(f"./result_{Interaction}/{int_file}")
+                    else :
+                        result_dict[int_file][f"iQ_score/hiQ_score"] = int_score[int_file][f"iQ_score/hiQ_score"]
+                        if int_score[int_file][f"iQ_score/hiQ_score"] == 0 :
+                            result_dict[int_file]["Reason_for_filtering"] = f"Bad interactions : inter PAE > 10 A"
+                    new_possible_prey.append(int_file)
         results = []
         n_workers = min(CPU, len(ppi_list))
         if n_workers > 0 :
@@ -159,7 +175,6 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
                         results.append(df)
                 pool.close()
                 pool.join()
-
         merged_df = pd.concat(results, ignore_index=True) if results else pd.DataFrame() #write an empty dataframe if no result
         merged_df.to_csv(os.path.join(f"./result_{Interaction}", "predictions_with_good_interpae.csv"), index=False)
         if ppi_list : #Add result in dict result if there is new ppi scored
@@ -295,6 +310,46 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
                             result_dict[protein][f"hiQ_score_{nbr_homo}er"] = 0
                             result_dict[protein]["Reason_for_filtering"] = "Bad homo-oligomer PAE : AF"
 
+                #For custom
+                if Interaction == "custom" :
+                    all_custom = dict()
+                    save_pi_score = dict()
+                    all_lines = "jobs,pi_score,iptm_ptm,iQ_score\n"
+                    for row in list_reader :
+                        job = row["jobs"]
+                        if row["pi_score"] != 'No interface detected' :
+                            if job not in all_custom.keys() :
+                                all_custom[job] = (row["pi_score"],1,row)
+                                save_pi_score[job] = [float(row["pi_score"])]
+                            else :
+                                save_pi_score[job].append(float(row["pi_score"]))
+                                sum_pi_score = float(all_custom[job][0]) + float(row["pi_score"])
+                                sum_int = all_custom[job][1] + 1
+                                all_custom[job] = (sum_pi_score,sum_int,row)
+
+                    for key in all_custom.keys() :
+                        row = all_custom[key][2]
+                        if len(key.split("_and_")) == 2 and "homo" not in key : #create iQ_score
+                            iQ_score = ((float(all_custom[key][0])+2.63)/5.26)*40+float(row["iptm_ptm"])*30+float(row["mpDockQ/pDockQ"])*30
+                            line =f'{key},{str(float(all_custom[key][0]))},{row["iptm_ptm"]},{row["mpDockQ/pDockQ"]},{str(iQ_score)}\n'
+                            name_int = key.replace("_ranked_0","")
+                            result_dict[name_int][f"iQ_score/hiQ_score"] = iQ_score
+                            int_score[name_int][f"iQ_score/hiQ_score"] = iQ_score
+                            
+                        else : #create hiQ_score
+                            row = all_custom[key][2]
+                            hiQ_score = (((float(all_custom[key][0])/all_custom[key][1])+2.63)/5.26)*60+float(row["iptm_ptm"])*40
+                            line =f'{key},{str(float(all_custom[key][0])/all_custom[key][1])},{row["iptm_ptm"]},{str(hiQ_score)}\n'
+                            all_lines += line
+                            name_int = key.replace("_ranked_0","")
+                            result_dict[name_int][f"iQ_score/hiQ_score"] = hiQ_score
+                            int_score[name_int][f"iQ_score/hiQ_score"] = hiQ_score
+                    for name_int in new_possible_prey :
+                        if "iQ_score/hiQ_score" not in int_score[name_int].keys() :
+                            int_score[name_int][f"iQ_score/hiQ_score"] = 0
+                            result_dict[name_int][f"iQ_score/hiQ_score"] = 0
+                            result_dict[name_int]["Reason_for_filtering"] = "Bad PAE : AF"
+
 
                 if len(all_lines.strip("\n")) > 1 : #if all_lines is not empty
                     with open(f"result_{Interaction}/new_predictions_with_good_interpae.csv", "w") as file2 :
@@ -418,6 +473,13 @@ def Resume_file(file, Informations_dict) :
     if Informations_dict["Homo-oligomer"] == "1" and Informations_dict["Interact_with"] == [""] : #no bait and no homo-oligomer
         sorted_proteins = sorted(result_dict.items(), key=lambda item: "Reason_for_filtering" in item[1])
 
+    if Informations_dict["Custom_interactions"] != '' :
+        result_dict = {key: value for key, value in result_dict.items() if value != {}} # remove empty prot
+        sorted_proteins = sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get(f"iQ_score/hiQ_score", 0), len(x[1]),), reverse=True)
+        big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score/hiQ_score\n"
+        informations.remove("DeepLoc")
+        informations.remove("Signal_peptide")
+        informations.append("iQ_score/hiQ_score")
 
     sorted_dict = dict(sorted_proteins)
 

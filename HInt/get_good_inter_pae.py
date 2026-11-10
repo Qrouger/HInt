@@ -29,12 +29,12 @@ def examine_inter_pae(pae_mtx, length, cutoff, type_int) :
         pae[start_last:, :start_last] = pae_mtx[start_last:, :start_last]
         pae[:start_last, start_last:] = pae_mtx[:start_last, start_last:]
         check = np.where(pae < cutoff)[0].size != 0
-    if type_int == "homo" :
+    if type_int == "homo" or type_int  == "custom" :
         start = 0
 
         for l in length:
             end = start + l
-            pae[start:end, start:end] = 50  # masque intra-chaîne
+            pae[start:end, start:end] = 50  # mask intra-chain
             start = end
 
         check = np.any(pae < cutoff)
@@ -55,6 +55,7 @@ def obtain_chain_coord(work_dir,pkl_dict=None) :
 
 def obtain_mpdockq2(chain_coords,chain_CB_inds,plddt_per_chain,best_plddt,pdb_path) :
     """Returns mpDockQ if more than two chains otherwise return pDockQ"""
+
     complex_score,num_chains = score_complex(chain_coords,chain_CB_inds,plddt_per_chain)
     if complex_score is not None and num_chains>2:
         mpDockq_or_pdockq = calculate_mpDockQ(complex_score)
@@ -229,7 +230,7 @@ def main(job, cutoff, surface_thres, seq_no_SP, prot_length, AF_version, ccp4_se
                 prot = prot.split("_")[0]
             length.append(prot_length[prot])
             
-    if "_homo_" in interaction and "PPI" not in job:
+    if "_homo_" in interaction and "homo_int" in job:
         type_int = "homo"
         prot = interaction.split("_homo_")[0] 
         nbr = int(interaction.split("_homo_")[1].replace("er",""))
@@ -254,7 +255,17 @@ def main(job, cutoff, surface_thres, seq_no_SP, prot_length, AF_version, ccp4_se
                 l = prot_length[prot]
             length.append(l)
 
-            
+    if "custom" in job :
+        type_int = "custom"
+        for prot in interaction.split("_and_") :
+            if "_homo_" in prot :
+                oligo = int(prot.split("_homo_")[1].replace("er",""))
+                prot = prot.split("_homo_")[0]
+                for _ in range (1,oligo) :
+                    length.append(prot_length[prot])
+            if "-" in prot and prot.split("_")[0] in seq_no_SP.keys() :
+                prot = prot.split("_")[0]
+            length.append(prot_length[prot])
 
     ### AlphaFold3 ###
     if AF_version == "3" :
@@ -271,9 +282,14 @@ def main(job, cutoff, surface_thres, seq_no_SP, prot_length, AF_version, ccp4_se
             with open(int_AF3+'_summary_confidences.json','rb') as json_sum_f :
                 json_sum = json.load(json_sum_f)
             if "iptm" in json_sum.keys() and "ptm" in json_sum.keys() :
-                iptm_score = json_sum['iptm']
-                ptm_score = json_sum['ptm']
-                iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
+                if json_sum["iptm"] != None : 
+                    iptm_score = json_sum['iptm']
+                    ptm_score = json_sum['ptm']
+                    iptm_ptm_score = 0.8 * iptm_score + 0.2 * ptm_score
+                else :
+                    iptm_score = 0
+                    ptm_score = json_sum['ptm']
+                    iptm_ptm_score = 0
             with open(int_AF3+'_confidences.json','rb') as json_f :
                 json_data = json.load(json_f)
             pae_mtx = np.array(json_data['pae'])

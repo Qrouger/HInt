@@ -54,7 +54,7 @@ def Define_informations () :
     """
     logger.info("Defining informations")
     Informations_dict = dict()
-    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_length", "Min_protein_length", "Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature", "Path_Singularity_Image"]
+    list_inf = ["Signal_peptide", "Homo-oligomer", "Interact_with", "Custom_interactions", "Organism", "DeepLoc", "Regions", "Multimer_bait", "AlphaFold", "Max_protein_length", "Min_protein_length", "Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature", "Path_Singularity_Image"]
     with open("HInt.txt", "r") as file :
         for lines in file :
             if ":" in lines :
@@ -64,9 +64,9 @@ def Define_informations () :
                 Informations_dict[informations_name] = informations
     for info in list_inf :
         if info not in Informations_dict.keys() : #if settings file is not authentic
-            if info in ["Interact_with","Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature"] :
+            if info in ["Path_Uniprot_ID", "Path_Database", "Path_Pickle_Feature"] :
                 raise ValueError(f"HInt.txt file is compromised, verify the file. {info} is missing")
-            elif info in ["Signal_peptide","Homo-oligomer","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_length","Min_protein_length","Organism"] :
+            elif info in ["Signal_peptide","Homo-oligomer","Regions","Multimer_bait","DeepLoc","AlphaFold","Max_protein_length","Min_protein_length","Organism","Interact_with","Custom_interactions"] :
                 Informations_dict[info] = ""
 
     ### Normalize all configuration values
@@ -106,13 +106,23 @@ def Define_informations () :
                 Informations_dict[informations_key] = ""
             elif informations_key == "Organism" :
                 Informations_dict[informations_key] = "None"
+            
         if len(Informations_dict[informations_key]) != 0 :
             if informations_key == "Path_Database" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
                     raise ValueError(f"Path set for database doesn't exist : {Informations_dict[informations_key]}")
-            elif informations_key == "Path_ccp4" :
+            if informations_key == "Path_ccp4" :
                 if os.path.isdir(Informations_dict[informations_key]) == False :
                     raise ValueError (f"Path set for ccp4 doesn't exist : {Informations_dict[informations_key]}")
+            if informations_key == "Custom_interactions" :
+                if os.path.isfile(Informations_dict[informations_key]) == False :
+                    raise ValueError(f"Custom interactions file doesn't exist : {Informations_dict[informations_key]}")
+                Informations_dict["DeepLoc"] = "None"
+                Informations_dict["Max_protein_length"] = ""
+                Informations_dict["Min_protein_length"] = "0"
+                Informations_dict["Signal_peptide"] = "None"
+                
+
         ### Parse protein-protein interaction definitions
         # Multiple baits
         # Multimeric baits
@@ -149,9 +159,10 @@ def Define_informations () :
                         raise ValueError(f"HInt don't support multiple regions for protein bait : {prot.strip()}")
                     regions_dict[prot.strip()] = "0-0"
                     new_baits_list.append(prot.strip())
+                
             Informations_dict["Regions"] = regions_dict
             Informations_dict["Interact_with"] = new_baits_list
-
+        
         ### Homo-oligomer check
         if informations_key == "Homo-oligomer" :
             if int(Informations_dict[informations_key]) == False :
@@ -173,10 +184,7 @@ def Define_informations () :
                 for value in Informations_dict[informations_key].split(","):
                     if value.strip()  not in ["Cell wall & surface", "Extracellular", "Cytoplasmic", "Cytoplasmic Membrane", "Outer Membrane", "Periplasmic", "None"] :
                         raise ValueError(f"Incorrect DeepLocPro value : {value}")
-
-    if len(Informations_dict["Signal_peptide"]) == 0 and len(Informations_dict["DeepLoc"]) == 0 and len(Informations_dict["Homo-oligomer"]) == 0 and len(Informations_dict["Interact_with"]) == 0 : #no info
-        logger.info("Need information to discriminate the potential homolog/interolog")
-        exit()
+    
     return(Informations_dict)
 
 def run_deeploc(file, org, need_DeepLoc, GPU) :
@@ -486,8 +494,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         
     #Create MSA files with ColabFold MMseqs2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
     re_search_templates_mmseqs2 = "True"
-    if AF_version == "3" :
-        re_search_templates_mmseqs2 = "False"
+
     if len(need_msa) > 0 :
         max_workers_feature = CPU
         futures_list = []
@@ -502,7 +509,8 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
                 "--max_template_date=2024-05-02",
                 "--skip_existing=True",
                 f"--use_mmseqs2=True",
-                "--use_precomputed_msas=True"]
+                "--use_precomputed_msas=True",
+                f"--re_search_templates_mmseqs2={re_search_templates_mmseqs2}"]
                 futures_list.append(executor.submit(create_ind_feature, protein, msa_name, prot_no_SP, cmd))
     end = time.time()
     elapsed = end - start
@@ -901,11 +909,11 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
 
             # Check if model already exists
             if AF_version == "3" :
-                path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/*_model.cif")
-                path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/*_model.cif")
+                path1 = glob.glob(f"./result_{Interaction_file}/{bait_file}_and_{prey}/*_model.cif")
+                path2 = glob.glob(f"./result_{Interaction_file}/{prey}_and_{bait_file}/*_model.cif")
             else : # AF_version == "2"
-                path1 = glob.glob(f"./result_PPI_int/{bait_file}_and_{prey}/ranked_0.pdb")
-                path2 = glob.glob(f"./result_PPI_int/{prey}_and_{bait_file}/ranked_0.pdb")
+                path1 = glob.glob(f"./result_{Interaction_file}/{bait_file}_and_{prey}/ranked_0.pdb")
+                path2 = glob.glob(f"./result_{Interaction_file}/{prey}_and_{bait_file}/ranked_0.pdb")
 
             if len(path1) == 0 and len(path2) == 0 :
                 if int_length <= max_aa :
@@ -917,16 +925,16 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
     
-    if Interaction_file == "PPI_int" and bait == "" :
+    if Interaction_file == "PPI_int" and bait == "" : # To generate only prey structures
         copy_possible_prey = copy.deepcopy(possible_prey)  # To avoid modifying the list while iterating
         for prey in copy_possible_prey :
             int_length = length_prot[prey]
 
             # Check if model already exists
             if AF_version == "3" :
-                path = glob.glob(f"./result_PPI_int/{prey}/*_model.cif")
+                path = glob.glob(f"./result_{Interaction_file}/{prey}/*_model.cif")
             else : # AF_version == "2"
-                path = glob.glob(f"./result_PPI_int/{prey}/ranked_0.pdb")
+                path = glob.glob(f"./result_{Interaction_file}/{prey}/ranked_0.pdb")
 
             if len(path) == 0 :
                 if int_length <= max_aa :
@@ -938,8 +946,40 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
                     result_dict[prey][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
                     possible_prey.remove(prey)
 
-
-
+    if Interaction_file == "custom" :
+        with open(Informations_dict["Custom_interactions"], "r") as custom_file :
+            for line in custom_file :
+                int_length = 0
+                for prot in line.strip("\n").split(";") :
+                    if "(" in prot :
+                        prot = prot.split("(")[0]
+                    if ":" in prot :
+                        brut_prot = prot
+                        prot = prot.split(":")[0]
+                        int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
+                    int_length += length_prot[prot]
+                job_str = line.replace("(", ",").replace(")", "")
+                int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
+                if "_homo_" in int_file :
+                    nbr = int_file.split("_homo_")[1].split("_")[0]
+                    int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                if AF_version == "3" :
+                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
+                else : # AF_version == "2"
+                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
+                if len(path) == 0 :
+                    if int_length <= max_aa :
+                        vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                        job_with_vram_length.append((job_str, vram_length))
+                    else :
+                        OOM_int += job_str
+                        for prot in line.strip("\n").split(";") :
+                            if "(" in prot :
+                                prot = prot.split("(")[0]
+                            if ":" in prot :
+                                prot = prot.split(":")[0]
+                            result_dict[prot][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
+                            possible_prey.remove(prot)
 
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
@@ -985,7 +1025,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     return job_with_vram_length
 
 
-def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu) :
+def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu, custom=False) :
     """
     Select the first set of proteins for MSA and PPI generatione
 
@@ -994,6 +1034,7 @@ def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu) :
     job_with_vram_length : list of tuple
     GPU : list
     multi_job_per_gpu : str
+    custom : Boolean
 
     Returns :
     ----------
@@ -1026,8 +1067,10 @@ def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu) :
             free = vram - gpu_vram_used[gpu_id]
 
             if job_vram <= free and (multi_job_per_gpu or len(gpu_jobs) == 0) :
-
-                gpu_jobs.append(interaction.split(";")[-1].split(":")[0].strip("\n"))
+                if custom :
+                    gpu_jobs.append(interaction.strip("\n"))
+                else :
+                    gpu_jobs.append(interaction.split(";")[-1].split(":")[0].strip("\n"))
                 gpu_vram_used[gpu_id] += job_vram
 
                 launched = True
@@ -1038,7 +1081,7 @@ def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu) :
 
     return gpu_jobs, gpu_vram_used
 
-def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
+def prioritize_by_vram_fit (jobs, first_batch, GPU, interaction_type, max_per_batch=3) :
     """
     Predict algorithm repartition to prioritize MSA generation for the next PPI.
 
@@ -1047,6 +1090,7 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
     jobs : list of tuple
     GPU : list
     max_per_batch : int
+    interaction_type : str
 
     Returns :
     ----------
@@ -1056,9 +1100,12 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
     handle = pynvml.nvmlDeviceGetHandleByIndex(int(GPU[0]))
     max_vram = (pynvml.nvmlDeviceGetMemoryInfo(handle).total / 1024**2) * 0.001  # GiB 
     pynvml.nvmlShutdown()
-
-    jobs = [(job.strip().split(";")[-1].split(":")[0], vram) for job, vram in jobs]
-    jobs_dict = dict(jobs)
+    if interaction_type != "custom" :
+        jobs = [(job.strip().split(";")[-1].split(":")[0], vram) for job, vram in jobs]
+        jobs_dict = dict(jobs)
+    else :
+        jobs = [(job.strip(), vram) for job, vram in jobs]
+        jobs_dict = dict(jobs)
 
     current_batch = [(job, jobs_dict[job]) for job in first_batch[0] if job in jobs_dict]
 
@@ -1069,6 +1116,7 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, max_per_batch=3) :
     all_batches = []
     pending = []
     alternate = 1
+ 
 
     while remaining :
         current_batch.sort(key=lambda x: x[1]) #small finish first
@@ -1201,7 +1249,6 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
         jax_cache_dir = f"/scratch/jax_cache/sm_{cc}"
     else :
         jax_cache_dir = f"{os.path.dirname(Path_Database)}/jax_cache/sm_{cc}"
-        
     compound = None
     manager_proc = multiprocessing.Manager()
     result_queue = manager_proc.Queue()
@@ -1222,21 +1269,17 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
                     p.join() 
                     jobs_running[gpu_id].pop(i)
 
-                    if status == "done" :
-                        scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, send_to_database, job, multi_scoring, ""))
-
-                    elif status == "error" :
-                        logger.error(f"Error {job}, put on the waiting list")
-                        jobs_pending.append((job, v))
+   
+                    scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, send_to_database, job, multi_scoring, ""))
 
                     break
 
         launched = False
         jobs_rdy = []
         for interaction, job_vram in list(jobs_pending) :
-            if os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0]}.pkl") :
+            if os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0].split(",")[0]}.pkl") :
                 jobs_rdy.append((interaction, job_vram))
-                
+
         for gpu_id in GPU :
             for job, p, vram in list(jobs_running[gpu_id]) :
     
@@ -1332,6 +1375,11 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     if interaction_type == "homo_int" :
         prot_int = interaction_file.strip("\n").replace(":", "_homo_")
         prot_int += "er"
+    if interaction_type == "custom" :
+        prot_int = interaction_file.strip("\n").replace(";", "_and_").replace(":", "_homo_")
+        if "_homo_" in prot_int :
+            nbr = prot_int.split("_homo_")[1].split("_")[0]
+            prot_int = prot_int.replace(f"_{nbr}",f"_{nbr}er")
     prot_int = prot_int.replace(",","_")
 
     file_name = f"{interaction_type}_GPU_{prot_int}.txt"
@@ -1505,10 +1553,20 @@ def First_need_sorted (First_batch, need_msa, need_pkl) :
     """
     first_need_pkl = []
     if First_batch != None :
-        for prot in First_batch[0] :
-            if prot in need_msa :
-                first_need_pkl.append(prot)
-            if prot in need_pkl :
-                first_need_pkl.append(prot)
-                need_pkl.remove(prot)
+        for inter in First_batch[0] :
+            if ";" in inter :
+                prots = inter.split(";")
+                for prot in prots :
+                    prot = prot.split(",")[0].split(":")[0]
+                    if prot in need_msa :
+                        first_need_pkl.append(prot)
+                    if prot in need_pkl :
+                        first_need_pkl.append(prot)
+                        need_pkl.remove(prot)
+            else :
+                if inter in need_msa :
+                    first_need_pkl.append(inter)
+                if inter in need_pkl :
+                    first_need_pkl.append(inter)
+                    need_pkl.remove(inter)
     return(need_msa, need_pkl, first_need_pkl)
