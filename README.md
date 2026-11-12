@@ -274,6 +274,8 @@ Includes interface residues identified using PAE and inter-chain distance criter
 
 `<PPI>_ranked_0.pdb`  
 Structural model of the predicted complex.  
+
+`<PPI>_colored_ranked_0.pdb`  
 Interface residues can be visualized by coloring the structure using the B-factor field.
 
 # Standalone iQ-score Calculation
