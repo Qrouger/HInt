@@ -345,13 +345,12 @@ def main(job, cutoff, surface_thres, seq_no_SP, prot_length, AF_version, ccp4_se
                     mpDockq_scores.append(mpDockq_score)
                     name_jobs.append(f"{job.split('/')[-1]}_{pdb.split('.')[0]}")
         del data
-        
+    
     other_measurements_df=pd.DataFrame.from_dict({
         "jobs":name_jobs,
         "iptm_ptm":iptm_ptm,
         "iptm":iptm,
         "mpDockQ/pDockQ":mpDockq_scores})
-
     if good_jobs!=[] :
         pi_score_df = run_and_summarise_pi_score(good_jobs, surface_thres, ccp4_setup)
         pi_score_df = pd.merge(pi_score_df, other_measurements_df, on="jobs")

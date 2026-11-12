@@ -171,9 +171,7 @@ def main() :
     need_SP = []
     if Informations_dict["Organism"] != "None" : # Run SignalP only if the organism is specified
         # protein needs MSA but can already have a sequence without SP
-        print("yes")
         need_SP = [protein for protein in need_msa if protein not in HInt_object.get_proteins_sequence_no_SP() or protein not in HInt_object.get_prot_SP()]
-    print(need_SP)
     if need_SP : # Run SignalP for proteins without signal peptide annotation
         need_msa = run_SP(HInt_object, Informations_dict, need_SP, need_msa)
     time_dict["SignalP"] = [len(need_SP), format_time(time.time() - start)]

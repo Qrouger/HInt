@@ -949,37 +949,32 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     if Interaction_file == "custom" :
         with open(Informations_dict["Custom_interactions"], "r") as custom_file :
             for line in custom_file :
-                int_length = 0
-                for prot in line.strip("\n").split(";") :
-                    if "(" in prot :
-                        prot = prot.split("(")[0]
-                    if ":" in prot :
-                        brut_prot = prot
-                        prot = prot.split(":")[0]
-                        int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
-                    int_length += length_prot[prot]
-                job_str = line.replace("(", ",").replace(")", "")
-                int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
-                if "_homo_" in int_file :
-                    nbr = int_file.split("_homo_")[1].split("_")[0]
-                    int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                if AF_version == "3" :
-                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
-                else : # AF_version == "2"
-                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
-                if len(path) == 0 :
-                    if int_length <= max_aa :
-                        vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
-                        job_with_vram_length.append((job_str, vram_length))
-                    else :
-                        OOM_int += job_str
-                        for prot in line.strip("\n").split(";") :
-                            if "(" in prot :
-                                prot = prot.split("(")[0]
-                            if ":" in prot :
-                                prot = prot.split(":")[0]
-                            result_dict[prot][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
-                            possible_prey.remove(prot)
+                if line :
+                    int_length = 0
+                    for prot in line.strip("\n").split(";") :
+                        if "(" in prot :
+                            prot = prot.split("(")[0]
+                        if ":" in prot :
+                            brut_prot = prot
+                            prot = prot.split(":")[0]
+                            int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
+                        int_length += length_prot[prot]
+                    job_str = line.replace("(", ",").replace(")", "")
+                    int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
+                    if "_homo_" in int_file :
+                        nbr = int_file.split("_homo_")[1].split("_")[0]
+                        int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                    if AF_version == "3" :
+                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
+                    else : # AF_version == "2"
+                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
+                    if len(path) == 0 :
+                        if int_length <= max_aa :
+                            vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                            job_with_vram_length.append((job_str, vram_length))
+                        else :
+                            OOM_int += job_str
+                            result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
 
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
@@ -1053,8 +1048,15 @@ def Generate_first_batch (job_with_vram_length, GPU, multi_job_per_gpu, custom=F
     gpu_jobs = []
 
     multi_job_per_gpu = False if multi_job_per_gpu == "False" else True
-
-    pending = list(job_with_vram_length)
+    if custom :
+        prot_vram = {}
+        for interaction, job_vram in job_with_vram_length :
+            for prot in interaction.strip().split(";") :
+                prot = prot.split(":")[0]
+                prot_vram[prot] = max(job_vram, prot_vram.get(prot, 0))
+        pending = list(prot_vram.items())
+    else :
+        pending = list(job_with_vram_length)
 
     for interaction, job_vram in pending :
 
@@ -1104,8 +1106,12 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, interaction_type, max_per_ba
         jobs = [(job.strip().split(";")[-1].split(":")[0], vram) for job, vram in jobs]
         jobs_dict = dict(jobs)
     else :
-        jobs = [(job.strip(), vram) for job, vram in jobs]
-        jobs_dict = dict(jobs)
+        jobs_dict = {}
+        for job, vram in jobs :
+            for prot in job.strip().split(";") :
+                prot = prot.split(":")[0]
+                jobs_dict[prot] = max(vram, jobs_dict.get(prot, 0))
+        jobs = list(jobs_dict.items())
 
     current_batch = [(job, jobs_dict[job]) for job in first_batch[0] if job in jobs_dict]
 
@@ -1117,7 +1123,6 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, interaction_type, max_per_ba
     pending = []
     alternate = 1
  
-
     while remaining :
         current_batch.sort(key=lambda x: x[1]) #small finish first
 
@@ -1127,7 +1132,6 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, interaction_type, max_per_ba
         batch = []
 
         remaining.sort(key=lambda x: x[1], reverse=True)
-
         while len(batch) < max_per_batch :
             added = False
             for job, vram in remaining :
@@ -1163,6 +1167,7 @@ def prioritize_by_vram_fit (jobs, first_batch, GPU, interaction_type, max_per_ba
 
     if pending :
         all_batches.append(pending)
+
     return all_batches
 
 def Generate_3D_model (HInt_object, CPU, multi_scoring, send_to_database, Informations_dict, interaction_type, job_with_vram_length, GPU, multi_job_per_gpu, seq_bait={}, compounds_dict={}) :
@@ -1269,7 +1274,6 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
                     p.join() 
                     jobs_running[gpu_id].pop(i)
 
-   
                     scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, send_to_database, job, multi_scoring, ""))
 
                     break
@@ -1287,10 +1291,6 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
                     jobs_running[gpu_id].remove((job, p, vram))
         
                     gpu_vram_used[gpu_id] = max(0.0, gpu_vram_used[gpu_id] - vram)
-        
-                    logger.error(f"[GPU {gpu_id}] Job {job} crash" f"(exit code {p.exitcode}), put on the waiting list")
-        
-                    jobs_pending.append((job, vram))
                         
         for interaction, job_vram in list(jobs_rdy) :
             sorted_gpus = sorted(GPU, key=lambda g: gpu_vram_used[g]) #make PPI on GPU with minimum vram use

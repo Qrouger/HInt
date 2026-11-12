@@ -534,10 +534,11 @@ class File_proteins() :
                 for line in custom_file :
                     if "," in line :
                         raise ValueError("Custom interactions file should be a list of proteins separated by semicolons, not commas.")
-                    prots = line.strip().split(";")
+                    
+                    prots = line.strip("").strip().split(";")
                     for prot in prots :
                         prot = prot.split("(")[0].split(":")[0].strip()
-                        if prot not in custom_prots :
+                        if prot and prot not in custom_prots :
                             custom_prots.append(prot)
                     int_file = line.replace("(", ",").replace(")", "").replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
                     if "_homo_" in int_file :
@@ -545,7 +546,7 @@ class File_proteins() :
                         int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
                     int_score[int_file] = dict()
                     result_dict[int_file] = dict()
-            if set(custom_prots) != set(new_proteins) :
+            if not set(custom_prots).issubset(new_proteins) :
                 raise ValueError(f"Custom interactions file contains proteins not present in the input file. {list(set(custom_prots) - set(new_proteins))} are missing in the input file.")
         self.set_time_dict(time_dict)
         self.set_compounds(new_compounds)
@@ -597,8 +598,6 @@ class File_proteins() :
         int_score = self.get_int_score()
         homo_score = self.get_homo_score()
         result_dict = self.get_result_dict()
-        pattern = r"SQ   SEQUENCE   .*  .*\n([\s\S]*)"
-        del_car = ["\n"," ","//"]
 
         sequences_SP = self.get_proteins_sequence_SP()
         proteins = self.get_proteins()
@@ -611,6 +610,15 @@ class File_proteins() :
             int_score.update(copy.deepcopy(all_info["int_score"]))
             homo_score.update(copy.deepcopy(all_info["homo_score"]))
             prot_SP = copy.deepcopy(all_info["Signal_peptide"])
+            to_fetch = [p for p in dict.fromkeys(proteins)
+            if p not in all_info["sequence_SP"] and p not in sequences_SP]
+
+            fetched = dict()
+            if to_fetch :
+                fetched = self.fetch_uniprot_sequences(to_fetch)
+                missing = set(to_fetch) - set(fetched)
+                if missing :
+                    raise Exception(f"{sorted(missing)} are not compliant UniprotIDs")
             for protein in proteins :
                 result_dict[protein] = dict()
                 if protein in deeploc_prot.keys() : #if protein in deeploc of save dict
@@ -644,35 +652,16 @@ class File_proteins() :
                             need_msa.append(protein)
                         if protein not in all_info["deeploc"].keys() :
                             need_DeepLoc.append(protein)
-                if protein not in all_info["sequence_SP"].keys() :
-                    if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
-                        logger.info("Search sequence for " + protein)
-                        for essai in range(3) : #3 tries if Uniprot answers 429
-                            try:
-                                urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
-                                break
-                            except Exception as e :
-                                if e.code == 429 and essai < 2 :
-                                    time.sleep(5)
-                                elif e.code == 429 :
-                                    raise Exception("Uniprot : 429 Too Many Requests.")
-                                else :
-                                    raise Exception(f"{protein} is not a compliant UniprotID")
 
-                        with open("log_file/temp_file.txt","r") as in_file:
-                            for seq in re.finditer(pattern, in_file.read()) :
-                                sequences_SP[protein] = seq.group(1)
-                        #  with open("temp_file.txt","r") as in_file:
-                        #      for name in re.finditer(pattern2, in_file.read()) :
-                        #          names[protein] = name.group(1)
-                        for car in del_car :
-                            sequences_SP[protein] = sequences_SP[protein].replace(car,"")
-                        os.remove("log_file/temp_file.txt")
-                        need_DeepLoc.append(protein) #add of new protein in txt file
+                if protein not in all_info["sequence_SP"].keys() :
+                    if protein not in sequences_SP.keys() :  # protein needs sequence from UniProt (already fetched above)
+                        sequences_SP[protein] = fetched[protein]
+                        need_DeepLoc.append(protein)  # add of new protein in txt file
                         need_msa.append(protein)
                     else : #protein in fasta format, who don't have sequence without SP and DeepLoc
                         need_DeepLoc.append(protein)
                         need_msa.append(protein)
+
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False and protein not in need_msa : #proteins without msa
                     need_msa.append(protein)
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files
@@ -725,30 +714,22 @@ class File_proteins() :
         else : #no save dict, so check if protein have MSA or pkl
             for protein in proteins :
                 if protein not in sequences_SP.keys() : #if protein need sequence in Uniprot
-                    print("Search sequence for " + protein)
-                    for essai in range(3) : #3 tries if Uniprot answers 429
-                        try:
-                            urllib.request.urlretrieve("https://rest.uniprot.org/uniprotkb/"+protein+".txt","log_file/temp_file.txt")
-                            break
-                        except Exception as e :
-                            if e.code == 429 and essai < 2 :
-                                time.sleep(5)
-                            elif e.code == 429 :
-                                raise Exception("Uniprot : 429 Too Many Requests.")
-                            else :
-                                raise Exception(f"{protein} is not a compliant UniprotID")
-                    if os.path.getsize("log_file/temp_file.txt") == 0 :
-                        logger.error(f"{protein} is not a compliant UniprotID")
-                    with open("log_file/temp_file.txt","r") as in_file :
-                        for seq in re.finditer(pattern, in_file.read()):
-                            sequences_SP[protein] = seq.group(1)
-                    #  with open("temp_file.txt","r") as in_file :
-                    #      for name in re.finditer(pattern2, in_file.read()) :
-                    #          names[protein] = name.group(1)
-                    for car in del_car :
-                        sequences_SP[protein] = sequences_SP[protein].replace(car,"")
+                # 1. list proteins that need a sequence
+                    to_fetch = [p for p in proteins
+                                if p not in sequences_SP.keys()]
+                    # 2. fetch them all at once
+                    if to_fetch:
+                        fetched = self.fetch_uniprot_sequences(to_fetch)
+                        missing = set(to_fetch) - set(fetched)
+                        if missing:
+                            raise Exception(f"{sorted(missing)} are not compliant UniprotIDs")
 
-                    os.remove("log_file/temp_file.txt")
+                        # 3. same bookkeeping as before
+                        for protein in to_fetch:
+                            sequences_SP[protein] = fetched[protein]
+                            need_DeepLoc.append(protein)
+                            need_msa.append(protein)
+                    
                 if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.a3m") == False : #proteins without msa
                     cmd = f"rm -rf {Path_Pickle_Feature}/*{protein}*" #remove residue files
                     os.system(cmd)
@@ -768,6 +749,44 @@ class File_proteins() :
         self.Make_save_dict() #Save modification of the save dict
         return need_msa, need_pkl, need_DeepLoc
 
+
+    def fetch_uniprot_sequences(self, accessions, chunk_size=100, max_tries=5) :
+        """Fetch sequences from UniProt in batches. Returns {accession: sequence}."""
+        sequences = dict()
+        for i in range(0, len(accessions), chunk_size) :
+            chunk = accessions[i:i + chunk_size]
+            url = "https://rest.uniprot.org/uniprotkb/accessions?format=fasta&accessions=" + ",".join(chunk)
+            logger.info(f"Search sequences for {len(chunk)} proteins ({chunk[0]} ... {chunk[-1]})")
+
+            for essai in range(max_tries):
+                try:
+                    with urllib.request.urlopen(url, timeout=120) as resp :
+                        fasta = resp.read().decode()
+                    break
+                except urllib.error.HTTPError as e:
+                    if e.code in (429, 500, 502, 503, 504) and essai < max_tries - 1 :
+                        wait = int(e.headers.get("Retry-After", 30 * (essai + 1)))
+                        logger.warning(f"Uniprot {e.code}, retry in {wait}s")
+                        time.sleep(wait)
+                    else:
+                        raise Exception(f"Uniprot error {e.code} for {chunk}") from e
+                except (urllib.error.URLError, TimeoutError) as e :
+                    if essai < max_tries - 1 :
+                        time.sleep(30 * (essai + 1))
+                    else:
+                        raise Exception(f"Uniprot unreachable : {e}") from e
+
+            # parse multi-FASTA: ">sp|P04275|VWF_HUMAN ..." -> "P04275"
+            acc = None
+            for line in fasta.splitlines() :
+                if line.startswith(">") :
+                    acc = line.split("|")[1]
+                    sequences[acc] = ""
+                elif acc :
+                    sequences[acc] += line.strip()
+
+            time.sleep(1)
+        return sequences
 
     def Make_save_dict (self) :
         """
@@ -823,6 +842,7 @@ class File_proteins() :
             os.remove(f"log_file/{file_msa}")
         if os.path.isfile(f"log_file/{file_pkl}") == True :
             os.remove(f"log_file/{file_pkl}")
+        
         if len(need_msa) != 0 :
             if with_SP == True :
                 sequences = sequences_SP
