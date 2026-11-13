@@ -1486,7 +1486,7 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
                 time.sleep(0.5)
 
         result_queue.put(("done", interaction_file, gpu_id, vram))
-        os.remove(f"rm log_file/{file_name}")
+        os.remove(f"log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
     except KeyboardInterrupt :
