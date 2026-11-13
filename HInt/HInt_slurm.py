@@ -141,7 +141,7 @@ def round_dir (round_id) :
 
 def define_rounds (Informations_dict, compounds) :
     """
-    List of modeling rounds : one per bait (in the order of Interact_with), then homo-oligomers.
+    List of modeling rounds : one per bait (in the order of Interact_with), then homo-oligomers, then custom interactions.
 
     Returns :
     ----------
@@ -153,6 +153,8 @@ def define_rounds (Informations_dict, compounds) :
             rounds.append(("Compounds" if compounds else "PPI_int", bait))
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         rounds.append(("homo_int", ""))
+    if Informations_dict["Custom_interactions"] != "" :
+        rounds.append(("custom", ""))
     return rounds
 
 
@@ -185,11 +187,9 @@ def read_round_jobs (round_id) :
 
 def job_proteins (job, interaction_type) :
     """
-    Proteins (or compound) of a job line : "BAIT,20-200;PREY", "BAIT1;BAIT2;PREY" or "PREY:3".
+    Proteins (or compound) of a job line : "BAIT,20-200;PREY", "BAIT1;BAIT2;PREY", "PREY:3" or "PROT1,20-200;PROT2:2" (custom).
     """
-    if interaction_type == "homo_int" :
-        return [job.strip().split(":")[0]]
-    return [obj.split(",")[0] for obj in job.strip().split(";")]
+    return [obj.split(",")[0].split(":")[0] for obj in job.strip().split(";") if obj.strip()]
 
 
 def job_output_dir (job, interaction_type) :
@@ -198,6 +198,11 @@ def job_output_dir (job, interaction_type) :
     """
     if interaction_type == "homo_int" :
         name = job.strip().replace(":", "_homo_") + "er"
+    elif interaction_type == "custom" :
+        name = job.strip().replace(";", "_and_").replace(":", "_homo_")
+        if "_homo_" in name :
+            nbr = name.split("_homo_")[1].split("_")[0]
+            name = name.replace(f"_{nbr}", f"_{nbr}er")
     else :
         name = job.strip().replace(";", "_and_")
     return f"./result_{interaction_type}/{name.replace(',', '_')}"
@@ -240,7 +245,7 @@ def stage_prepare (args) :
     GPU = allocated_gpus()
     CPU = allocated_cpus()
     Informations_dict = Define_informations()
-    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"])
+    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
 
     logger.info(f"Slurm job {os.environ.get('SLURM_JOB_ID', 'local')} | GPUs : {GPU} | CPUs : {CPU}")
     logger.info(f"AlphaFold version set to: {Informations_dict['AlphaFold']}")
@@ -253,17 +258,18 @@ def stage_prepare (args) :
             raise Exception(f"Bait {bait} not found in the protein list {Informations_dict['Path_Uniprot_ID']}")
 
     start = time.time()
-    need_msa, need_pkl, need_DeepLoc = HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
+    need_msa, need_pkl, need_DeepLoc = (list(dict.fromkeys(need)) for need in HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"]))
     timings["Sequences"] = [len(HInt_object.get_proteins()), format_time(time.time() - start)]
 
     HInt_object.set_possible_prey([protein for protein in HInt_object.get_possible_prey() if protein not in Informations_dict["Interact_with"]])
-    need_msa, need_pkl, need_DeepLoc = filter_length(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
+    if Informations_dict["Min_protein_length"] != "0" or Informations_dict["Max_protein_length"] != "" :
+        need_msa, need_pkl, need_DeepLoc = filter_length(HInt_object, Informations_dict, need_msa, need_pkl, need_DeepLoc)
 
     start = time.time()
     if Informations_dict["Organism"] == "None" :
         HInt_object.set_proteins_sequence_no_SP(HInt_object.get_proteins_sequence_SP()) #don't remove signal peptide
         need_DeepLoc = []
-    if len(need_DeepLoc) > 0 :
+    if need_DeepLoc and Informations_dict["Custom_interactions"] == "" :
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU)
     timings["Deeploc"] = [len(need_DeepLoc), format_time(time.time() - start)]
 
@@ -285,12 +291,20 @@ def stage_prepare (args) :
     need_msa = check_exist_MSA(HInt_object, Informations_dict, need_msa)
     HInt_object.Make_save_dict()
 
-    for bait in Informations_dict["Interact_with"] : # Adjust bait protein lengths if specific regions are defined
-        if bait != "" and Informations_dict["Regions"][bait] != "0-0" :
+    if Informations_dict["Custom_interactions"] != "" : # Regions of interest of the custom interactions
+        regions_dict = {}
+        with open(Informations_dict["Custom_interactions"], "r") as custom_file :
+            for line in custom_file :
+                for prot in line.strip().split(";") :
+                    if "(" in prot :
+                        regions_dict[prot.split("(")[0].strip()] = prot.split("(")[1].split(")")[0].strip()
+        Informations_dict["Regions"] = regions_dict
+
+    for prot, region in Informations_dict["Regions"].items() : # Adjust protein lengths if specific regions are defined
+        if region != "0-0" :
+            region_start, region_end = map(int, region.split("-"))
             dict_length = HInt_object.get_length_prot()
-            start_region = int(Informations_dict["Regions"][bait].split("-")[0])
-            end_region = int(Informations_dict["Regions"][bait].split("-")[1])
-            dict_length[bait] = end_region - start_region + 1
+            dict_length[prot] = region_end - region_start + 1
             HInt_object.set_length_prot(dict_length)
 
     need_msa, need_pkl = filter_signalP(HInt_object, Informations_dict, need_msa, need_pkl)
@@ -330,7 +344,7 @@ def stage_fetch (args) :
     """
     setup_logging("fetch")
     Informations_dict = Define_informations()
-    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"])
+    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
     HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
     logger.info(f"Sequences of {len(HInt_object.get_proteins())} proteins saved")
 
@@ -400,7 +414,7 @@ def stage_features (args) :
     HInt_object = state["HInt_object"]
     Informations_dict = state["Informations_dict"]
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    re_search_templates_mmseqs2 = "False" if Informations_dict["AlphaFold"] == "3" else "True"
+    re_search_templates_mmseqs2 = "False" # as in create_feature
 
     with open(NEED_PKL_FILE, "r") as f :
         need_pkl = [line.strip() for line in f if line.strip()]
@@ -578,8 +592,8 @@ def stage_score (args) :
     if os.path.exists("log_file/shallow_MSA.txt") :
         os.remove("log_file/shallow_MSA.txt")
     Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], Informations_dict["Interact_with"], HInt_object.get_possible_prey())
-    if interaction_type == "homo_int" :
-        Score_interaction(HInt_object, Informations_dict, CPU, "homo_int", config["send_to_database"], "", config["multi_scoring"], "")
+    if interaction_type in ["homo_int", "custom"] :
+        Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, config["send_to_database"], "", config["multi_scoring"], "")
     else :
         Score_interaction(HInt_object, Informations_dict, CPU, interaction_type, config["send_to_database"], "", config["multi_scoring"], bait)
     HInt_object.Make_save_dict()
@@ -792,9 +806,8 @@ def stage_submit (args) :
     elif args.offline_compute and not args.internet_partition :
         raise ValueError("--offline_compute needs --internet_partition (a partition whose nodes have internet access)")
     Informations_dict = Define_informations()
-    has_baits = Informations_dict["Interact_with"] != ['']
-    n_rounds = (len(Informations_dict["Multimer_bait"]) if has_baits else 0) + (1 if int(Informations_dict["Homo-oligomer"]) > 1 else 0)
-    gpu_for_prepare = Informations_dict["Organism"] != "None" # DeepLoc
+    n_rounds = len(define_rounds(Informations_dict, False))
+    gpu_for_prepare = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == "" # DeepLoc
     use_afdb = not args.no_afdb
 
     for value, flag in [(args.multi_job_per_gpu, "--multi_job_per_gpu"), (args.multi_scoring, "--multi_scoring")] :
@@ -839,14 +852,14 @@ def stage_submit (args) :
     if order <= STAGES.index("prepare") :
         submit("prepare", "prepare", f"{hint} prepare", gpus=1 if gpu_for_prepare else 0, internet=not args.offline_compute)
     if n_rounds == 0 :
-        print("No bait and no homo-oligomer : only the prepare stage is needed.")
+        print("No bait, no homo-oligomer and no custom interaction : only the prepare stage is needed.")
     else :
         if config["afdb_stage"] and order <= STAGES.index("afdb") :
             submit("afdb", "afdb", f"{hint} afdb", internet=True)
         if order <= STAGES.index("msa") :
             submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
         if order <= STAGES.index("features") :
-            # AF2 template search uses the ColabFold server
+            # without the local species database, species used to pair MSAs are fetched from UniProt
             submit("features", "features", f"{hint} features --task ${{SLURM_ARRAY_TASK_ID}}", internet=True, array=f"0-{args.features_tasks - 1}{throttle}")
             next_dependency = "afterany" # missing features are reported by the predict tasks
         else :
@@ -929,7 +942,7 @@ def add_submit_arguments (parser) :
     cluster.add_argument("--jz_project", help="Jean Zay: Unix group of the project (account <project>@<gpu>, see idrproj)", default=None)
     cluster.add_argument("--jz_gpu", help="Jean Zay: GPU partition, a100, h100 or v100 (default: a100)", choices=list(JEAN_ZAY_GPUS), default="a100")
     cluster.add_argument("--jz_internet_account", help="Jean Zay: account of the prepost jobs (default: <project>@cpu)", default=None)
-    cluster.add_argument("--offline_compute", help="Compute nodes have no internet access: run sequence download, AlphaFold database MSAs, template search and scoring on --internet_partition", action="store_true")
+    cluster.add_argument("--offline_compute", help="Compute nodes have no internet access: run sequence download, AlphaFold database MSAs, pkl files (UniProt species without local database) and scoring on --internet_partition", action="store_true")
     cluster.add_argument("--internet_partition", help="Partition with internet access (Jean Zay: prepost)", default=None)
     cluster.add_argument("--internet_account", help="Account of the jobs on --internet_partition (default: --account)", default=None)
     cluster.add_argument("--internet_qos", help="QOS of the jobs on --internet_partition", default=None)
