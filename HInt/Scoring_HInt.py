@@ -108,6 +108,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
         possible_prey = [job.split(":")[0]]
 
     elif not job and Interaction == "custom" :
+        all_int = list()
         save_possible_prey = copy.deepcopy(possible_prey)
         with open(Informations_dict["Custom_interactions"], "r") as custom_file :
             possible_prey = list()
@@ -116,7 +117,13 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
                 if "_homo_" in int_file :
                     nbr = int_file.split("_homo_")[1].split("_")[0]
                     int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                possible_prey.append(int_file)
+                all_int.append(int_file)
+                if "Reason_for_filtering" not in result_dict[int_file].keys() :
+                    possible_prey.append(int_file)
+        copy_dict = copy.copy(int_score)
+        for intera in copy_dict.keys() :
+            if intera not in all_int :
+                del int_score[intera]
 
     elif job and Interaction == "custom" :
         save_possible_prey = copy.deepcopy(possible_prey)
@@ -125,7 +132,7 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
             nbr = job.split("_homo_")[1].split("_")[0]
             job = job.replace(f"_{nbr}",f"_{nbr}er")
         possible_prey = [job]
-        
+
     #Multiprocessing to score all interactions
     if os.path.isdir(f"./result_{Interaction}") == True :
         if Interaction == "homo_int" : #for homo-oligomer
@@ -461,7 +468,7 @@ def Resume_file(file, Informations_dict) :
     logger.info("Create result table for all preys")
     list_name_baits = list()
     result_dict = file.get_result_dict()
-    all_prot = file.get_proteins()
+    int_score = file.get_int_score()
     possible_baits = Informations_dict["Multimer_bait"]
     regions = Informations_dict["Regions"]
     informations = ["DeepLoc","Signal_peptide"]
@@ -489,9 +496,11 @@ def Resume_file(file, Informations_dict) :
         sorted_proteins = sorted(result_dict.items(), key=lambda item: "Reason_for_filtering" in item[1])
 
     if Informations_dict["Custom_interactions"] != '' :
-        result_dict = {key: value for key, value in result_dict.items() if value != {}} # remove empty prot
-        sorted_proteins = sorted_proteins = sorted(result_dict.items(),key=lambda x: (x[1].get(f"iQ_score/hiQ_score", 0), len(x[1]),), reverse=True)
-        big_csv_lines = big_csv_lines.strip("\n") + f",iQ_score/hiQ_score\n"
+        result_dict = {prot: data for prot, data in result_dict.items() if data}  # remove empty prot
+        sorted_proteins = sorted(((prot, data) for prot, data in result_dict.items() if prot in int_score),  # remove solo prot in result_dict for signalP / deeploc
+            key=lambda x: (x[1].get("iQ_score/hiQ_score", 0), len(x[1])),
+            reverse=True,)
+        big_csv_lines = "Name,iQ_score/hiQ_score\n"
         informations.remove("DeepLoc")
         informations.remove("Signal_peptide")
         informations.append("iQ_score/hiQ_score")
@@ -500,7 +509,6 @@ def Resume_file(file, Informations_dict) :
 
     logger.info(sorted_dict)
     for prot in sorted_dict.keys() :
-        if prot in all_prot : #if is in dict and in screen
             small_csv_lines += prot
             big_csv_lines += prot
             for info in informations :

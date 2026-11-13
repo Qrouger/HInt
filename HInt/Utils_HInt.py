@@ -320,7 +320,7 @@ def run_SP (file, Informations_dict, need_SP, need_msa) :
     with open(f"log_file/{file_signalp}","r") as fh :
         for line in fh :
             new_line = line.split("\t")
-            if new_line[1] != "OTHER" and new_line[0][0] != "#" and  "-" in new_line :
+            if new_line[1] != "OTHER" and new_line[0][0] != "#" and "-" in line :
                 prot_SP_len[new_line[0]] = new_line[len(new_line)-1].split("-")[1].split(".")[0]
                 result_dict[new_line[0]]["Signal_peptide"] = "Yes"
                 if_prot_SP[new_line[0]] = "Yes"
@@ -493,7 +493,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         need_msa = list()
         
     #Create MSA files with ColabFold MMseqs2 classic pipeline for proteins without MSA, and pickle files for proteins generated with MMseqs2 GPU
-    re_search_templates_mmseqs2 = "True"
+    re_search_templates_mmseqs2 = "False"
 
     if len(need_msa) > 0 :
         max_workers_feature = CPU
@@ -949,9 +949,9 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     if Interaction_file == "custom" :
         with open(Informations_dict["Custom_interactions"], "r") as custom_file :
             for line in custom_file :
-                if line :
-                    int_length = 0
-                    for prot in line.strip("\n").split(";") :
+                int_length = 0
+                for prot in line.strip("\n").split(";") :
+                    if prot :
                         if "(" in prot :
                             prot = prot.split("(")[0]
                         if ":" in prot :
@@ -959,22 +959,22 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
                             prot = prot.split(":")[0]
                             int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
                         int_length += length_prot[prot]
-                    job_str = line.replace("(", ",").replace(")", "")
-                    int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
-                    if "_homo_" in int_file :
-                        nbr = int_file.split("_homo_")[1].split("_")[0]
-                        int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                    if AF_version == "3" :
-                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
-                    else : # AF_version == "2"
-                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
-                    if len(path) == 0 :
-                        if int_length <= max_aa :
-                            vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
-                            job_with_vram_length.append((job_str, vram_length))
-                        else :
-                            OOM_int += job_str
-                            result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
+                job_str = line.replace("(", ",").replace(")", "")
+                int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
+                if "_homo_" in int_file :
+                    nbr = int_file.split("_homo_")[1].split("_")[0]
+                    int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                if AF_version == "3" :
+                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
+                else : # AF_version == "2"
+                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
+                if len(path) == 0 :
+                    if int_length <= max_aa :
+                        vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                        job_with_vram_length.append((job_str, vram_length))
+                    else :
+                        OOM_int += job_str
+                        result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
 
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
@@ -1271,7 +1271,8 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
             gpu_vram_used[gpu_id] -= vram
             for i, (j, p, v) in enumerate(jobs_running[gpu_id]) :
                 if j == job :
-                    p.join() 
+                    p.join()
+                    p.close()
                     jobs_running[gpu_id].pop(i)
 
                     scoring_futures.append(scoring_pool.submit(Score_interaction, HInt_object, Informations_dict, CPU, interaction_type, send_to_database, job, multi_scoring, ""))
@@ -1281,13 +1282,16 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
         launched = False
         jobs_rdy = []
         for interaction, job_vram in list(jobs_pending) :
-            if os.path.exists(f"{Path_Pickle_Feature}/{interaction.strip().split(";")[-1].split(":")[0].split(",")[0]}.pkl") :
+            prots = [p.split(":")[0].split(",")[0] for p in interaction.strip().split(";") if p.strip()]
+            if all(os.path.exists(f"{Path_Pickle_Feature}/{prot}.pkl") for prot in prots) :
                 jobs_rdy.append((interaction, job_vram))
 
         for gpu_id in GPU :
             for job, p, vram in list(jobs_running[gpu_id]) :
     
                 if p.exitcode is not None and p.exitcode != 0 :
+                    p.join()
+                    p.close()
                     jobs_running[gpu_id].remove((job, p, vram))
         
                     gpu_vram_used[gpu_id] = max(0.0, gpu_vram_used[gpu_id] - vram)
@@ -1482,7 +1486,7 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
                 time.sleep(0.5)
 
         result_queue.put(("done", interaction_file, gpu_id, vram))
-        os.system(f"rm log_file/{file_name}")
+        os.remove(f"rm log_file/{file_name}")
         logger.info(f"[GPU {gpu_id}] Finished {interaction_file}")
 
     except KeyboardInterrupt :

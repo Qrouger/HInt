@@ -691,7 +691,7 @@ class File_proteins() :
                         need_DeepLoc.append(protein)
                         int_score[protein] = dict() #remove int score
 
-            #Check is save score interaction are still valid or delete it
+            #Check if save score interaction are still valid or delete it
             for protein in all_info["int_score"].keys() :
                 for key in all_info["int_score"][protein].keys() :
                     if "vs" in key :
@@ -701,9 +701,9 @@ class File_proteins() :
                                 del int_score[protein][f"iQ_score_vs_{bait}"]
                     else : #custom
                         if not glob.glob(f"./result_custom/{protein}/*ranked_0*") :
-                            del int_score[protein][f"hiQ_score"]
-
-            #Check is save homo score interaction are valid 
+                            if "iQ_score/hiQ_score" in int_score[protein].keys() :
+                                del int_score[protein]["iQ_score/hiQ_score"]
+            #Check if save homo score interaction are valid 
             for protein in all_info["homo_score"].keys() :
                 for key in all_info["homo_score"][protein].keys() :
                     oligo = key.split("_")[-1]
@@ -738,7 +738,6 @@ class File_proteins() :
                     
                 need_msa.append(protein) #make SignalP and DeepLoc for all proteins, too create the save dict
                 need_DeepLoc.append(protein)
-                
         self.set_prot_SP(prot_SP)
         self.set_result_dict(result_dict)
         self.set_deeploc(deeploc_prot)
@@ -751,7 +750,19 @@ class File_proteins() :
 
 
     def fetch_uniprot_sequences(self, accessions, chunk_size=100, max_tries=5) :
-        """Fetch sequences from UniProt in batches. Returns {accession: sequence}."""
+        """
+        Fetch sequences from UniProt in batches. Returns {accession: sequence}.
+        
+        Parameters :
+        ----------
+        accessions : str
+        chunk_size : int
+        max_tries : int
+        
+        Returns :
+        ----------
+        sequences : dict
+        """
         sequences = dict()
         for i in range(0, len(accessions), chunk_size) :
             chunk = accessions[i:i + chunk_size]
