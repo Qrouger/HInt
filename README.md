@@ -17,6 +17,7 @@ Download the DeepLoc 2.0 package from: https://services.healthtech.dtu.dk/servic
 
 ```bash
 conda activate HInt
+tar -xvzf deeploc-*.tar.gz
 cd  deeploc2_package
 pip install . torch==2.6.0
 pip install triton==3.1.0 nvidia-cudnn-cu12==9.26.0.51
@@ -29,8 +30,14 @@ Download the SignalP5 package from: [https://services.healthtech.dtu.dk/services
 ```bash
 tar -xvzf signalp-5.0b.Linux.tar.gz
 cd signalp-5.0b/
-sudo cp bin/signalp /usr/local/bin
-sudo cp -r lib/* /usr/local/lib
+
+cat > $CONDA_PREFIX/bin/signalp <<EOF
+#!/bin/bash
+export LD_LIBRARY_PATH=$WORK/signalp-5.0b/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}
+exec $WORK/signalp-5.0b/bin/signalp "\$@"
+EOF
+
+chmod +x $CONDA_PREFIX/bin/signalp
 ```
 
 ## 1.4. CCP4
