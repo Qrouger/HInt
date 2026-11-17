@@ -633,10 +633,10 @@ def finalize (state, CPU) :
 
 DEFAULT_RESOURCES = {
     "fetch" : {"cpus" : 2, "mem" : "8G", "time" : "02:00:00"},
-    "prepare" : {"cpus" : 8, "mem" : "32G", "time" : "06:00:00"},
+    "prepare" : {"cpus" : 8, "mem" : "32G", "time" : "10:00:00"},
     "afdb" : {"cpus" : 8, "mem" : "16G", "time" : "12:00:00"},
     "msa" : {"cpus" : 32, "mem" : "128G", "time" : "24:00:00"},
-    "features" : {"cpus" : 16, "mem" : "64G", "time" : "12:00:00"},
+    "features" : {"cpus" : 16, "mem" : "64G", "time" : "01:00:00"},
     "predict" : {"cpus" : 8, "mem" : "64G", "time" : "48:00:00"},
     "score" : {"cpus" : 32, "mem" : "64G", "time" : "12:00:00"},
 }
@@ -649,13 +649,13 @@ JEAN_ZAY_GPUS = {
     "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
 JEAN_ZAY_RESOURCES = {
-    "fetch" : {"cpus" : 2, "time" : "02:00:00"},
+    "fetch" : {"cpus" : 2, "time" : "01:00:00"},
     "prepare" : {"cpus" : 8, "time" : "06:00:00"},
     "afdb" : {"cpus" : 8, "time" : "20:00:00"},
     "msa" : {"cpus" : None, "time" : "20:00:00"},
-    "features" : {"cpus" : 8, "time" : "20:00:00"},
+    "features" : {"cpus" : 8, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "20:00:00"},
-    "score" : {"cpus" : 16, "time" : "20:00:00"},
+    "score" : {"cpus" : 16, "time" : "12:00:00"},
 }
 
 
