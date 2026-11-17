@@ -47,6 +47,7 @@ NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
 STAGES = ["fetch", "prepare", "afdb", "msa", "features", "predict", "score"]
 
 # Utils_HInt opens ./log_file/HInt.log when imported
+open("./log_file/HInt.log", "w").close()
 os.makedirs(SLURM_DIR, exist_ok=True)
 
 from .Utils_HInt import *
