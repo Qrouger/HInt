@@ -46,7 +46,8 @@ Download the ccp4 package from: https://www.ccp4.ac.uk/download/#os=linux
 
 ```bash
 tar xvzf ccp4-9-setup.tar.gz
-./ccp4-9-setup
+cd ccp4-9
+./BINARY.setup
 ```
 <br>
 
