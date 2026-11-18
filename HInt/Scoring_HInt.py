@@ -114,12 +114,13 @@ def Score_interaction (file, Informations_dict, CPU, Interaction, send_to_databa
             possible_prey = list()
             for line in custom_file :
                 int_file = line.replace("(", ",").replace(")", "").replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
-                if "_homo_" in int_file :
-                    nbr = int_file.split("_homo_")[1].split("_")[0]
-                    int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                all_int.append(int_file)
-                if "Reason_for_filtering" not in result_dict[int_file].keys() :
-                    possible_prey.append(int_file)
+                if int_file :
+                    if "_homo_" in int_file :
+                        nbr = int_file.split("_homo_")[1].split("_")[0]
+                        int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                    all_int.append(int_file)
+                    if "Reason_for_filtering" not in result_dict[int_file].keys() :
+                        possible_prey.append(int_file)
         copy_dict = copy.copy(int_score)
         for intera in copy_dict.keys() :
             if intera not in all_int :
