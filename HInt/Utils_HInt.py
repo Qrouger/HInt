@@ -985,31 +985,33 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, vram=None
         with open(Informations_dict["Custom_interactions"], "r") as custom_file :
             for line in custom_file :
                 int_length = 0
-                for prot in line.strip("\n").split(";") :
-                    if prot :
-                        if "(" in prot :
-                            prot = prot.split("(")[0]
-                        if ":" in prot :
-                            brut_prot = prot
-                            prot = prot.split(":")[0]
-                            int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
-                        int_length += length_prot[prot]
-                job_str = line.replace("(", ",").replace(")", "")
-                int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
-                if "_homo_" in int_file :
-                    nbr = int_file.split("_homo_")[1].split("_")[0]
-                    int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                if AF_version == "3" :
-                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
-                else : # AF_version == "2"
-                    path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
-                if len(path) == 0 :
-                    if int_length <= max_aa :
-                        vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
-                        job_with_vram_length.append((job_str, vram_length))
-                    else :
-                        OOM_int += job_str
-                        result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
+                line = line.strip("\n")
+                if line :
+                    for prot in line.split(";") :
+                        if prot :
+                            if "(" in prot :
+                                prot = prot.split("(")[0]
+                            if ":" in prot :
+                                brut_prot = prot
+                                prot = prot.split(":")[0]
+                                int_length += length_prot[prot] * (int(brut_prot.split(":")[1])-1)
+                            int_length += length_prot[prot]
+                    job_str = line.replace("(", ",").replace(")", "")
+                    int_file = job_str.replace(";", "_and_").replace(",", "_").replace(":", "_homo_").strip("\n")
+                    if "_homo_" in int_file :
+                        nbr = int_file.split("_homo_")[1].split("_")[0]
+                        int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
+                    if AF_version == "3" :
+                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/*_model.cif")
+                    else : # AF_version == "2"
+                        path = glob.glob(f"./result_{Interaction_file}/{int_file}/ranked_0.pdb")
+                    if len(path) == 0 :
+                        if int_length <= max_aa :
+                            vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
+                            job_with_vram_length.append((job_str, vram_length))
+                        else :
+                            OOM_int += job_str
+                            result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
 
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
