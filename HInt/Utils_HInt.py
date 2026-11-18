@@ -1010,7 +1010,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait, vram=None
                             vram_length = 3.8 + (-0.0000627) * int_length + 0.00000332 * int_length**2
                             job_with_vram_length.append((job_str, vram_length))
                         else :
-                            OOM_int += job_str
+                            OOM_int += f"{job_str}\n"
                             result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
 
     if Interaction_file == "Compounds" :
