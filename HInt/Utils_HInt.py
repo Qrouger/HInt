@@ -1343,7 +1343,8 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
                 break
         if not launched :
             time.sleep(1)
-
+    scoring_pool.shutdown(wait=True)   # wait last scoring
+    manager_proc.shutdown()
 
 def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound, jax_cache_dir) :
     """
