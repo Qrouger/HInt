@@ -9,7 +9,7 @@ The single-node pipeline of HInt.py is split into Slurm jobs chained with depend
     prepare  (1 job)        sequences, DeepLoc, SignalP, filters, job list of the first round
     afdb     (1 job)        MSAs of the AlphaFold database, only when compute nodes are offline (run on a partition with internet)
     msa      (1 job, GPU)   MSAs (AlphaFold database + MMseqs2-GPU colabfold_search)
-    features (job array)    AlphaFold feature pickle files
+    features (job array)    AlphaFold feature pickle files (one CPU job with the local species database)
     predict  (job array)    3D models of one round, jobs are packed on the GPUs of each task by VRAM
     score    (1 job)        scoring of one round, job list of the next round, final results after the last round
 
@@ -44,6 +44,8 @@ SCRIPT_DIR = "slurm_scripts"
 STATE_FILE = f"{SLURM_DIR}/state.pkl"
 CONFIG_FILE = f"{SLURM_DIR}/config.json"
 NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
+LOCAL_SPECIES_DB = "uniref30_2302_species.sqlite" # in Path_Database, see set_species_env
+LOCAL_SPECIES_FEATURES_CPUS = 6
 STAGES = ["fetch", "prepare", "afdb", "msa", "features", "predict", "score"]
 
 # Utils_HInt opens ./log_file/HInt.log when imported
@@ -436,7 +438,8 @@ def stage_features (args) :
     logger.info(f"Features task {task} : {len(my_proteins)} proteins with {CPU} CPUs")
 
     # One species cache per task : SQLite (WAL) cannot be shared by several nodes on a network file system
-    set_species_env(Path_Pickle_Feature, Informations_dict["Path_Database"], f"uniprot_species_cache_task_{task}.sqlite")
+    cache_name = "uniprot_species_cache.sqlite" if config["features_tasks"] == 1 else f"uniprot_species_cache_task_{task}.sqlite"
+    set_species_env(Path_Pickle_Feature, Informations_dict["Path_Database"], cache_name)
     if "ALPHAPULLDOWN_LOCAL_SPECIES_DB" not in os.environ :
         logger.warning(f"No local species database in {Informations_dict['Path_Database']}, species used to pair MSAs are fetched from UniProt (needs internet access)")
 
@@ -659,7 +662,7 @@ DEFAULT_RESOURCES = {
 JEAN_ZAY_GPUS = {
     "a100" : {"constraint" : "a100", "cpus_per_gpu" : 8, "vram" : 80, "qos" : "qos_gpu_a100", "setup" : []},
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
-    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu-dev", "setup" : []},
+    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "01:00:00"},
@@ -824,6 +827,11 @@ def stage_submit (args) :
         raise ValueError("--offline_compute needs --internet_partition (a partition whose nodes have internet access)")
     Informations_dict = Define_informations()
     n_rounds = len(define_rounds(Informations_dict, False))
+    # With the local species database, pkl files need no internet access and are fast : one CPU job
+    local_species = os.path.isfile(os.path.join(Informations_dict["Path_Database"], LOCAL_SPECIES_DB))
+    if local_species :
+        args.features_tasks = 1
+        args.features_cpus = args.features_cpus or LOCAL_SPECIES_FEATURES_CPUS
     gpu_for_prepare = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == "" # DeepLoc
     use_afdb = not args.no_afdb
 
@@ -878,8 +886,10 @@ def stage_submit (args) :
         if order <= STAGES.index("msa") :
             submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
         if order <= STAGES.index("features") :
-            # without the local species database, species used to pair MSAs are fetched from UniProt
-            submit("features", "features", f"{hint} features --task ${{SLURM_ARRAY_TASK_ID}}", internet=True, array=f"0-{args.features_tasks - 1}{throttle}")
+            if local_species :
+                submit("features", "features", f"{hint} features --task 0")
+            else : # species used to pair MSAs are fetched from UniProt
+                submit("features", "features", f"{hint} features --task ${{SLURM_ARRAY_TASK_ID}}", internet=True, array=f"0-{args.features_tasks - 1}{throttle}")
             next_dependency = "afterany" # missing features are reported by the predict tasks
         else :
             next_dependency = "afterok"
@@ -892,7 +902,7 @@ def stage_submit (args) :
     if not args.dry_run :
         with open(f"{SLURM_DIR}/job_ids.txt", "w") as f :
             f.write(" ".join(job_ids) + "\n")
-        print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks} | predict tasks per round : {args.predict_tasks}")
+        print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks}{' (local species database)' if local_species else ''} | predict tasks per round : {args.predict_tasks}")
         print(f"Follow the pipeline : squeue -u $USER   or   HInt-slurm status")
         print(f"Cancel the pipeline : scancel $(cat {SLURM_DIR}/job_ids.txt)")
     check_pi_score_env()
@@ -982,7 +992,7 @@ def add_submit_arguments (parser) :
     slurm.add_argument("--dry_run", help="Write the sbatch scripts without submitting them", action="store_true")
 
     work = parser.add_argument_group("Work distribution")
-    work.add_argument("--features_tasks", help="Number of array tasks for pkl files (default: 10)", type=int, default=10)
+    work.add_argument("--features_tasks", help=f"Number of array tasks for pkl files (default: 10, one job with {LOCAL_SPECIES_FEATURES_CPUS} CPUs when Path_Database contains {LOCAL_SPECIES_DB})", type=int, default=10)
     work.add_argument("--predict_tasks", help="Number of array tasks per modeling round (default: 10)", type=int, default=10)
     work.add_argument("--gpus_per_task", help="GPUs per predict task (default: 1)", type=int, default=1)
     work.add_argument("--msa_gpus", help="GPUs of the MSA job (default: 3)", type=int, default=3)
