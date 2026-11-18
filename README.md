@@ -34,7 +34,7 @@ cd signalp-5.0b/
 cat > $CONDA_PREFIX/bin/signalp <<EOF
 #!/bin/bash
 export LD_LIBRARY_PATH=$WORK/signalp-5.0b/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}
-exec $WORK/signalp-5.0b/bin/signalp "\$@"
+exec -a signalp $WORK/signalp-5.0b/bin/signalp "\$@"
 EOF
 
 chmod +x $CONDA_PREFIX/bin/signalp
