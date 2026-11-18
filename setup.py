@@ -36,5 +36,5 @@ setup(
         'scipy==1.18.1',
         'alphafold-colabfold==2.3.20'
     ],
-    entry_points={'console_scripts': ['HInt=HInt.HInt:main',],}
+    entry_points={'console_scripts': ['HInt=HInt.HInt:main','build_local_species_db.py=HInt.build_local_species_db:main',],}
 )
