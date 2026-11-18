@@ -47,7 +47,6 @@ NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
 STAGES = ["fetch", "prepare", "afdb", "msa", "features", "predict", "score"]
 
 # Utils_HInt opens ./log_file/HInt.log when imported
-open("./log_file/HInt.log", "w").close()
 os.makedirs(SLURM_DIR, exist_ok=True)
 
 from .Utils_HInt import *
@@ -64,6 +63,7 @@ logger = logging.getLogger()
 def setup_logging (name) :
     """
     Log in a dedicated file for each Slurm job (avoid concurrent writes in HInt.log from several nodes).
+    The file is reset each time the stage runs.
 
     Parameters :
     ----------
@@ -72,7 +72,7 @@ def setup_logging (name) :
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler = logging.FileHandler(f"{SLURM_DIR}/{name}.log", mode="a")
+    file_handler = logging.FileHandler(f"{SLURM_DIR}/{name}.log", mode="w")
     file_handler.setFormatter(formatter)
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
@@ -112,6 +112,19 @@ def local_gpu_vram () :
     vram = min((pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(i)).total / 1024**2) * 0.001 for i in range(pynvml.nvmlDeviceGetCount()))
     pynvml.nvmlShutdown()
     return vram
+
+
+def clean_previous_run () :
+    """
+    Remove the logs and the state of a previous run before a new run starts from the beginning
+    (old status files of the predict tasks would be read as finished tasks by the score stage).
+    """
+    for path in glob.glob(f"{SLURM_DIR}/*.log") + glob.glob(f"{SLURM_DIR}/*.out") + [STATE_FILE, f"{STATE_FILE}.tmp", NEED_PKL_FILE, f"{SLURM_DIR}/job_ids.txt"] :
+        if os.path.isfile(path) :
+            os.remove(path)
+    for path in glob.glob(f"{SLURM_DIR}/round_*") :
+        shutil.rmtree(path)
+    open("./log_file/HInt.log", "w").close()
 
 
 def load_config () :
@@ -632,11 +645,11 @@ def finalize (state, CPU) :
 # ------------------------------------------------------------------
 
 DEFAULT_RESOURCES = {
-    "fetch" : {"cpus" : 2, "mem" : "8G", "time" : "02:00:00"},
-    "prepare" : {"cpus" : 8, "mem" : "32G", "time" : "10:00:00"},
+    "fetch" : {"cpus" : 2, "mem" : "8G", "time" : "01:00:00"},
+    "prepare" : {"cpus" : 8, "mem" : "32G", "time" : "02:00:00"},
     "afdb" : {"cpus" : 8, "mem" : "16G", "time" : "12:00:00"},
     "msa" : {"cpus" : 32, "mem" : "128G", "time" : "24:00:00"},
-    "features" : {"cpus" : 16, "mem" : "64G", "time" : "01:00:00"},
+    "features" : {"cpus" : 16, "mem" : "64G", "time" : "12:00:00"},
     "predict" : {"cpus" : 8, "mem" : "64G", "time" : "48:00:00"},
     "score" : {"cpus" : 32, "mem" : "64G", "time" : "12:00:00"},
 }
@@ -650,12 +663,12 @@ JEAN_ZAY_GPUS = {
 }
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "01:00:00"},
-    "prepare" : {"cpus" : 8, "time" : "06:00:00"},
-    "afdb" : {"cpus" : 8, "time" : "20:00:00"},
+    "prepare" : {"cpus" : 8, "time" : "02:00:00"},
+    "afdb" : {"cpus" : 8, "time" : "10:00:00"},
     "msa" : {"cpus" : None, "time" : "20:00:00"},
-    "features" : {"cpus" : 8, "time" : "00:30:00"},
+    "features" : {"cpus" : 8, "time" : "1:00:00"},
     "predict" : {"cpus" : None, "time" : "20:00:00"},
-    "score" : {"cpus" : 16, "time" : "12:00:00"},
+    "score" : {"cpus" : 16, "time" : "10:00:00"},
 }
 
 
@@ -766,6 +779,9 @@ def sbatch_script (args, name, command, settings, array=None) :
         conda_env = args.conda_env or os.environ.get("CONDA_PREFIX") or "HInt"
         lines.append(f'source "$({shlex.quote(conda_exe)} info --base)/etc/profile.d/conda.sh"')
         lines.append(f"conda activate {shlex.quote(conda_env)}")
+    if args.cluster == "jean-zay" : # models downloaded by DeepLoc (torch hub, Hugging Face) in $WORK, $HOME is limited to 3 GB
+        lines += ['export TORCH_HOME="${TORCH_HOME:-$WORK/.cache/torch}"',
+                  'export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"']
     lines += ["", 'echo "HInt ${SLURM_JOB_ID} on $(hostname) | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-none}"', command, ""]
     path = f"{SCRIPT_DIR}/{name}.sbatch"
     with open(path, "w") as f :
@@ -831,6 +847,8 @@ def stage_submit (args) :
               "features_tasks" : args.features_tasks,
               "predict_tasks" : args.predict_tasks,
               "n_rounds" : n_rounds}
+    if not args.dry_run and args.start_at in ["fetch", "prepare"] : # new run from the beginning
+        clean_previous_run()
     if not args.dry_run or not os.path.isfile(CONFIG_FILE) :
         with open(CONFIG_FILE, "w") as f :
             json.dump(config, f, indent=2)
