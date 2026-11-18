@@ -666,7 +666,7 @@ JEAN_ZAY_RESOURCES = {
     "prepare" : {"cpus" : 8, "time" : "02:00:00"},
     "afdb" : {"cpus" : 8, "time" : "10:00:00"},
     "msa" : {"cpus" : None, "time" : "20:00:00"},
-    "features" : {"cpus" : 8, "time" : "1:00:00"},
+    "features" : {"cpus" : 8, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "20:00:00"},
     "score" : {"cpus" : 16, "time" : "10:00:00"},
 }
