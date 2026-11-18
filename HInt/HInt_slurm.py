@@ -985,7 +985,7 @@ def add_submit_arguments (parser) :
     work.add_argument("--features_tasks", help="Number of array tasks for pkl files (default: 10)", type=int, default=10)
     work.add_argument("--predict_tasks", help="Number of array tasks per modeling round (default: 10)", type=int, default=10)
     work.add_argument("--gpus_per_task", help="GPUs per predict task (default: 1)", type=int, default=1)
-    work.add_argument("--msa_gpus", help="GPUs of the MSA job (default: 1)", type=int, default=1)
+    work.add_argument("--msa_gpus", help="GPUs of the MSA job (default: 3)", type=int, default=3)
     work.add_argument("--start_at", help="First stage to submit, to resume a run (default: fetch/prepare)", choices=STAGES[:6], default="fetch")
     work.add_argument("--start_round", help="First round to submit with --start_at predict (default: 0)", type=int, default=0)
     for stage in STAGES :
