@@ -434,10 +434,10 @@ def set_species_env (Path_Pickle_Feature, Path_Database, cache_name="uniprot_spe
     cache_name : str
         File of the UniProt accession -> taxid cache, in Path_Pickle_Feature.
     """
-    os.environ.setdefault("SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/{cache_name}")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
+    os.environ.setdefault("ALPHAPULLDOWN_SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/{cache_name}")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
     local_species_db = os.path.join(Path_Database, "uniref30_2302_species.sqlite")
     if os.path.exists(local_species_db) :
-        os.environ.setdefault("LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
+        os.environ.setdefault("ALPHAPULLDOWN_LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, use_afdb=True, local_search_threshold=10, afdb_only=False) :
     """
