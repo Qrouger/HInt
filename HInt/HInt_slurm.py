@@ -874,6 +874,8 @@ def stage_submit (args) :
 
     def submit (name, stage, command, gpus=0, internet=False, array=None, dependency="afterok") :
         nonlocal last
+        if last is None and array is None : # the first job resets log_file/HInt.log, also when its script is submitted by hand
+            command += " --new_log"
         script = sbatch_script(args, name, command, stage_settings(args, stage, gpus, internet), array)
         last = sbatch(args, script, f"{dependency}:{last}" if last else None)
         job_ids.append(last)
@@ -1024,11 +1026,11 @@ def main () :
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_submit_arguments(subparsers.add_parser("submit", help="Submit the whole pipeline"))
     subparsers.add_parser("status", help="Show the progress of the pipeline")
-    subparsers.add_parser("fetch", help="(job) UniProt sequences download")
-    subparsers.add_parser("prepare", help="(job) sequences, DeepLoc, SignalP and filters")
-    subparsers.add_parser("afdb", help="(job) MSAs of the AlphaFold database")
-    subparsers.add_parser("msa", help="(job) MSA generation")
+    for stage, help_text in [("fetch", "(job) UniProt sequences download"), ("prepare", "(job) sequences, DeepLoc, SignalP and filters"),
+                             ("afdb", "(job) MSAs of the AlphaFold database"), ("msa", "(job) MSA generation")] :
+        subparsers.add_parser(stage, help=help_text).add_argument("--new_log", help="Reset log_file/HInt.log (first job of a run)", action="store_true")
     features = subparsers.add_parser("features", help="(array job) pkl files")
+    features.add_argument("--new_log", help="Reset log_file/HInt.log (first job of a run)", action="store_true")
     features.add_argument("--task", type=int, default=int(os.environ.get("SLURM_ARRAY_TASK_ID", 0)))
     predict = subparsers.add_parser("predict", help="(array job) AlphaFold models of one round")
     predict.add_argument("--round", type=int, required=True)
@@ -1036,6 +1038,8 @@ def main () :
     score = subparsers.add_parser("score", help="(job) scoring of one round and final results")
     score.add_argument("--round", type=int, required=True)
     args = parser.parse_args()
+    if getattr(args, "new_log", False) :
+        open(HINT_LOG, "w").close()
 
     if args.command in ["features", "predict"] and not 0 <= args.task < load_config()[f"{args.command}_tasks"] :
         raise ValueError(f"--task must be between 0 and {load_config()[f'{args.command}_tasks'] - 1}")
