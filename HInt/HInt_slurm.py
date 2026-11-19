@@ -261,6 +261,7 @@ def stage_prepare (args) :
     GPU = allocated_gpus()
     CPU = allocated_cpus()
     Informations_dict = Define_informations()
+    link_result_dirs(Informations_dict) # models in Path_Structures if set
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
 
     logger.info(f"Slurm job {os.environ.get('SLURM_JOB_ID', 'local')} | GPUs : {GPU} | CPUs : {CPU}")
@@ -826,6 +827,7 @@ def stage_submit (args) :
     elif args.offline_compute and not args.internet_partition :
         raise ValueError("--offline_compute needs --internet_partition (a partition whose nodes have internet access)")
     Informations_dict = Define_informations()
+    link_result_dirs(Informations_dict) # models in Path_Structures if set
     n_rounds = len(define_rounds(Informations_dict, False))
     # With the local species database, pkl files need no internet access and are fast : one CPU job
     local_species = os.path.isfile(os.path.join(Informations_dict["Path_Database"], LOCAL_SPECIES_DB))
