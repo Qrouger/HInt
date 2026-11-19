@@ -662,7 +662,7 @@ DEFAULT_RESOURCES = {
 JEAN_ZAY_GPUS = {
     "a100" : {"constraint" : "a100", "cpus_per_gpu" : 8, "vram" : 80, "qos" : "qos_gpu_a100", "setup" : []},
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
-    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
+    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu-dev", "setup" : []},
 }
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "01:00:00"},
