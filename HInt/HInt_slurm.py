@@ -46,6 +46,7 @@ CONFIG_FILE = f"{SLURM_DIR}/config.json"
 NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
 LOCAL_SPECIES_DB = "uniref30_2302_species.sqlite" # in Path_Database, see set_species_env
 LOCAL_SPECIES_FEATURES_CPUS = 6
+HINT_LOG = "./log_file/HInt.log"
 STAGES = ["fetch", "prepare", "afdb", "msa", "features", "predict", "score"]
 
 # Utils_HInt opens ./log_file/HInt.log when imported
@@ -64,8 +65,8 @@ logger = logging.getLogger()
 
 def setup_logging (name) :
     """
-    Log in a dedicated file for each Slurm job (avoid concurrent writes in HInt.log from several nodes).
-    The file is reset each time the stage runs.
+    Log every Slurm job in log_file/HInt.log, each line tagged with the job name.
+    The file is appended (several jobs write in it) and reset by HInt-slurm submit.
 
     Parameters :
     ----------
@@ -73,8 +74,8 @@ def setup_logging (name) :
     """
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler = logging.FileHandler(f"{SLURM_DIR}/{name}.log", mode="w")
+    formatter = logging.Formatter(f"%(asctime)s - %(levelname)s - [{name}] %(message)s")
+    file_handler = logging.FileHandler(HINT_LOG, mode="a")
     file_handler.setFormatter(formatter)
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
@@ -126,7 +127,6 @@ def clean_previous_run () :
             os.remove(path)
     for path in glob.glob(f"{SLURM_DIR}/round_*") :
         shutil.rmtree(path)
-    open("./log_file/HInt.log", "w").close()
 
 
 def load_config () :
@@ -445,7 +445,7 @@ def stage_features (args) :
         logger.warning(f"No local species database in {Informations_dict['Path_Database']}, species used to pair MSAs are fetched from UniProt (needs internet access)")
 
     prot_no_SP = HInt_object.get_proteins_sequence_no_SP()
-    log_path = f"{SLURM_DIR}/features_task_{task}_features.log"
+    log_path = HINT_LOG
     with ThreadPoolExecutor(max_workers=max(1, CPU)) as executor :
         for protein in my_proteins :
             if os.path.isfile(f"{Path_Pickle_Feature}/{protein}.pkl") :
@@ -492,7 +492,7 @@ def stage_predict (args) :
     jax_cache_dir = jax_cache_directory(config, Path_Database, GPU[0])
     compounds_dict = HInt_object.get_compounds()
     seq_bait = HInt_object.get_proteins_sequence_no_SP()
-    log_path = f"{round_dir(round_id)}/alphafold_task_{task}.log"
+    log_path = HINT_LOG
     logger.info(f"Round {round_id} ({interaction_type} {bait}) task {task} : {len(jobs)} jobs | GPUs : {GPU} | VRAM per GPU : {max_vram:.1f} GiB | multi job per GPU : {multi_job_per_gpu}")
 
     done, failed, skipped = [], [], []
@@ -857,8 +857,10 @@ def stage_submit (args) :
               "features_tasks" : args.features_tasks,
               "predict_tasks" : args.predict_tasks,
               "n_rounds" : n_rounds}
-    if not args.dry_run and args.start_at in ["fetch", "prepare"] : # new run from the beginning
-        clean_previous_run()
+    if not args.dry_run :
+        open(HINT_LOG, "w").close() # new log for each submission
+        if args.start_at in ["fetch", "prepare"] : # new run from the beginning
+            clean_previous_run()
     if not args.dry_run or not os.path.isfile(CONFIG_FILE) :
         with open(CONFIG_FILE, "w") as f :
             json.dump(config, f, indent=2)
@@ -1038,15 +1040,19 @@ def main () :
     if args.command in ["features", "predict"] and not 0 <= args.task < load_config()[f"{args.command}_tasks"] :
         raise ValueError(f"--task must be between 0 and {load_config()[f'{args.command}_tasks'] - 1}")
 
-    {"submit" : stage_submit,
-     "status" : stage_status,
-     "fetch" : stage_fetch,
-     "prepare" : stage_prepare,
-     "afdb" : stage_afdb,
-     "msa" : stage_msa,
-     "features" : stage_features,
-     "predict" : stage_predict,
-     "score" : stage_score}[args.command](args)
+    try :
+        {"submit" : stage_submit,
+         "status" : stage_status,
+         "fetch" : stage_fetch,
+         "prepare" : stage_prepare,
+         "afdb" : stage_afdb,
+         "msa" : stage_msa,
+         "features" : stage_features,
+         "predict" : stage_predict,
+         "score" : stage_score}[args.command](args)
+    except Exception :
+        logger.exception(f"HInt-slurm {args.command} failed") # traceback in log_file/HInt.log
+        raise
 
 
 if __name__ == "__main__" :
