@@ -85,6 +85,7 @@ def main() :
     if send_to_database not in ["All", "Negative", "None"] :
         raise ValueError("Invalid value for --send_to_database. Need All, Negative or None.")
     Informations_dict = Define_informations()
+    link_result_dirs(Informations_dict) # models in Path_Structures if set
     
     # --------------------------------------------------------------
     # Initialize protein container
