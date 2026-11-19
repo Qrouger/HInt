@@ -386,6 +386,43 @@ def check_exist_MSA (file, Informations_dict, need_msa) :
                 new_need_msa.append(prot)
     return new_need_msa
 
+def link_result_dirs (Informations_dict) :
+    """
+    Write the models in Path_Structures (optional in HInt.txt) instead of the screen directory.
+
+    The result directories (./result_PPI_int, ./result_homo_int, ./result_custom, ./result_Compounds) become
+    symbolic links to Path_Structures/result_*, so the rest of HInt keeps using the same paths.
+    Only the directories of the interactions of HInt.txt are created.
+
+    Parameters :
+    ----------
+    Informations_dict : dict
+    """
+    Path_Structures = os.path.expanduser(os.path.expandvars(Informations_dict.get("Path_Structures", "")))
+    if Path_Structures == "" or os.path.realpath(Path_Structures) == os.path.realpath(".") :
+        return
+    interaction_types = []
+    if Informations_dict["Interact_with"] != [''] :
+        interaction_types += ["PPI_int", "Compounds"]
+    if int(Informations_dict["Homo-oligomer"]) > 1 :
+        interaction_types.append("homo_int")
+    if Informations_dict.get("Custom_interactions", "") != "" :
+        interaction_types.append("custom")
+    for interaction_type in interaction_types :
+        name = f"result_{interaction_type}"
+        target = os.path.abspath(os.path.join(Path_Structures, name))
+        os.makedirs(target, exist_ok=True)
+        if os.path.islink(name) :
+            if os.path.realpath(name) == os.path.realpath(target) :
+                continue
+            os.remove(name) # link to an old Path_Structures
+        elif os.path.isdir(name) :
+            if os.listdir(name) :
+                raise ValueError(f"./{name} already contains models. Move its content to {target} or remove Path_Structures from HInt.txt.")
+            os.rmdir(name)
+        os.symlink(target, name)
+        logger.info(f"Models of {interaction_type} written in {target}")
+
 def set_species_env (Path_Pickle_Feature, Path_Database, cache_name="uniprot_species_cache.sqlite") :
     """
     Set the species databases read by create_individual_features.py to pair MSAs.
@@ -397,10 +434,10 @@ def set_species_env (Path_Pickle_Feature, Path_Database, cache_name="uniprot_spe
     cache_name : str
         File of the UniProt accession -> taxid cache, in Path_Pickle_Feature.
     """
-    os.environ.setdefault("ALPHAPULLDOWN_SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/{cache_name}")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
+    os.environ.setdefault("SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/{cache_name}")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
     local_species_db = os.path.join(Path_Database, "uniref30_2302_species.sqlite")
     if os.path.exists(local_species_db) :
-        os.environ.setdefault("ALPHAPULLDOWN_LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
+        os.environ.setdefault("LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
 
 def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, use_afdb=True, local_search_threshold=10, afdb_only=False) :
     """
