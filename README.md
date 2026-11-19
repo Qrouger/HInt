@@ -133,6 +133,8 @@ HInt currently does not support multiple regions for bait proteins.
 
 - **Path_Pickle_Feature** : Path where MSA and pkl files will be saved (string).
 
+- **Path_Structures** : Directory where the models are saved (string, optional). The `result_*` directories of the screen directory become links to `Path_Structures/result_*`. By default the models are saved in the screen directory. Environment variables can be used, e.g. `$SCRATCH/HInt_models`.
+
 <br>
 
 ## 3.2. Setup protein file
