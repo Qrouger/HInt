@@ -1377,12 +1377,13 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
     
     xla_flags = ['--xla_gpu_enable_triton_gemm=false']
-        if AF_version == "3" :
+    pre_ampere = False # V100 (compute capability 7.0): no AlphaFold3 Triton kernels (flash attention, custom fusions)
+    if AF_version == "3" :
         try :
-            compute_cap = float(subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)], text=True).strip())
+            pre_ampere = float(subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)], text=True).strip()) < 8.0
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) :
-            compute_cap = None
-        if compute_cap is not None and compute_cap < 8.0 : # V100 (7.0): AlphaFold3 custom kernel fusions need compute capability 8.0
+            pre_ampere = False
+        if pre_ampere :
             xla_flags.append('--xla_disable_hlo_passes=custom-kernel-fusion-rewriter')
     env['XLA_FLAGS'] = " ".join(xla_flags + [os.environ.get('XLA_FLAGS', '')]).strip() # keep the flags of the environment
 
@@ -1467,9 +1468,13 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
                 "--use_ap_style=True "
                 f"--jax_compilation_cache_dir={jax_cache_dir}"
             )
+            if pre_ampere :
+                cmd += " --flash_attention_implementation=xla"
 
         if AF_version == "3" and interaction_type == "Compounds" :
             cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_Database} --model_dir={Path_Database} --json_path=log_file/{file_name}")
+            if pre_ampere :
+                cmd += " --flash_attention_implementation=xla"
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         
         with open("./log_file/HInt.log", "a") as log_f :
