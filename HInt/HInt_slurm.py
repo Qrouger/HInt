@@ -44,6 +44,7 @@ SCRIPT_DIR = "slurm_scripts"
 STATE_FILE = f"{SLURM_DIR}/state.pkl"
 CONFIG_FILE = f"{SLURM_DIR}/config.json"
 NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
+JOB_IDS_FILE = f"{SLURM_DIR}/job_ids.json"
 LOCAL_SPECIES_DB = "uniref30_2302_species.sqlite" # in Path_Database, see set_species_env
 LOCAL_SPECIES_FEATURES_CPUS = 6
 HINT_LOG = "./log_file/HInt.log"
@@ -185,8 +186,73 @@ def write_round_jobs (state, round_id, config) :
     with open(f"{round_dir(round_id)}/jobs.tsv", "w") as f :
         for job, vram in job_with_vram_length :
             f.write(f"{job.strip()}\t{vram}\n")
-    logger.info(f"Round {round_id} ({interaction_type} {bait}) : {len(job_with_vram_length)} jobs, spread over {config['predict_tasks']} Slurm tasks")
+    logger.info(f"Round {round_id} ({interaction_type} {bait}) : {len(job_with_vram_length)} jobs, spread over {min(len(job_with_vram_length), config['predict_tasks'])} Slurm tasks")
     HInt_object.Make_save_dict()
+    cancel_idle_predict_tasks(round_id, len(job_with_vram_length), config)
+
+
+def cancel_idle_predict_tasks (round_id, n_jobs, config) :
+    """
+    Cancel the predict tasks of a round that have no job (models already done or fewer jobs than tasks),
+    so they do not wait for a GPU.
+    """
+    if n_jobs >= config["predict_tasks"] or not os.path.isfile(JOB_IDS_FILE) :
+        return
+    with open(JOB_IDS_FILE, "r") as f :
+        job_id = json.load(f).get(f"predict_r{round_id}", "")
+    if not job_id.isdigit() :
+        return
+    tasks = f"{job_id}_[{n_jobs}-{config['predict_tasks'] - 1}]"
+    result = subprocess.run(["scancel", tasks], capture_output=True, text=True)
+    if result.returncode == 0 :
+        logger.info(f"Predict tasks {n_jobs} to {config['predict_tasks'] - 1} of round {round_id} cancelled (no job)")
+    else :
+        logger.warning(f"Could not cancel the idle predict tasks {tasks} : {result.stderr.strip()}")
+
+
+def write_need_pkl (state, config) :
+    """
+    List the proteins without pkl file (read by the features stage).
+    """
+    HInt_object = state["HInt_object"]
+    Informations_dict = state["Informations_dict"]
+    Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+    targets = list(HInt_object.get_possible_prey())
+    for bait in Informations_dict["Interact_with"] :
+        if bait != "" and bait not in targets :
+            targets.append(bait)
+    need_pkl = [prot for prot in targets if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]
+    without_msa = [prot for prot in need_pkl if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")]
+    if without_msa :
+        logger.warning(f"{len(without_msa)} proteins have no MSA after the MSA stage : {', '.join(without_msa[:20])}{' ...' if len(without_msa) > 20 else ''}")
+    with open(NEED_PKL_FILE, "w") as f :
+        f.write("\n".join(need_pkl) + ("\n" if need_pkl else ""))
+    logger.info(f"{len(need_pkl)} proteins need pkl files, spread over {config['features_tasks']} Slurm tasks")
+
+
+def missing_work (Informations_dict) :
+    """
+    Proteins of the input file that still need each step, from log_file/save_dict.pkl and Path_Pickle_Feature.
+    The filters of the prepare stage only remove proteins, so a step needed by no input protein can be skipped.
+
+    Returns :
+    ----------
+    missing : dict of list (keys : fetch, deeploc, signalp, msa, pkl)
+    """
+    HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
+    proteins = HInt_object.get_proteins()
+    fasta_sequences = HInt_object.get_proteins_sequence_SP()
+    saved = dict()
+    if os.path.isfile("log_file/save_dict.pkl") :
+        with open("log_file/save_dict.pkl", "rb") as f :
+            saved = pickle.load(f)
+    Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
+    deeploc = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == ""
+    return {"fetch" : [prot for prot in proteins if not fasta_sequences.get(prot) and prot not in saved.get("sequence_SP", {})],
+            "deeploc" : [prot for prot in proteins if prot not in saved.get("deeploc", {})] if deeploc else [],
+            "signalp" : [prot for prot in proteins if prot not in saved.get("Signal_peptide", {})] if Informations_dict["Organism"] != "None" else [],
+            "msa" : [prot for prot in proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")],
+            "pkl" : [prot for prot in proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]}
 
 
 def read_round_jobs (round_id) :
@@ -287,6 +353,9 @@ def stage_prepare (args) :
         HInt_object.set_proteins_sequence_no_SP(HInt_object.get_proteins_sequence_SP()) #don't remove signal peptide
         need_DeepLoc = []
     if need_DeepLoc and Informations_dict["Custom_interactions"] == "" :
+        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "NoDevFiles"] : # prepare submitted without GPU (DeepLoc and SignalP found in log_file/save_dict.pkl)
+            raise RuntimeError(f"DeepLoc is needed for {len(need_DeepLoc)} proteins ({', '.join(need_DeepLoc[:20])}) but this job has no GPU. "
+                               "Submit the pipeline again, the prepare stage will get a GPU.")
         run_deeploc(HInt_object, Informations_dict["Organism"], need_DeepLoc, GPU)
     timings["Deeploc"] = [len(need_DeepLoc), format_time(time.time() - start)]
 
@@ -346,6 +415,12 @@ def stage_prepare (args) :
              "gpu_vram" : gpu_vram,
              "timings" : timings,
              "summary" : summary}
+    if rounds and not config.get("msa_stage", True) : # MSAs found by HInt-slurm submit
+        missing_msa = [prot for prot in need_msa if not os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m")]
+        if missing_msa :
+            raise RuntimeError(f"No MSA for {len(missing_msa)} proteins ({', '.join(missing_msa[:20])}), e.g. MSAs removed after signal peptide cleavage. "
+                               "Submit the pipeline again, the MSA stage will be included.")
+        write_need_pkl(state, config)
     if rounds :
         write_round_jobs(state, 0, config)
     save_state(state)
@@ -404,18 +479,7 @@ def stage_msa (args) :
         use_afdb = config["use_afdb"] and not config.get("afdb_stage", False)
         create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, [], use_afdb=use_afdb, local_search_threshold=config["local_search_threshold"])
     state["timings"]["MSA"] = [nb_msa, format_time(time.time() - start)]
-
-    targets = list(HInt_object.get_possible_prey())
-    for bait in Informations_dict["Interact_with"] :
-        if bait != "" and bait not in targets :
-            targets.append(bait)
-    need_pkl = [prot for prot in targets if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]
-    without_msa = [prot for prot in need_pkl if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")]
-    if without_msa :
-        logger.warning(f"{len(without_msa)} proteins have no MSA after the MSA stage : {', '.join(without_msa[:20])}{' ...' if len(without_msa) > 20 else ''}")
-    with open(NEED_PKL_FILE, "w") as f :
-        f.write("\n".join(need_pkl) + ("\n" if need_pkl else ""))
-    logger.info(f"{len(need_pkl)} proteins need pkl files, spread over {config['features_tasks']} Slurm tasks")
+    write_need_pkl(state, config)
     save_state(state)
 
 
@@ -584,7 +648,7 @@ def stage_score (args) :
     done, failed = 0, []
     times = []
     unfinished = []
-    for task in range(config["predict_tasks"]) :
+    for task in range(min(config["predict_tasks"], len(read_round_jobs(round_id)))) : # tasks without job are cancelled
         status_file = f"{SLURM_DIR}/round_{round_id}/task_{task}.json"
         if not os.path.isfile(status_file) :
             unfinished.append(str(task))
@@ -834,8 +898,15 @@ def stage_submit (args) :
     if local_species :
         args.features_tasks = 1
         args.features_cpus = args.features_cpus or LOCAL_SPECIES_FEATURES_CPUS
-    gpu_for_prepare = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == "" # DeepLoc
     use_afdb = not args.no_afdb
+    # Only the missing steps are submitted
+    missing = missing_work(Informations_dict)
+    gpu_for_prepare = bool(missing["deeploc"] or missing["signalp"]) # prepare on CPU only when DeepLoc and SignalP are already done
+    need_fetch = args.offline_compute and bool(missing["fetch"])
+    need_msa = bool(missing["msa"])
+    need_features = bool(missing["pkl"])
+    if args.gpu_vram is None and not gpu_for_prepare :
+        raise ValueError("--gpu_vram is needed : the prepare stage runs without GPU (DeepLoc and SignalP already done)")
 
     for value, flag in [(args.multi_job_per_gpu, "--multi_job_per_gpu"), (args.multi_scoring, "--multi_scoring")] :
         if value not in ["True", "False"] :
@@ -856,6 +927,7 @@ def stage_submit (args) :
               "jax_cache_dir" : args.jax_cache_dir,
               "features_tasks" : args.features_tasks,
               "predict_tasks" : args.predict_tasks,
+              "msa_stage" : need_msa,
               "n_rounds" : n_rounds}
     if not args.dry_run :
         open(HINT_LOG, "w").close() # new log for each submission
@@ -870,7 +942,10 @@ def stage_submit (args) :
     hint = "HInt-slurm"
     order = STAGES.index(args.start_at)
     job_ids = []
+    named_ids = dict()
     last = None
+    if not args.dry_run and os.path.isfile(JOB_IDS_FILE) :
+        os.remove(JOB_IDS_FILE)
 
     def submit (name, stage, command, gpus=0, internet=False, array=None, dependency="afterok") :
         nonlocal last
@@ -879,19 +954,30 @@ def stage_submit (args) :
         script = sbatch_script(args, name, command, stage_settings(args, stage, gpus, internet), array)
         last = sbatch(args, script, f"{dependency}:{last}" if last else None)
         job_ids.append(last)
+        named_ids[name] = last
+        if not args.dry_run : # read by prepare and score to cancel the predict tasks without job
+            with open(JOB_IDS_FILE, "w") as f :
+                json.dump(named_ids, f)
 
-    if args.offline_compute and order <= STAGES.index("fetch") :
+    skipped = []
+    if args.offline_compute and not need_fetch :
+        skipped.append("fetch (all sequences known)")
+    if not need_msa :
+        skipped.append("afdb/msa (all MSAs found)")
+    if not need_features :
+        skipped.append("features (all pkl files found)")
+    if need_fetch and order <= STAGES.index("fetch") :
         submit("fetch", "fetch", f"{hint} fetch", internet=True) # UniProt sequences
     if order <= STAGES.index("prepare") :
         submit("prepare", "prepare", f"{hint} prepare", gpus=1 if gpu_for_prepare else 0, internet=not args.offline_compute)
     if n_rounds == 0 :
         print("No bait, no homo-oligomer and no custom interaction : only the prepare stage is needed.")
     else :
-        if config["afdb_stage"] and order <= STAGES.index("afdb") :
+        if config["afdb_stage"] and need_msa and order <= STAGES.index("afdb") :
             submit("afdb", "afdb", f"{hint} afdb", internet=True)
-        if order <= STAGES.index("msa") :
+        if need_msa and order <= STAGES.index("msa") :
             submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
-        if order <= STAGES.index("features") :
+        if need_features and order <= STAGES.index("features") :
             if local_species :
                 submit("features", "features", f"{hint} features --task 0")
             else : # species used to pair MSAs are fetched from UniProt
@@ -909,6 +995,8 @@ def stage_submit (args) :
         with open(f"{SLURM_DIR}/job_ids.txt", "w") as f :
             f.write(" ".join(job_ids) + "\n")
         print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks}{' (local species database)' if local_species else ''} | predict tasks per round : {args.predict_tasks}")
+        if skipped :
+            print(f"Skipped : {', '.join(skipped)} | prepare on {'GPU (DeepLoc/SignalP)' if gpu_for_prepare else 'CPU (DeepLoc and SignalP already done)'}")
         print(f"Follow the pipeline : squeue -u $USER   or   HInt-slurm status")
         print(f"Cancel the pipeline : scancel $(cat {SLURM_DIR}/job_ids.txt)")
     check_pi_score_env()
@@ -960,9 +1048,10 @@ def stage_status (args) :
             print(f"round {round_id} ({interaction_type} {bait}) : waiting for the previous round")
             continue
         modeled = sum(model_exists(job, interaction_type) for job, _ in jobs)
-        tasks = sum(os.path.isfile(f"{SLURM_DIR}/round_{round_id}/task_{t}.json") for t in range(config["predict_tasks"]))
+        n_tasks = min(config["predict_tasks"], len(jobs)) # tasks without job are cancelled
+        tasks = sum(os.path.isfile(f"{SLURM_DIR}/round_{round_id}/task_{t}.json") for t in range(n_tasks))
         scored = os.path.isfile(f"{SLURM_DIR}/round_{round_id}/failed_jobs.txt")
-        print(f"round {round_id} ({interaction_type} {bait}) : {modeled}/{len(jobs)} models | {tasks}/{config['predict_tasks']} predict tasks finished | scoring {'done' if scored else 'not done'}")
+        print(f"round {round_id} ({interaction_type} {bait}) : {modeled}/{len(jobs)} models | {tasks}/{n_tasks} predict tasks finished | scoring {'done' if scored else 'not done'}")
     if os.path.isfile("./log_file/HInt_report.txt") and os.path.getmtime("./log_file/HInt_report.txt") > os.path.getmtime(CONFIG_FILE) :
         print("final results : All_Final_result_HInt.csv")
 
