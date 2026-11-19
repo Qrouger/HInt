@@ -1375,7 +1375,16 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
     env['TF_FORCE_UNIFIED_MEMORY'] = 'true'
-    env['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'
+    
+    xla_flags = ['--xla_gpu_enable_triton_gemm=false']
+        if AF_version == "3" :
+        try :
+            compute_cap = float(subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", str(gpu_id)], text=True).strip())
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) :
+            compute_cap = None
+        if compute_cap is not None and compute_cap < 8.0 : # V100 (7.0): AlphaFold3 custom kernel fusions need compute capability 8.0
+            xla_flags.append('--xla_disable_hlo_passes=custom-kernel-fusion-rewriter')
+    env['XLA_FLAGS'] = " ".join(xla_flags + [os.environ.get('XLA_FLAGS', '')]).strip() # keep the flags of the environment
 
     if interaction_type == "PPI_int" or interaction_type == "Compounds" :
         prot_int = interaction_file.strip("\n").replace(";", "_and_")
