@@ -441,7 +441,7 @@ def stage_features (args) :
     # One species cache per task : SQLite (WAL) cannot be shared by several nodes on a network file system
     cache_name = "uniprot_species_cache.sqlite" if config["features_tasks"] == 1 else f"uniprot_species_cache_task_{task}.sqlite"
     set_species_env(Path_Pickle_Feature, Informations_dict["Path_Database"], cache_name)
-    if "ALPHAPULLDOWN_LOCAL_SPECIES_DB" not in os.environ :
+    if "LOCAL_SPECIES_DB" not in os.environ :
         logger.warning(f"No local species database in {Informations_dict['Path_Database']}, species used to pair MSAs are fetched from UniProt (needs internet access)")
 
     prot_no_SP = HInt_object.get_proteins_sequence_no_SP()
