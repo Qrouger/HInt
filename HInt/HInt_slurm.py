@@ -232,8 +232,10 @@ def write_need_pkl (state, config) :
 
 def missing_work (Informations_dict) :
     """
-    Proteins of the input file that still need each step, from log_file/save_dict.pkl and Path_Pickle_Feature.
-    The filters of the prepare stage only remove proteins, so a step needed by no input protein can be skipped.
+    Proteins that still need each step, from log_file/save_dict.pkl and Path_Pickle_Feature.
+    The filters of the prepare stage are applied in the same order with the saved results : DeepLoc only runs on
+    the baits and the preys of the right length, SignalP on those that also pass the DeepLoc filter, MSAs and pkl
+    files on those that also pass the SignalP filter. A prey whose result is not known yet is kept.
 
     Returns :
     ----------
@@ -246,13 +248,44 @@ def missing_work (Informations_dict) :
     if os.path.isfile("log_file/save_dict.pkl") :
         with open("log_file/save_dict.pkl", "rb") as f :
             saved = pickle.load(f)
+    saved_sequences = saved.get("sequence_SP", {})
+    saved_deeploc = saved.get("deeploc", {})
+    saved_SP = saved.get("Signal_peptide", {})
+    saved_no_SP = saved.get("sequence_no_SP", {})
     Path_Pickle_Feature = Informations_dict["Path_Pickle_Feature"]
-    deeploc = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == ""
-    return {"fetch" : [prot for prot in proteins if not fasta_sequences.get(prot) and prot not in saved.get("sequence_SP", {})],
-            "deeploc" : [prot for prot in proteins if prot not in saved.get("deeploc", {})] if deeploc else [],
-            "signalp" : [prot for prot in proteins if prot not in saved.get("Signal_peptide", {})] if Informations_dict["Organism"] != "None" else [],
-            "msa" : [prot for prot in proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")],
-            "pkl" : [prot for prot in proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]}
+
+    baits = [prot for prot in Informations_dict["Interact_with"] if prot != ""]
+    preys = [prot for prot in proteins if prot not in baits]
+
+    # Length filter (filter_length)
+    if Informations_dict["Min_protein_length"] != "0" or Informations_dict["Max_protein_length"] != "" :
+        max_length = int(Informations_dict["Max_protein_length"]) if Informations_dict["Max_protein_length"] != "" else 100000
+        min_length = int(Informations_dict["Min_protein_length"])
+        kept = []
+        for prot in preys :
+            sequence = fasta_sequences.get(prot) or saved_sequences.get(prot)
+            if not sequence or min_length < len(sequence) < max_length :
+                kept.append(prot)
+        preys = kept
+    deeploc_proteins = baits + preys
+
+    # DeepLoc filter (filter_deeploc)
+    localisation = [loc.strip() for loc in Informations_dict["DeepLoc"].split(",")]
+    if localisation != ["None"] :
+        preys = [prot for prot in preys if prot not in saved_deeploc or any(loc in localisation for loc in saved_deeploc[prot].split("|"))]
+    signalp_proteins = baits + preys
+
+    # Signal peptide filter (filter_signalP)
+    if Informations_dict["Signal_peptide"] != "None" :
+        preys = [prot for prot in preys if prot not in saved_SP or saved_SP[prot] == Informations_dict["Signal_peptide"]]
+    feature_proteins = baits + preys
+
+    run_deeploc = Informations_dict["Organism"] != "None" and Informations_dict["Custom_interactions"] == ""
+    return {"fetch" : [prot for prot in proteins if not fasta_sequences.get(prot) and prot not in saved_sequences],
+            "deeploc" : [prot for prot in deeploc_proteins if prot not in saved_deeploc] if run_deeploc else [],
+            "signalp" : [prot for prot in signalp_proteins if prot not in saved_SP or prot not in saved_no_SP] if Informations_dict["Organism"] != "None" else [],
+            "msa" : [prot for prot in feature_proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")],
+            "pkl" : [prot for prot in feature_proteins if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]}
 
 
 def read_round_jobs (round_id) :
@@ -727,7 +760,7 @@ DEFAULT_RESOURCES = {
 JEAN_ZAY_GPUS = {
     "a100" : {"constraint" : "a100", "cpus_per_gpu" : 8, "vram" : 80, "qos" : "qos_gpu_a100", "setup" : []},
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
-    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu-dev", "setup" : []},
+    "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "01:00:00"},
