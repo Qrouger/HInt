@@ -186,28 +186,98 @@ def write_round_jobs (state, round_id, config) :
     with open(f"{round_dir(round_id)}/jobs.tsv", "w") as f :
         for job, vram in job_with_vram_length :
             f.write(f"{job.strip()}\t{vram}\n")
-    logger.info(f"Round {round_id} ({interaction_type} {bait}) : {len(job_with_vram_length)} jobs, spread over {min(len(job_with_vram_length), config['predict_tasks'])} Slurm tasks")
+    n_tasks = predict_task_count(len(job_with_vram_length), config)
+    logger.info(f"Round {round_id} ({interaction_type} {bait}) : {len(job_with_vram_length)} jobs, spread over {n_tasks} Slurm tasks of {predict_gpus(len(job_with_vram_length), config)} GPUs")
     HInt_object.Make_save_dict()
-    cancel_idle_predict_tasks(round_id, len(job_with_vram_length), config)
 
 
-def cancel_idle_predict_tasks (round_id, n_jobs, config) :
+def predict_task_count (n_jobs, config) :
     """
-    Cancel the predict tasks of a round that have no job (models already done or fewer jobs than tasks),
-    so they do not wait for a GPU.
+    Number of predict tasks of a round : one task per jobs_per_task jobs (no maximum), the jobs are spread equally.
     """
-    if n_jobs >= config["predict_tasks"] or not os.path.isfile(JOB_IDS_FILE) :
-        return
-    with open(JOB_IDS_FILE, "r") as f :
-        job_id = json.load(f).get(f"predict_r{round_id}", "")
-    if not job_id.isdigit() :
-        return
-    tasks = f"{job_id}_[{n_jobs}-{config['predict_tasks'] - 1}]"
-    result = subprocess.run(["scancel", tasks], capture_output=True, text=True)
-    if result.returncode == 0 :
-        logger.info(f"Predict tasks {n_jobs} to {config['predict_tasks'] - 1} of round {round_id} cancelled (no job)")
+    return math.ceil(n_jobs / config["jobs_per_task"])
+
+
+def predict_gpus (n_jobs, config) :
+    """
+    GPUs of the predict tasks of a round, from the number of jobs per task : with 100 jobs and 4 GPUs per task,
+    less than 25 jobs -> 1 GPU, less than 50 -> 2, less than 75 -> 3, otherwise 4.
+    """
+    n_tasks = predict_task_count(n_jobs, config)
+    if n_tasks == 0 :
+        return 0
+    jobs_per_task = math.ceil(n_jobs / n_tasks)
+    jobs_per_gpu = config["jobs_per_task"] / config["gpus_per_task"]
+    return min(config["gpus_per_task"], int(jobs_per_task // jobs_per_gpu) + 1)
+
+
+def record_job_id (name, job_id) :
+    """
+    Save a submitted job (log_file/slurm/job_ids.json and job_ids.txt, used by status and to cancel the pipeline).
+    """
+    named_ids = dict()
+    if os.path.isfile(JOB_IDS_FILE) :
+        with open(JOB_IDS_FILE, "r") as f :
+            named_ids = json.load(f)
+    named_ids[name] = job_id
+    with open(JOB_IDS_FILE, "w") as f :
+        json.dump(named_ids, f)
+    with open(f"{SLURM_DIR}/job_ids.txt", "a") as f :
+        f.write(f"{job_id}\n")
+
+
+def wait_predict_dependency (timeout=300) :
+    """
+    Dependency of the predict jobs of round 0 on the last preparation job (msa or features), written by HInt-slurm submit
+    once all its jobs are submitted. Empty when no preparation job follows the prepare stage.
+    """
+    start = time.time()
+    while time.time() - start < timeout :
+        if os.path.isfile(JOB_IDS_FILE) :
+            with open(JOB_IDS_FILE, "r") as f :
+                named_ids = json.load(f)
+            if "predict_dependency" in named_ids :
+                return named_ids["predict_dependency"] or None
+        time.sleep(5)
+    logger.warning(f"No dependency found in {JOB_IDS_FILE} (scripts submitted by hand ?) : the predict jobs of round 0 are submitted without dependency")
+    return None
+
+
+def submit_round (round_id, config, dependency=None, dry_run=False) :
+    """
+    Submit the predict job array of one round, with the number of tasks and GPUs set by its job list, then its score job.
+    Called by prepare (round 0), score (next round) and HInt-slurm submit (resumed run).
+
+    Parameters :
+    ----------
+    round_id : int
+    config : dict
+    dependency : str or None
+        Dependency of the predict jobs, e.g. afterany:123.
+    dry_run : bool
+    """
+    args = argparse.Namespace(**config["submit_args"])
+    args.dry_run = dry_run
+    n_jobs = len(read_round_jobs(round_id))
+    n_tasks = predict_task_count(n_jobs, config)
+    hint = "HInt-slurm"
+    score_dependency = dependency
+    if n_tasks :
+        gpus = predict_gpus(n_jobs, config)
+        throttle = f"%{args.max_parallel}" if args.max_parallel else ""
+        script = sbatch_script(args, f"predict_r{round_id}", f"{hint} predict --round {round_id} --task ${{SLURM_ARRAY_TASK_ID}}", stage_settings(args, "predict", gpus, False), array=f"0-{n_tasks - 1}{throttle}")
+        predict_id = sbatch(args, script, dependency)
+        score_dependency = f"afterany:{predict_id}" # score even if some predictions failed
+        logger.info(f"Round {round_id} : {n_jobs} jobs submitted in {n_tasks} predict tasks of {gpus} GPUs (job {predict_id})")
+        if not dry_run :
+            record_job_id(f"predict_r{round_id}", predict_id)
     else :
-        logger.warning(f"Could not cancel the idle predict tasks {tasks} : {result.stderr.strip()}")
+        logger.info(f"Round {round_id} : all models already done, no predict job")
+    # internet for --send_to_database
+    script = sbatch_script(args, f"score_r{round_id}", f"{hint} score --round {round_id}", stage_settings(args, "score", 0, True))
+    score_id = sbatch(args, script, score_dependency)
+    if not dry_run :
+        record_job_id(f"score_r{round_id}", score_id)
 
 
 def write_need_pkl (state, config) :
@@ -458,7 +528,9 @@ def stage_prepare (args) :
         write_round_jobs(state, 0, config)
     save_state(state)
 
-    if not rounds :
+    if rounds :
+        submit_round(0, config, wait_predict_dependency())
+    else :
         finalize(state, CPU)
     logger.info("Prepare stage done")
 
@@ -575,7 +647,9 @@ def stage_predict (args) :
     AF_version = Informations_dict["AlphaFold"]
     interaction_type, bait = state["rounds"][round_id]
 
-    jobs = read_round_jobs(round_id)[task::config["predict_tasks"]]
+    all_jobs = read_round_jobs(round_id)
+    n_tasks = predict_task_count(len(all_jobs), config)
+    jobs = all_jobs[task::n_tasks] if task < n_tasks else []
     status_file = f"{round_dir(round_id)}/task_{task}.json"
     if not jobs :
         logger.info(f"No job for task {task} of round {round_id}")
@@ -681,7 +755,7 @@ def stage_score (args) :
     done, failed = 0, []
     times = []
     unfinished = []
-    for task in range(min(config["predict_tasks"], len(read_round_jobs(round_id)))) : # tasks without job are cancelled
+    for task in range(predict_task_count(len(read_round_jobs(round_id)), config)) :
         status_file = f"{SLURM_DIR}/round_{round_id}/task_{task}.json"
         if not os.path.isfile(status_file) :
             unfinished.append(str(task))
@@ -717,6 +791,7 @@ def stage_score (args) :
     if round_id + 1 < len(state["rounds"]) :
         write_round_jobs(state, round_id + 1, config)
         save_state(state)
+        submit_round(round_id + 1, config)
     else :
         save_state(state)
         finalize(state, CPU)
@@ -769,7 +844,7 @@ JEAN_ZAY_RESOURCES = {
     "afdb" : {"cpus" : 8, "time" : "04:00:00"},
     "msa" : {"cpus" : None, "time" : "10:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
-    "predict" : {"cpus" : None, "time" : "02:00:00"},
+    "predict" : {"cpus" : None, "time" : "05:00:00"},
     "score" : {"cpus" : 16, "time" : "04:00:00"},
 }
 
@@ -903,7 +978,9 @@ def sbatch (args, script, dependency=None) :
         fake_id = f"<{os.path.basename(script).replace('.sbatch', '')}>"
         print("[dry run] " + " ".join(cmd))
         return fake_id
-    job_id = subprocess.check_output(cmd, text=True).strip().split(";")[0]
+    # A job submitted from another job must not inherit its Slurm allocation (SLURM_*, SBATCH_*, GPUs)
+    env = {key : value for key, value in os.environ.items() if not key.startswith(("SLURM_", "SBATCH_")) and key != "CUDA_VISIBLE_DEVICES"}
+    job_id = subprocess.check_output(cmd, text=True, env=env).strip().split(";")[0]
     print(f"Submitted {os.path.basename(script):<28} job {job_id}" + (f"  (dependency {dependency})" if dependency else ""))
     return job_id
 
@@ -916,6 +993,8 @@ def stage_submit (args) :
         raise FileNotFoundError("HInt.txt not found, run HInt-slurm from the screen directory")
     if not args.dry_run and shutil.which("sbatch") is None :
         raise RuntimeError("sbatch not found, run HInt-slurm submit on a Slurm login node (or use --dry_run)")
+    if args.gpus_per_task is None :
+        args.gpus_per_task = 4 if args.cluster == "jean-zay" else 1
     if args.cluster == "jean-zay" :
         if not args.jz_project :
             raise ValueError("--jz_project is needed on Jean Zay (Unix group of the project, see idrproj)")
@@ -960,9 +1039,11 @@ def stage_submit (args) :
               "local_search_threshold" : args.local_search_threshold,
               "jax_cache_dir" : args.jax_cache_dir,
               "features_tasks" : args.features_tasks,
-              "predict_tasks" : args.predict_tasks,
+              "jobs_per_task" : args.jobs_per_task,
+              "gpus_per_task" : args.gpus_per_task,
               "msa_stage" : need_msa,
-              "n_rounds" : n_rounds}
+              "n_rounds" : n_rounds,
+              "submit_args" : vars(args)} # the predict and score jobs are submitted by the prepare and score jobs
     if not args.dry_run :
         open(HINT_LOG, "w").close() # new log for each submission
         if args.start_at in ["fetch", "prepare"] : # new run from the beginning
@@ -975,11 +1056,15 @@ def stage_submit (args) :
     throttle = f"%{args.max_parallel}" if args.max_parallel else ""
     hint = "HInt-slurm"
     order = STAGES.index(args.start_at)
-    job_ids = []
-    named_ids = dict()
+    first_round = args.start_round if args.start_at == "predict" else 0
+    if order > STAGES.index("prepare") and n_rounds and not os.path.isfile(f"{SLURM_DIR}/round_{first_round}/jobs.tsv") :
+        raise FileNotFoundError(f"No job list for round {first_round} : start the pipeline at prepare" + (" or at the previous round" if first_round else ""))
     last = None
-    if not args.dry_run and os.path.isfile(JOB_IDS_FILE) :
-        os.remove(JOB_IDS_FILE)
+    prepare_id = None
+    if not args.dry_run :
+        for path in [JOB_IDS_FILE, f"{SLURM_DIR}/job_ids.txt"] :
+            if os.path.isfile(path) :
+                os.remove(path)
 
     def submit (name, stage, command, gpus=0, internet=False, array=None, dependency="afterok") :
         nonlocal last
@@ -987,11 +1072,9 @@ def stage_submit (args) :
             command += " --new_log"
         script = sbatch_script(args, name, command, stage_settings(args, stage, gpus, internet), array)
         last = sbatch(args, script, f"{dependency}:{last}" if last else None)
-        job_ids.append(last)
-        named_ids[name] = last
-        if not args.dry_run : # read by prepare and score to cancel the predict tasks without job
-            with open(JOB_IDS_FILE, "w") as f :
-                json.dump(named_ids, f)
+        if not args.dry_run :
+            record_job_id(name, last)
+        return last
 
     skipped = []
     if args.offline_compute and not need_fetch :
@@ -1003,7 +1086,7 @@ def stage_submit (args) :
     if need_fetch and order <= STAGES.index("fetch") :
         submit("fetch", "fetch", f"{hint} fetch", internet=True) # UniProt sequences
     if order <= STAGES.index("prepare") :
-        submit("prepare", "prepare", f"{hint} prepare", gpus=1 if gpu_for_prepare else 0, internet=not args.offline_compute)
+        prepare_id = submit("prepare", "prepare", f"{hint} prepare", gpus=1 if gpu_for_prepare else 0, internet=not args.offline_compute)
     if n_rounds == 0 :
         print("No bait, no homo-oligomer and no custom interaction : only the prepare stage is needed.")
     else :
@@ -1019,16 +1102,20 @@ def stage_submit (args) :
             next_dependency = "afterany" # missing features are reported by the predict tasks
         else :
             next_dependency = "afterok"
-        for round_id in range(args.start_round, n_rounds) :
-            submit(f"predict_r{round_id}", "predict", f"{hint} predict --round {round_id} --task ${{SLURM_ARRAY_TASK_ID}}", gpus=args.gpus_per_task, array=f"0-{args.predict_tasks - 1}{throttle}", dependency=next_dependency)
-            # score even if some predictions failed, internet for --send_to_database
-            submit(f"score_r{round_id}", "score", f"{hint} score --round {round_id}", internet=True, dependency="afterany")
-            next_dependency = "afterok"
+        # The predict and score jobs of a round are submitted once its job list is known : by prepare for round 0,
+        # by the score job of the previous round for the next ones, or here when prepare is not submitted (resumed run)
+        predict_dependency = f"{next_dependency}:{last}" if last and last != prepare_id else ""
+        if prepare_id is None :
+            submit_round(first_round, config, predict_dependency or None, dry_run=args.dry_run)
+        elif not args.dry_run : # read by the prepare job
+            with open(JOB_IDS_FILE, "r") as f :
+                named_ids = json.load(f)
+            named_ids["predict_dependency"] = predict_dependency
+            with open(JOB_IDS_FILE, "w") as f :
+                json.dump(named_ids, f)
 
     if not args.dry_run :
-        with open(f"{SLURM_DIR}/job_ids.txt", "w") as f :
-            f.write(" ".join(job_ids) + "\n")
-        print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks}{' (local species database)' if local_species else ''} | predict tasks per round : {args.predict_tasks}")
+        print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks}{' (local species database)' if local_species else ''} | predict : one task per {args.jobs_per_task} PPI, up to {args.gpus_per_task} GPUs per task, submitted once the job list of each round is known")
         if skipped :
             print(f"Skipped : {', '.join(skipped)} | prepare on {'GPU (DeepLoc/SignalP)' if gpu_for_prepare else 'CPU (DeepLoc and SignalP already done)'}")
         print(f"Follow the pipeline : squeue -u $USER   or   HInt-slurm status")
@@ -1082,7 +1169,7 @@ def stage_status (args) :
             print(f"round {round_id} ({interaction_type} {bait}) : waiting for the previous round")
             continue
         modeled = sum(model_exists(job, interaction_type) for job, _ in jobs)
-        n_tasks = min(config["predict_tasks"], len(jobs)) # tasks without job are cancelled
+        n_tasks = predict_task_count(len(jobs), config)
         tasks = sum(os.path.isfile(f"{SLURM_DIR}/round_{round_id}/task_{t}.json") for t in range(n_tasks))
         scored = os.path.isfile(f"{SLURM_DIR}/round_{round_id}/failed_jobs.txt")
         print(f"round {round_id} ({interaction_type} {bait}) : {modeled}/{len(jobs)} models | {tasks}/{n_tasks} predict tasks finished | scoring {'done' if scored else 'not done'}")
@@ -1122,8 +1209,8 @@ def add_submit_arguments (parser) :
 
     work = parser.add_argument_group("Work distribution")
     work.add_argument("--features_tasks", help=f"Number of array tasks for pkl files (default: 10, one job with {LOCAL_SPECIES_FEATURES_CPUS} CPUs when Path_Database contains {LOCAL_SPECIES_DB})", type=int, default=10)
-    work.add_argument("--predict_tasks", help="Number of array tasks per modeling round (default: 10)", type=int, default=10)
-    work.add_argument("--gpus_per_task", help="GPUs per predict task (default: 1)", type=int, default=1)
+    work.add_argument("--jobs_per_task", help="Maximum models (PPI) per predict task, one task per jobs_per_task models (default: 100)", type=int, default=100)
+    work.add_argument("--gpus_per_task", help="GPUs of a full predict task, fewer for fewer models: one GPU per jobs_per_task/gpus_per_task models (default: 1, Jean Zay: 4)", type=int, default=None)
     work.add_argument("--msa_gpus", help="GPUs of the MSA job (default: 3)", type=int, default=3)
     work.add_argument("--start_at", help="First stage to submit, to resume a run (default: fetch/prepare)", choices=STAGES[:6], default="fetch")
     work.add_argument("--start_round", help="First round to submit with --start_at predict (default: 0)", type=int, default=0)
@@ -1164,8 +1251,8 @@ def main () :
     if getattr(args, "new_log", False) :
         open(HINT_LOG, "w").close()
 
-    if args.command in ["features", "predict"] and not 0 <= args.task < load_config()[f"{args.command}_tasks"] :
-        raise ValueError(f"--task must be between 0 and {load_config()[f'{args.command}_tasks'] - 1}")
+    if args.command == "features" and not 0 <= args.task < load_config()["features_tasks"] :
+        raise ValueError(f"--task must be between 0 and {load_config()['features_tasks'] - 1}")
 
     try :
         {"submit" : stage_submit,
