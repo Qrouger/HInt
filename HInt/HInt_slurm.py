@@ -762,6 +762,7 @@ JEAN_ZAY_GPUS = {
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
     "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
+JEAN_ZAY_PARTITIONS = {"fetch" : "archive", "afdb" : "archive"} # downloads only, the other CPU stages run on prepost
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "02:00:00"},
@@ -828,12 +829,12 @@ def stage_settings (args, stage, gpus, internet) :
             settings["setup"] = gpu["setup"] + settings["setup"]
         else :
             if hours(settings["time"]) > 20 :
-                raise ValueError(f"--{stage}_time : the prepost partition of Jean Zay is limited to 20h")
+                raise ValueError(f"--{stage}_time : the prepost and archive partitions of Jean Zay are limited to 20h")
             on_internet = True # all CPU stages run on prepost (internet access, hours not deducted)
             settings["account"] = args.jz_internet_account or f"{args.jz_project}@cpu"
             settings["qos"] = None
         if on_internet :
-            settings["partition"] = getattr(args, f"{stage}_partition") or args.internet_partition or "prepost"
+            settings["partition"] = getattr(args, f"{stage}_partition") or JEAN_ZAY_PARTITIONS.get(stage) or args.internet_partition or "prepost"
         else :
             settings["partition"] = getattr(args, f"{stage}_partition")
         return settings
@@ -1130,7 +1131,7 @@ def add_submit_arguments (parser) :
         work.add_argument(f"--{stage}_cpus", type=int, default=None, help=f"CPUs of the {stage} jobs (default: {DEFAULT_RESOURCES[stage]['cpus']}, Jean Zay: {JEAN_ZAY_RESOURCES[stage]['cpus'] or 'CPUs per GPU x GPUs'})")
         work.add_argument(f"--{stage}_mem", default=None, help=f"memory of the {stage} jobs, 'none' to omit (default: {DEFAULT_RESOURCES[stage]['mem']}, Jean Zay: omitted)")
         work.add_argument(f"--{stage}_time", default=None, help=f"time limit of the {stage} jobs (default: {DEFAULT_RESOURCES[stage]['time']}, Jean Zay: {JEAN_ZAY_RESOURCES[stage]['time']})")
-        work.add_argument(f"--{stage}_partition", default=None, help=argparse.SUPPRESS)
+        work.add_argument(f"--{stage}_partition", default=None, help=f"partition of the {stage} jobs" + (f" (Jean Zay default: {JEAN_ZAY_PARTITIONS[stage]})" if stage in JEAN_ZAY_PARTITIONS else ""))
 
     hint = parser.add_argument_group("HInt")
     hint.add_argument("--gpu_vram", help="VRAM (GiB) of the GPUs used for modeling, sets job lists and packing (default: read on the node, Jean Zay: 80 for a100/h100, 32 for v100)", type=float, default=None)
