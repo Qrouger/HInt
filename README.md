@@ -277,7 +277,7 @@ HInt-slurm submit --cluster jean-zay --jz_project <project> --jz_gpu a100 --pred
 
 The `jean-zay` profile applies the IDRIS rules:
 - GPU jobs (DeepLoc, MSA, modeling): `--constraint=a100|h100|v100-32g`, `--account=<project>@<gpu>`, `--gres=gpu:N`, the CPUs matching the GPU share of the node (8 per A100, 24 per H100, 10 per V100), `--hint=nomultithread`, no `--mem` (memory is proportional to the CPUs), QoS `qos_gpu_<gpu>-t3` (20h) or `-t4` above 20h, `module load arch/h100` on H100.
-- Compute nodes have no internet access: sequences download, AlphaFold database MSAs, pkl files and scoring run on the `prepost` partition (internet access, hours not deducted, 20h max) with `--account=<project>@cpu` (change it with `--jz_internet_account`).
+- Compute nodes have no internet access: sequences download and AlphaFold database MSAs run on the `archive` partition, pkl files and scoring on the `prepost` partition (internet access, hours not deducted, 20h max) with `--account=<project>@cpu` (change it with `--jz_internet_account`).
 - `--gpu_vram` is set to 80 (A100/H100) or 32 (V100).
 
 Recommendations:
