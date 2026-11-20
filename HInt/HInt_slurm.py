@@ -765,11 +765,11 @@ JEAN_ZAY_GPUS = {
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "02:00:00"},
-    "afdb" : {"cpus" : 8, "time" : "10:00:00"},
-    "msa" : {"cpus" : None, "time" : "20:00:00"},
+    "afdb" : {"cpus" : 8, "time" : "04:00:00"},
+    "msa" : {"cpus" : None, "time" : "10:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "02:00:00"},
-    "score" : {"cpus" : 16, "time" : "10:00:00"},
+    "score" : {"cpus" : 16, "time" : "04:00:00"},
 }
 
 
