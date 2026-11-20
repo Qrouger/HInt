@@ -1131,7 +1131,7 @@ def stage_submit (args) :
     if single_setup and n_rounds :
         setup_gpus = args.setup_gpus if (gpu_for_prepare or need_msa) else 0 # DeepLoc, MMseqs2-GPU
         settings = stage_settings(args, "prepare", 0, True)
-        settings.update({"cpus" : args.setup_cpus, "time" : args.setup_time, "partition" : args.setup_partition, "gres" : f"gpu:{setup_gpus}" if setup_gpus else None})
+        settings.update({"cpus" : args.setup_cpus, "time" : args.setup_time, "partition" : args.setup_partition})
         prepare_id = submit("setup", "prepare", f"{hint} setup", settings=settings)
     elif order <= STAGES.index("prepare") :
         prepare_id = submit("prepare", "prepare", f"{hint} prepare", gpus=3 if gpu_for_prepare else 0, internet=not args.offline_compute)
