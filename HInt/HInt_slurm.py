@@ -822,7 +822,7 @@ def finalize (state, CPU) :
 
 DEFAULT_RESOURCES = {
     "fetch" : {"cpus" : 2, "mem" : "8G", "time" : "00:30:00"},
-    "prepare" : {"cpus" : 2, "mem" : "32G", "time" : "02:00:00"},
+    "prepare" : {"cpus" : 2, "mem" : "32G", "time" : "01:00:00"},
     "afdb" : {"cpus" : 8, "mem" : "16G", "time" : "12:00:00"},
     "msa" : {"cpus" : 32, "mem" : "128G", "time" : "24:00:00"},
     "features" : {"cpus" : 16, "mem" : "64G", "time" : "12:00:00"},
@@ -840,7 +840,7 @@ JEAN_ZAY_GPUS = {
 JEAN_ZAY_PARTITIONS = {"fetch" : "archive", "afdb" : "archive"} # downloads only, the other CPU stages run on prepost
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
-    "prepare" : {"cpus" : 2, "time" : "02:00:00"},
+    "prepare" : {"cpus" : 2, "time" : "01:00:00"},
     "afdb" : {"cpus" : 8, "time" : "04:00:00"},
     "msa" : {"cpus" : None, "time" : "10:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
@@ -1086,7 +1086,7 @@ def stage_submit (args) :
     if need_fetch and order <= STAGES.index("fetch") :
         submit("fetch", "fetch", f"{hint} fetch", internet=True) # UniProt sequences
     if order <= STAGES.index("prepare") :
-        prepare_id = submit("prepare", "prepare", f"{hint} prepare", gpus=1 if gpu_for_prepare else 0, internet=not args.offline_compute)
+        prepare_id = submit("prepare", "prepare", f"{hint} prepare", gpus=3 if gpu_for_prepare else 0, internet=not args.offline_compute)
     if n_rounds == 0 :
         print("No bait, no homo-oligomer and no custom interaction : only the prepare stage is needed.")
     else :
