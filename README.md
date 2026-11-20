@@ -243,8 +243,9 @@ A round is one bait of `Interact_with` (in the given order: the next bait is onl
 
 # Work distribution
   --features_tasks : array tasks for pkl files (default: 10)
-  --predict_tasks : array tasks per modeling round (default: 10)
-  --gpus_per_task : GPUs per predict task (default: 1)
+  --predict_tasks : maximum number of array tasks per modeling round (default: 50)
+  --jobs_per_task : models (PPI) per predict task, the tasks without job are cancelled (default: 100)
+  --gpus_per_task : GPUs per predict task (default: 1, Jean Zay: 4)
   --<stage>_cpus, --<stage>_mem, --<stage>_time : resources of each stage (fetch, prepare, afdb, msa, features, predict, score)
   --start_at, --start_round : resume a run from a stage (fetch, prepare, afdb, msa, features, predict) and a round
 
@@ -272,7 +273,7 @@ Use `--offline_compute --internet_partition <partition>`: the UniProt sequences 
 ### IDRIS Jean Zay
 
 ```bash
-HInt-slurm submit --cluster jean-zay --jz_project <project> --jz_gpu a100 --predict_tasks 20
+HInt-slurm submit --cluster jean-zay --jz_project <project> --jz_gpu a100
 ```
 
 The `jean-zay` profile applies the IDRIS rules:
@@ -283,7 +284,7 @@ The `jean-zay` profile applies the IDRIS rules:
 Recommendations:
 - Install the conda environments in `$WORK`, not in `$HOME` (3 GB quota): `conda config --add envs_dirs $WORK/conda/envs` and `conda config --add pkgs_dirs $WORK/conda/pkgs` before running `Install_HInt.sh` on a login node (internet access through the proxy).
 - Put the screen directory, the databases and `Path_Pickle_Feature` in `$WORK` (quota of 5 TB and 500k inodes per project, check with `idr_quota_project`). `$SCRATCH` is purged after 30 days without access and `$STORE` is not reachable from compute nodes.
-- Keep `--predict_time` at 20h or less and increase `--predict_tasks` instead. If a predict task reaches its time limit, the scoring stops the pipeline and prints the command to resume it (models already done are skipped).
+- Each predict task models up to 100 PPI (`--jobs_per_task`) on 4 GPUs (`--gpus_per_task`) in 5h (`--predict_time`). Keep `--predict_time` at 20h or less and lower `--jobs_per_task` instead. If a predict task reaches its time limit, the scoring stops the pipeline and prints the command to resume it (models already done are skipped).
 - Check the current limits on the IDRIS documentation (http://www.idris.fr/jean-zay/), they change with the machine extensions.
 
 <details>
