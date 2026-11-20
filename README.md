@@ -213,7 +213,7 @@ HInt-slurm submit --partition <partition> --account <account> --gpu_vram <GiB> -
 
 | Stage | Slurm job | Work |
 |---|---|---|
-| fetch | 1 job, only with `--offline_compute` | UniProt sequences, on the partition with internet access |
+| fetch | `HInt-slurm submit`, on the login node | UniProt sequences (the login node has internet access) |
 | prepare | 1 job (GPU only if `Organism` is set, for DeepLoc) | Sequences, DeepLoc, SignalP, filters, job list of the first round |
 | afdb | 1 job, only with `--offline_compute` | MSAs of the AlphaFold database, on the partition with internet access |
 | msa | 1 GPU job | MSAs (AlphaFold database + MMseqs2-GPU `colabfold_search` on all proteins at once) |
@@ -246,7 +246,7 @@ A round is one bait of `Interact_with` (in the given order: the next bait is onl
   --predict_tasks : maximum number of array tasks per modeling round (default: 50)
   --jobs_per_task : models (PPI) per predict task, the tasks without job are cancelled (default: 100)
   --gpus_per_task : GPUs per predict task (default: 1, Jean Zay: 4)
-  --<stage>_cpus, --<stage>_mem, --<stage>_time : resources of each stage (fetch, prepare, afdb, msa, features, predict, score)
+  --<stage>_cpus, --<stage>_mem, --<stage>_time : resources of each stage (prepare, afdb, msa, features, predict, score)
   --start_at, --start_round : resume a run from a stage (fetch, prepare, afdb, msa, features, predict) and a round
 
 # HInt
@@ -268,7 +268,7 @@ Logs of each job are written in `log_file/slurm/` (Slurm outputs, one log per st
 
 ### Compute nodes without internet access
 
-Use `--offline_compute --internet_partition <partition>`: the UniProt sequences (`fetch` stage), the MSAs of the AlphaFold database (`afdb` stage), the pkl files (AF2 template search uses the ColabFold server) and the scoring (`--send_to_database`) run on that partition. Create the `pi_score` conda environment on the login node (`HInt-slurm submit` warns if it is missing). Build the local species database (`uniref30_2302_species.sqlite`, done by `setup_databases.sh`) so the pkl files do not query UniProt to pair MSAs. Each features task uses its own species cache (`Path_Pickle_Feature/uniprot_species_cache_task_<N>.sqlite`), SQLite cannot be shared between nodes on a network file system.
+Use `--offline_compute --internet_partition <partition>`: the MSAs of the AlphaFold database (`afdb` stage), the pkl files (AF2 template search uses the ColabFold server) and the scoring (`--send_to_database`) run on that partition. Create the `pi_score` conda environment on the login node (`HInt-slurm submit` warns if it is missing). Build the local species database (`uniref30_2302_species.sqlite`, done by `setup_databases.sh`) so the pkl files do not query UniProt to pair MSAs. Each features task uses its own species cache (`Path_Pickle_Feature/uniprot_species_cache_task_<N>.sqlite`), SQLite cannot be shared between nodes on a network file system.
 
 ### IDRIS Jean Zay
 
@@ -278,7 +278,7 @@ HInt-slurm submit --cluster jean-zay --jz_project <project> --jz_gpu a100
 
 The `jean-zay` profile applies the IDRIS rules:
 - GPU jobs (DeepLoc, MSA, modeling): `--constraint=a100|h100|v100-32g`, `--account=<project>@<gpu>`, `--gres=gpu:N`, the CPUs matching the GPU share of the node (8 per A100, 24 per H100, 10 per V100), `--hint=nomultithread`, no `--mem` (memory is proportional to the CPUs), QoS `qos_gpu_<gpu>-t3` (20h) or `-t4` above 20h, `module load arch/h100` on H100.
-- Compute nodes have no internet access: sequences download and AlphaFold database MSAs run on the `archive` partition, pkl files and scoring on the `prepost` partition (internet access, hours not deducted, 20h max) with `--account=<project>@cpu` (change it with `--jz_internet_account`).
+- Compute nodes have no internet access: the UniProt sequences are downloaded by `HInt-slurm submit` on the login node, the AlphaFold database MSAs on the `archive` partition, pkl files and scoring on the `prepost` partition (internet access, hours not deducted, 20h max) with `--account=<project>@cpu` (change it with `--jz_internet_account`).
 - `--gpu_vram` is set to 80 (A100/H100) or 32 (V100).
 
 Recommendations:
