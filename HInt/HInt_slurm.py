@@ -5,7 +5,7 @@ Author: Quentin Rouger
 
 The single-node pipeline of HInt.py is split into Slurm jobs chained with dependencies :
 
-    fetch    (1 job)        UniProt sequences, only when compute nodes are offline (run on a partition with internet)
+    fetch    (login node)   UniProt sequences, downloaded by HInt-slurm submit (the login node has internet access)
     prepare  (1 job)        sequences, DeepLoc, SignalP, filters, job list of the first round
     afdb     (1 job)        MSAs of the AlphaFold database, only when compute nodes are offline (run on a partition with internet)
     msa      (1 job, GPU)   MSAs (AlphaFold database + MMseqs2-GPU colabfold_search)
@@ -535,15 +535,21 @@ def stage_prepare (args) :
     logger.info("Prepare stage done")
 
 
-def stage_fetch (args) :
+def fetch_sequences (Informations_dict) :
     """
-    Download the UniProt sequences on a node with internet access, they are saved in log_file/save_dict.pkl for the prepare stage.
+    Download the UniProt sequences, they are saved in log_file/save_dict.pkl for the prepare stage.
     """
-    setup_logging("fetch")
-    Informations_dict = Define_informations()
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
     HInt_object.check_save_dict(Informations_dict["Path_Pickle_Feature"])
     logger.info(f"Sequences of {len(HInt_object.get_proteins())} proteins saved")
+
+
+def stage_fetch (args) :
+    """
+    Download the UniProt sequences on a node with internet access (done by HInt-slurm submit on the login node).
+    """
+    setup_logging("fetch")
+    fetch_sequences(Define_informations())
 
 
 def stage_afdb (args) :
@@ -837,7 +843,7 @@ JEAN_ZAY_GPUS = {
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
     "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
-JEAN_ZAY_PARTITIONS = {"fetch" : "archive", "afdb" : "archive"} # downloads only, the other CPU stages run on prepost
+JEAN_ZAY_PARTITIONS = {"afdb" : "archive"} # downloads only, the other CPU stages run on prepost (fetch runs on the login node)
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "01:00:00"},
@@ -1012,10 +1018,24 @@ def stage_submit (args) :
         args.features_tasks = 1
         args.features_cpus = args.features_cpus or LOCAL_SPECIES_FEATURES_CPUS
     use_afdb = not args.no_afdb
+    if not args.dry_run :
+        open(HINT_LOG, "w").close() # new log for each submission
+        if args.start_at in ["fetch", "prepare"] : # new run from the beginning
+            clean_previous_run()
     # Only the missing steps are submitted
     missing = missing_work(Informations_dict)
+    # UniProt sequences downloaded here : the login node has internet access
+    fetched_here = False
+    if missing["fetch"] and STAGES.index(args.start_at) <= STAGES.index("fetch") :
+        if args.dry_run :
+            print(f"[dry run] {len(missing['fetch'])} UniProt sequences would be downloaded on this node")
+        else :
+            print(f"Downloading {len(missing['fetch'])} UniProt sequences on this node ...")
+            setup_logging("fetch")
+            fetch_sequences(Informations_dict)
+            fetched_here = True
+            missing = missing_work(Informations_dict)
     gpu_for_prepare = bool(missing["deeploc"] or missing["signalp"]) # prepare on CPU only when DeepLoc and SignalP are already done
-    need_fetch = args.offline_compute and bool(missing["fetch"])
     need_msa = bool(missing["msa"])
     need_features = bool(missing["pkl"])
     if args.gpu_vram is None and not gpu_for_prepare :
@@ -1044,10 +1064,6 @@ def stage_submit (args) :
               "msa_stage" : need_msa,
               "n_rounds" : n_rounds,
               "submit_args" : vars(args)} # the predict and score jobs are submitted by the prepare and score jobs
-    if not args.dry_run :
-        open(HINT_LOG, "w").close() # new log for each submission
-        if args.start_at in ["fetch", "prepare"] : # new run from the beginning
-            clean_previous_run()
     if not args.dry_run or not os.path.isfile(CONFIG_FILE) :
         with open(CONFIG_FILE, "w") as f :
             json.dump(config, f, indent=2)
@@ -1068,7 +1084,7 @@ def stage_submit (args) :
 
     def submit (name, stage, command, gpus=0, internet=False, array=None, dependency="afterok") :
         nonlocal last
-        if last is None and array is None : # the first job resets log_file/HInt.log, also when its script is submitted by hand
+        if last is None and array is None and not fetched_here : # the first job resets log_file/HInt.log, also when its script is submitted by hand
             command += " --new_log"
         script = sbatch_script(args, name, command, stage_settings(args, stage, gpus, internet), array)
         last = sbatch(args, script, f"{dependency}:{last}" if last else None)
@@ -1077,14 +1093,10 @@ def stage_submit (args) :
         return last
 
     skipped = []
-    if args.offline_compute and not need_fetch :
-        skipped.append("fetch (all sequences known)")
     if not need_msa :
         skipped.append("afdb/msa (all MSAs found)")
     if not need_features :
         skipped.append("features (all pkl files found)")
-    if need_fetch and order <= STAGES.index("fetch") :
-        submit("fetch", "fetch", f"{hint} fetch", internet=True) # UniProt sequences
     if order <= STAGES.index("prepare") :
         prepare_id = submit("prepare", "prepare", f"{hint} prepare", gpus=3 if gpu_for_prepare else 0, internet=not args.offline_compute)
     if n_rounds == 0 :
@@ -1236,7 +1248,7 @@ def main () :
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_submit_arguments(subparsers.add_parser("submit", help="Submit the whole pipeline"))
     subparsers.add_parser("status", help="Show the progress of the pipeline")
-    for stage, help_text in [("fetch", "(job) UniProt sequences download"), ("prepare", "(job) sequences, DeepLoc, SignalP and filters"),
+    for stage, help_text in [("fetch", "UniProt sequences download (run by submit on the login node)"), ("prepare", "(job) sequences, DeepLoc, SignalP and filters"),
                              ("afdb", "(job) MSAs of the AlphaFold database"), ("msa", "(job) MSA generation")] :
         subparsers.add_parser(stage, help=help_text).add_argument("--new_log", help="Reset log_file/HInt.log (first job of a run)", action="store_true")
     features = subparsers.add_parser("features", help="(array job) pkl files")
