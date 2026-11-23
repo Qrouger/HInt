@@ -891,7 +891,7 @@ JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "01:00:00"},
     "afdb" : {"cpus" : 8, "time" : "04:00:00"},
-    "msa" : {"cpus" : None, "time" : "10:00:00"},
+    "msa" : {"cpus" : None, "time" : "04:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "05:00:00"},
     "score" : {"cpus" : 16, "time" : "04:00:00"},
@@ -1287,7 +1287,7 @@ def add_submit_arguments (parser) :
     work.add_argument("--setup_partition", help="Jean Zay: partition of the setup job (default: prepost)", default="prepost")
     work.add_argument("--setup_gpus", help="Jean Zay: GPUs of the setup job, when DeepLoc, SignalP or MSAs have to run (default: 1)", type=int, default=1)
     work.add_argument("--setup_cpus", help="Jean Zay: CPUs of the setup job (default: 16)", type=int, default=16)
-    work.add_argument("--setup_time", help="Jean Zay: time limit of the setup job (default: 10:00:00)", default="10:00:00")
+    work.add_argument("--setup_time", help="Jean Zay: time limit of the setup job (default: 04:00:00)", default="04:00:00")
     work.add_argument("--start_at", help="First stage to submit, to resume a run (default: fetch/prepare)", choices=STAGES[:6], default="fetch")
     work.add_argument("--start_round", help="First round to submit with --start_at predict (default: 0)", type=int, default=0)
     for stage in STAGES :
