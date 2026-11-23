@@ -539,8 +539,10 @@ def stage_prepare (args, submit_first_round=True) :
 
 def stage_setup (args) :
     """
-    prepare, afdb, msa and features in one job (Jean Zay : prepost partition, internet access and one GPU),
+    prepare, afdb and features in one job (Jean Zay : prepost partition, internet access, GPU of the node for DeepLoc),
     only the missing steps, then submission of the predict and score jobs of round 0.
+    MMseqs2-GPU does not run on the GPU of the prepost nodes : when MSAs are missing, msa (and features) run in the
+    msa job on the GPU nodes, and this job submits round 0 after it.
     """
     config = load_config()
     stage_prepare(args, submit_first_round=False)
@@ -549,7 +551,10 @@ def stage_setup (args) :
     if config["afdb_stage"] and config["msa_stage"] :
         stage_afdb(args)
     if config["msa_stage"] :
-        stage_msa(args)
+        setup_logging("setup")
+        submit_round(0, config, wait_predict_dependency())
+        logger.info("Setup stage done, MSAs and pkl files computed by the msa job")
+        return
     if config.get("features_stage", True) :
         args.task = 0
         try :
@@ -559,6 +564,18 @@ def stage_setup (args) :
     setup_logging("setup")
     submit_round(0, config)
     logger.info("Setup stage done")
+
+
+def stage_msa_features (args) :
+    """
+    msa then features in one job on the GPU nodes (MMseqs2-GPU), used with the local species database
+    (the GPU nodes have no internet access).
+    """
+    config = load_config()
+    stage_msa(args)
+    if config.get("features_stage", True) :
+        args.task = 0
+        stage_features(args)
 
 
 def fetch_sequences (Informations_dict) :
@@ -1129,7 +1146,7 @@ def stage_submit (args) :
     if not need_features :
         skipped.append("features (all pkl files found)")
     if single_setup and n_rounds :
-        setup_gpus = args.setup_gpus if (gpu_for_prepare or need_msa) else 0 # DeepLoc, MMseqs2-GPU
+        setup_gpus = args.setup_gpus if gpu_for_prepare else 0 # DeepLoc (MMseqs2-GPU runs in the msa job on the GPU nodes)
         settings = stage_settings(args, "prepare", 0, True)
         settings.update({"cpus" : args.setup_cpus, "time" : args.setup_time, "partition" : args.setup_partition})
         if setup_gpus : # DeepLoc and MMseqs2-GPU use the GPU of the prepost node, reachable without --gres
@@ -1142,14 +1159,18 @@ def stage_submit (args) :
     else :
         if config["afdb_stage"] and need_msa and order <= STAGES.index("afdb") and not single_setup :
             submit("afdb", "afdb", f"{hint} afdb", internet=True)
-        if need_msa and order <= STAGES.index("msa") and not single_setup :
-            submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
-        if need_features and order <= STAGES.index("features") and not single_setup :
+        # With the setup job, features runs in the msa job (GPU nodes, no internet access : local species database needed)
+        msa_with_features = single_setup and need_msa and need_features and local_species
+        if need_msa and order <= STAGES.index("msa") : # GPU nodes : MMseqs2-GPU
+            submit("msa", "msa", f"{hint} msa_features" if msa_with_features else f"{hint} msa", gpus=args.msa_gpus)
+        if need_features and order <= STAGES.index("features") and (not single_setup or need_msa) and not msa_with_features :
             if local_species :
                 submit("features", "features", f"{hint} features --task 0")
             else : # species used to pair MSAs are fetched from UniProt
                 submit("features", "features", f"{hint} features --task ${{SLURM_ARRAY_TASK_ID}}", internet=True, array=f"0-{args.features_tasks - 1}{throttle}")
             next_dependency = "afterany" # missing features are reported by the predict tasks
+        elif msa_with_features :
+            next_dependency = "afterany"
         else :
             next_dependency = "afterok"
         # The predict and score jobs of a round are submitted once its job list is known : by prepare for round 0,
@@ -1292,7 +1313,8 @@ def main () :
     add_submit_arguments(subparsers.add_parser("submit", help="Submit the whole pipeline"))
     subparsers.add_parser("status", help="Show the progress of the pipeline")
     for stage, help_text in [("fetch", "UniProt sequences download (run by submit on the login node)"), ("prepare", "(job) sequences, DeepLoc, SignalP and filters"),
-                             ("setup", "(job) prepare, afdb, msa and features in one job"),
+                             ("setup", "(job) prepare, afdb and features in one job"),
+                             ("msa_features", "(job) msa then features in one job"),
                              ("afdb", "(job) MSAs of the AlphaFold database"), ("msa", "(job) MSA generation")] :
         subparsers.add_parser(stage, help=help_text).add_argument("--new_log", help="Reset log_file/HInt.log (first job of a run)", action="store_true")
     features = subparsers.add_parser("features", help="(array job) pkl files")
@@ -1318,6 +1340,7 @@ def main () :
          "setup" : stage_setup,
          "afdb" : stage_afdb,
          "msa" : stage_msa,
+         "msa_features" : stage_msa_features,
          "features" : stage_features,
          "predict" : stage_predict,
          "score" : stage_score}[args.command](args)
