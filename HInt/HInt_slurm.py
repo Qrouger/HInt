@@ -519,7 +519,7 @@ def stage_prepare (args, submit_first_round=True) :
              "gpu_vram" : gpu_vram,
              "timings" : timings,
              "summary" : summary}
-    if rounds and not config.get("msa_stage", True) : # MSAs found by HInt-slurm submit
+    if rounds and not config.get("msa_stage", True) and not config.get("single_setup", False) : # MSAs found by HInt-slurm submit
         missing_msa = [prot for prot in need_msa if not os.path.isfile(f"{Informations_dict['Path_Pickle_Feature']}/{prot}.a3m")]
         if missing_msa :
             raise RuntimeError(f"No MSA for {len(missing_msa)} proteins ({', '.join(missing_msa[:20])}), e.g. MSAs removed after signal peptide cleavage. "
@@ -541,29 +541,59 @@ def stage_setup (args) :
     """
     prepare, afdb and features in one job (Jean Zay : prepost partition, internet access, GPU of the node for DeepLoc),
     only the missing steps, then submission of the predict and score jobs of round 0.
-    MMseqs2-GPU does not run on the GPU of the prepost nodes : when MSAs are missing, msa (and features) run in the
-    msa job on the GPU nodes, and this job submits round 0 after it.
+    MMseqs2-GPU does not run on the GPU of the prepost nodes : only when MSAs are still missing after prepare and afdb,
+    this job submits the msa job on the GPU nodes (with features, or features in its own prepost job) and round 0 after it.
     """
     config = load_config()
     stage_prepare(args, submit_first_round=False)
-    if not load_state()["rounds"] :
+    state = load_state()
+    if not state["rounds"] :
         return
-    if config["afdb_stage"] and config["msa_stage"] :
+    Path_Pickle_Feature = state["Informations_dict"]["Path_Pickle_Feature"]
+    if config["afdb_stage"] and any(not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m") for prot in state["need_msa"]) :
         stage_afdb(args)
-    if config["msa_stage"] :
-        setup_logging("setup")
-        submit_round(0, config, wait_predict_dependency())
+    state = load_state()
+    missing_msa = [prot for prot in state["need_msa"] if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")]
+    setup_logging("setup")
+    if missing_msa :
+        logger.info(f"{len(missing_msa)} MSAs to compute : msa job on the GPU nodes")
+        submit_round(0, config, submit_msa_jobs(config))
         logger.info("Setup stage done, MSAs and pkl files computed by the msa job")
         return
-    if config.get("features_stage", True) :
-        args.task = 0
-        try :
-            stage_features(args)
-        except SystemExit :
-            logger.error("Some pkl files are missing, the predict jobs of their interactions will fail")
+    logger.info("No MSA to compute : no GPU job before the predict jobs")
+    write_need_pkl(state, config)
+    args.task = 0
+    try :
+        stage_features(args)
+    except SystemExit :
+        logger.error("Some pkl files are missing, the predict jobs of their interactions will fail")
     setup_logging("setup")
     submit_round(0, config)
     logger.info("Setup stage done")
+
+
+def submit_msa_jobs (config) :
+    """
+    Submit the msa job on the GPU nodes (MMseqs2-GPU), followed by features in the same job with the local species
+    database (the GPU nodes have no internet access), otherwise by a features job on the internet partition.
+
+    Returns :
+    ----------
+    dependency : str
+        Dependency of the predict jobs of round 0.
+    """
+    args = argparse.Namespace(**config["submit_args"])
+    args.dry_run = False
+    hint = "HInt-slurm"
+    local_species = config.get("local_species", False)
+    script = sbatch_script(args, "msa", f"{hint} msa_features" if local_species else f"{hint} msa", stage_settings(args, "msa", args.msa_gpus, False))
+    last = sbatch(args, script)
+    record_job_id("msa", last)
+    if not local_species : # species used to pair MSAs are fetched from UniProt
+        script = sbatch_script(args, "features", f"{hint} features --task 0", stage_settings(args, "features", 0, True))
+        last = sbatch(args, script, f"afterok:{last}")
+        record_job_id("features", last)
+    return f"afterany:{last}" # missing features are reported by the predict tasks
 
 
 def stage_msa_features (args) :
@@ -1109,6 +1139,8 @@ def stage_submit (args) :
               "jobs_per_task" : args.jobs_per_task,
               "gpus_per_task" : args.gpus_per_task,
               "msa_stage" : need_msa,
+              "single_setup" : single_setup and n_rounds > 0, # the setup job decides on the msa job
+              "local_species" : local_species,
               "features_stage" : need_features,
               "n_rounds" : n_rounds,
               "submit_args" : vars(args)} # the predict and score jobs are submitted by the prepare and score jobs
@@ -1146,7 +1178,7 @@ def stage_submit (args) :
     if not need_features :
         skipped.append("features (all pkl files found)")
     if single_setup and n_rounds :
-        setup_gpus = args.setup_gpus if gpu_for_prepare else 0 # DeepLoc (MMseqs2-GPU runs in the msa job on the GPU nodes)
+        setup_gpus = args.setup_gpus if gpu_for_prepare else 0 # DeepLoc (MMseqs2-GPU runs in the msa job on the GPU nodes, submitted by setup if needed)
         settings = stage_settings(args, "prepare", 0, True)
         settings.update({"cpus" : args.setup_cpus, "time" : args.setup_time, "partition" : args.setup_partition})
         if setup_gpus : # DeepLoc and MMseqs2-GPU use the GPU of the prepost node, reachable without --gres
@@ -1159,18 +1191,15 @@ def stage_submit (args) :
     else :
         if config["afdb_stage"] and need_msa and order <= STAGES.index("afdb") and not single_setup :
             submit("afdb", "afdb", f"{hint} afdb", internet=True)
-        # With the setup job, features runs in the msa job (GPU nodes, no internet access : local species database needed)
-        msa_with_features = single_setup and need_msa and need_features and local_species
-        if need_msa and order <= STAGES.index("msa") : # GPU nodes : MMseqs2-GPU
-            submit("msa", "msa", f"{hint} msa_features" if msa_with_features else f"{hint} msa", gpus=args.msa_gpus)
-        if need_features and order <= STAGES.index("features") and (not single_setup or need_msa) and not msa_with_features :
+        # With the setup job, msa and features are submitted by the setup job, only if MSAs are still missing
+        if need_msa and order <= STAGES.index("msa") and not single_setup : # GPU nodes : MMseqs2-GPU
+            submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
+        if need_features and order <= STAGES.index("features") and not single_setup :
             if local_species :
                 submit("features", "features", f"{hint} features --task 0")
             else : # species used to pair MSAs are fetched from UniProt
                 submit("features", "features", f"{hint} features --task ${{SLURM_ARRAY_TASK_ID}}", internet=True, array=f"0-{args.features_tasks - 1}{throttle}")
             next_dependency = "afterany" # missing features are reported by the predict tasks
-        elif msa_with_features :
-            next_dependency = "afterany"
         else :
             next_dependency = "afterok"
         # The predict and score jobs of a round are submitted once its job list is known : by prepare for round 0,
