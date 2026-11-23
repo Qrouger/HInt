@@ -431,8 +431,8 @@ def stage_prepare (args, submit_first_round=True) :
     GPU = allocated_gpus()
     CPU = allocated_cpus()
     Informations_dict = Define_informations()
-    link_result_dirs(Informations_dict) # models in Path_Structures if set
     HInt_object = File_proteins(Informations_dict["Path_Uniprot_ID"], Informations_dict["Interact_with"], Informations_dict["AlphaFold"], Informations_dict["Custom_interactions"])
+    link_result_dirs(Informations_dict, HInt_object.get_compounds() != {}) # models in Path_Structures if set
 
     logger.info(f"Slurm job {os.environ.get('SLURM_JOB_ID', 'local')} | GPUs : {GPU} | CPUs : {CPU}")
     logger.info(f"AlphaFold version set to: {Informations_dict['AlphaFold']}")
@@ -916,7 +916,7 @@ JEAN_ZAY_GPUS = {
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 24, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
     "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 10, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
-JEAN_ZAY_PARTITIONS = {"afdb" : "archive"} # downloads only, the other CPU stages run on prepost (fetch runs on the login node)
+JEAN_ZAY_PARTITIONS = {"afdb" : "archive", "score" : "archive"} # the other CPU stages run on prepost (fetch runs on the login node)
 JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "01:00:00"},
@@ -1083,7 +1083,6 @@ def stage_submit (args) :
     elif args.offline_compute and not args.internet_partition :
         raise ValueError("--offline_compute needs --internet_partition (a partition whose nodes have internet access)")
     Informations_dict = Define_informations()
-    link_result_dirs(Informations_dict) # models in Path_Structures if set
     n_rounds = len(define_rounds(Informations_dict, False))
     # With the local species database, pkl files need no internet access and are fast : one CPU job
     local_species = os.path.isfile(os.path.join(Informations_dict["Path_Database"], LOCAL_SPECIES_DB))

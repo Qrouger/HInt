@@ -386,7 +386,7 @@ def check_exist_MSA (file, Informations_dict, need_msa) :
                 new_need_msa.append(prot)
     return new_need_msa
 
-def link_result_dirs (Informations_dict) :
+def link_result_dirs (Informations_dict, compounds=False) :
     """
     Write the models in Path_Structures (optional in HInt.txt) instead of the screen directory.
 
@@ -397,13 +397,15 @@ def link_result_dirs (Informations_dict) :
     Parameters :
     ----------
     Informations_dict : dict
+    compounds : bool
+        The input file contains compounds (known once the File_proteins object is created).
     """
     Path_Structures = os.path.expanduser(os.path.expandvars(Informations_dict.get("Path_Structures", "")))
     if Path_Structures == "" or os.path.realpath(Path_Structures) == os.path.realpath(".") :
         return
     interaction_types = []
     if Informations_dict["Interact_with"] != [''] :
-        interaction_types += ["PPI_int", "Compounds"]
+        interaction_types.append("Compounds" if compounds else "PPI_int")
     if int(Informations_dict["Homo-oligomer"]) > 1 :
         interaction_types.append("homo_int")
     if Informations_dict.get("Custom_interactions", "") != "" :
