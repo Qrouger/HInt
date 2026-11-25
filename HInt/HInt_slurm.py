@@ -924,7 +924,7 @@ JEAN_ZAY_RESOURCES = {
     "msa" : {"cpus" : None, "time" : "04:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "05:00:00"},
-    "score" : {"cpus" : 16, "time" : "04:00:00"},
+    "score" : {"cpus" : 10, "time" : "04:00:00"},
 }
 
 
