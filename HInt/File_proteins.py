@@ -545,7 +545,7 @@ class File_proteins() :
                         nbr = int_file.split("_homo_")[1].split("_")[0]
                         int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
                     if int_file in int_score.keys() :
-                        raise ValueError(f"Duplicate custom interactions in {Custom_interactions}, please remove one {int_file}")
+                        raise ValueError(f"Duplicate custom interactions in {Custom_interactions}, please remove one {line}")
                     if int_file : #remove empty line
                         int_score[int_file] = dict()
                         result_dict[int_file] = dict()
