@@ -544,8 +544,11 @@ class File_proteins() :
                     if "_homo_" in int_file :
                         nbr = int_file.split("_homo_")[1].split("_")[0]
                         int_file = int_file.replace(f"_{nbr}",f"_{nbr}er")
-                    int_score[int_file] = dict()
-                    result_dict[int_file] = dict()
+                    if int_file in int_score.keys() :
+                        raise ValueError(f"Duplicate custom interactions in {Custom_interactions}, please remove one {line}")
+                    if int_file : #remove empty line
+                        int_score[int_file] = dict()
+                        result_dict[int_file] = dict()
             if not set(custom_prots).issubset(new_proteins) :
                 raise ValueError(f"Custom interactions file contains proteins not present in the input file. {list(set(custom_prots) - set(new_proteins))} are missing in the input file.")
         self.set_time_dict(time_dict)

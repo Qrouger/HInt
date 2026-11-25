@@ -247,7 +247,7 @@ def main() :
         if baits == [''] :
             First_batch = Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu)
             need_msa, need_pkl, first_need_pkl = First_need_sorted(First_batch, need_msa, need_pkl)
-            if first_need_pkl and need_msa :
+            if first_need_pkl or need_msa : # generate MSA for all and pkl only for first batch
                 need_pkl.extend(create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, first_need_pkl))
             logger.info("Generating MSA depth figures")
             Make_all_MSA_coverage(HInt_object, Informations_dict["Path_Pickle_Feature"], baits, []) # Just for bait prot
@@ -266,7 +266,7 @@ def main() :
         job_with_vram_length = Generate_scripts(HInt_object, Informations_dict, "custom", "")
         First_batch = Generate_first_batch(job_with_vram_length, GPU, multi_job_per_gpu, True)
         need_msa, need_pkl, first_need_pkl = First_need_sorted(First_batch, need_msa, need_pkl)
-        if first_need_pkl and need_msa :
+        if first_need_pkl or need_msa : # generate MSA for all and pkl only for first batch
             need_pkl.extend(create_feature(HInt_object, Informations_dict, GPU, CPU, need_msa, first_need_pkl))
         logger.info("Generating MSA depth figures")
         HInt_object.Make_save_dict()
