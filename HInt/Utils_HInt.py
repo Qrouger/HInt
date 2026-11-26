@@ -386,7 +386,62 @@ def check_exist_MSA (file, Informations_dict, need_msa) :
                 new_need_msa.append(prot)
     return new_need_msa
 
-def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
+def link_result_dirs (Informations_dict, compounds=False) :
+    """
+    Write the models in Path_Structures (optional in HInt.txt) instead of the screen directory.
+
+    The result directories (./result_PPI_int, ./result_homo_int, ./result_custom, ./result_Compounds) become
+    symbolic links to Path_Structures/result_*, so the rest of HInt keeps using the same paths.
+    Only the directories of the interactions of HInt.txt are created.
+
+    Parameters :
+    ----------
+    Informations_dict : dict
+    compounds : bool
+        The input file contains compounds (known once the File_proteins object is created).
+    """
+    Path_Structures = os.path.expanduser(os.path.expandvars(Informations_dict.get("Path_Structures", "")))
+    if Path_Structures == "" or os.path.realpath(Path_Structures) == os.path.realpath(".") :
+        return
+    interaction_types = []
+    if Informations_dict["Interact_with"] != [''] :
+        interaction_types.append("Compounds" if compounds else "PPI_int")
+    if int(Informations_dict["Homo-oligomer"]) > 1 :
+        interaction_types.append("homo_int")
+    if Informations_dict.get("Custom_interactions", "") != "" :
+        interaction_types.append("custom")
+    for interaction_type in interaction_types :
+        name = f"result_{interaction_type}"
+        target = os.path.abspath(os.path.join(Path_Structures, name))
+        os.makedirs(target, exist_ok=True)
+        if os.path.islink(name) :
+            if os.path.realpath(name) == os.path.realpath(target) :
+                continue
+            os.remove(name) # link to an old Path_Structures
+        elif os.path.isdir(name) :
+            if os.listdir(name) :
+                raise ValueError(f"./{name} already contains models. Move its content to {target} or remove Path_Structures from HInt.txt.")
+            os.rmdir(name)
+        os.symlink(target, name)
+        logger.info(f"Models of {interaction_type} written in {target}")
+
+def set_species_env (Path_Pickle_Feature, Path_Database, cache_name="uniprot_species_cache.sqlite") :
+    """
+    Set the species databases read by create_individual_features.py to pair MSAs.
+
+    Parameters :
+    ----------
+    Path_Pickle_Feature : str
+    Path_Database : str
+    cache_name : str
+        File of the UniProt accession -> taxid cache, in Path_Pickle_Feature.
+    """
+    os.environ.setdefault("ALPHAPULLDOWN_SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/{cache_name}")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
+    local_species_db = os.path.join(Path_Database, "uniref30_2302_species.sqlite")
+    if os.path.exists(local_species_db) :
+        os.environ.setdefault("ALPHAPULLDOWN_LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
+
+def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl, use_afdb=True, local_search_threshold=10, afdb_only=False) :
     """
     Generate MSAs and AlphaFold feature pickle files for a set of proteins.
 
@@ -403,6 +458,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     CPU : int
     need_msa : list
     need_pkl : list
+    use_afdb : bool
+        Search precomputed MSAs in the AlphaFold database (needs internet access).
+    local_search_threshold : int
+        Minimum number of proteins to run the local MMseqs2-GPU search (colabfold_search).
+    afdb_only : bool
+        Only download MSAs from the AlphaFold database.
 
     """
     Path_Database = Informations_dict["Path_Database"]
@@ -426,10 +487,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
     if os.path.exists(Path_Pickle_Feature) == False :
         os.system(f"mkdir {Path_Pickle_Feature}")
         
-    os.environ.setdefault("ALPHAPULLDOWN_SPECIES_CACHE", os.path.abspath(f"{Path_Pickle_Feature}/uniprot_species_cache.sqlite")) #Shared UniProt accession -> taxid cache for every create_individual_features.py process
-    local_species_db = os.path.join(Path_Database, "uniref30_2302_species.sqlite")
-    if os.path.exists(local_species_db) :
-        os.environ.setdefault("ALPHAPULLDOWN_LOCAL_SPECIES_DB", os.path.abspath(local_species_db))
+    set_species_env(Path_Pickle_Feature, Path_Database)
 
     def AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,generated_msa) :
         retry_queue = list() #list of protein to retry if error during MSA search in AFdb (too many request on server)
@@ -468,7 +526,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
 
     start = time.time()
     generated_msa = copy.deepcopy(need_msa)
-    if need_msa != [] :
+    if need_msa != [] and use_afdb :
         #ThreadPool to parallelise Mafft
         max_workers_mafft = CPU # how many jobs in parallel
 
@@ -481,10 +539,12 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
             retry_queue = AFDB_msa_search(Path_Pickle_Feature,prot_SP,prot_no_SP,retry_queue)
 
         logger.info("MSA search in the AlphaFold database completed")
-        
+
+    if afdb_only :
+        return new_need_pkl
     file.create_fasta_file(False, need_msa, need_pkl)
 
-    if len(need_msa) >= 10 : #Just for the first batch
+    if len(need_msa) >= local_search_threshold and len(need_msa) > 0 : #Just for the first batch
         if len(GPU_str.split(",")) >= 4 : #Due to error by using mmseqGPU with more than 3 GPU 
             GPU_str = GPU_str[:-2]
         cmd = f"CUDA_VISIBLE_DEVICES={GPU_str} colabfold_search ./log_file/{msa_name} {Path_Database} {Path_Pickle_Feature} --db-load-mode 2 --gpu 1 2>&1 | tee -a ./log_file/HInt.log"  
@@ -501,16 +561,7 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
             for protein in need_msa :
                 msa_name = f"./log_file/{protein}_msa.fasta"
-                cmd = ["create_individual_features.py",
-                f"--fasta_paths={msa_name}",
-                f"--data_dir={Path_Database}",
-                "--save_msa_files=True",
-                f"--output_dir={Path_Pickle_Feature}",
-                "--max_template_date=2024-05-02",
-                "--skip_existing=True",
-                f"--use_mmseqs2=True",
-                "--use_precomputed_msas=True",
-                f"--re_search_templates_mmseqs2={re_search_templates_mmseqs2}"]
+                cmd = feature_cmd(msa_name, Path_Database, Path_Pickle_Feature, re_search_templates_mmseqs2)
                 futures_list.append(executor.submit(create_ind_feature, protein, msa_name, prot_no_SP, cmd))
     end = time.time()
     elapsed = end - start
@@ -526,20 +577,39 @@ def create_feature (file, Informations_dict, GPU, CPU, need_msa, need_pkl) :
         with ThreadPoolExecutor(max_workers=max_workers_feature) as executor : #CPU parallelization
             for protein in need_pkl :
                 pkl_file = f"./log_file/{protein}_pkl.fasta"
-                cmd2 = ["create_individual_features.py",
-                f"--fasta_paths={pkl_file}",
-                f"--data_dir={Path_Database}",
-                "--save_msa_files=True",
-                f"--output_dir={Path_Pickle_Feature}",
-                "--max_template_date=2024-05-02",
-                "--skip_existing=True",
-                "--use_mmseqs2=True",
-                "--use_precomputed_msas=True",
-                f"--re_search_templates_mmseqs2={re_search_templates_mmseqs2}"]
+                cmd2 = feature_cmd(pkl_file, Path_Database, Path_Pickle_Feature, re_search_templates_mmseqs2)
                 futures_list.append(executor.submit(create_ind_feature, protein, pkl_file, prot_no_SP, cmd2))
     return new_need_pkl
 
-def create_ind_feature (protein, pkl_file, prot_no_SP, cmd) :
+def feature_cmd (fasta_path, Path_Database, Path_Pickle_Feature, re_search_templates_mmseqs2=None) :
+    """
+    Build the create_individual_features.py command for one FASTA file.
+
+    Parameters :
+    ----------
+    fasta_path : str
+    Path_Database : str
+    Path_Pickle_Feature : str
+    re_search_templates_mmseqs2 : str or None
+
+    Returns :
+    ----------
+    cmd : list
+    """
+    cmd = ["create_individual_features.py",
+    f"--fasta_paths={fasta_path}",
+    f"--data_dir={Path_Database}",
+    "--save_msa_files=True",
+    f"--output_dir={Path_Pickle_Feature}",
+    "--max_template_date=2024-05-02",
+    "--skip_existing=True",
+    "--use_mmseqs2=True",
+    "--use_precomputed_msas=True"]
+    if re_search_templates_mmseqs2 is not None :
+        cmd.append(f"--re_search_templates_mmseqs2={re_search_templates_mmseqs2}")
+    return cmd
+
+def create_ind_feature (protein, pkl_file, prot_no_SP, cmd, log_path="./log_file/HInt.log") :
     """
     Create a pickle file for a single protein using the create_individual_features.py script. Allow parallelization.
     
@@ -549,10 +619,11 @@ def create_ind_feature (protein, pkl_file, prot_no_SP, cmd) :
     pkl_file : str
     prot_no_SP : dict
     cmd : str
+    log_path : str
     """
     with open(pkl_file, "w") as pkl_f :
         pkl_f.write(f">{protein}\n{prot_no_SP[protein]}\n")
-    with open("./log_file/HInt.log", "a") as log_f :
+    with open(log_path, "a") as log_f :
         process = subprocess.Popen(cmd, stderr=subprocess.STDOUT,stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True)
         for line in process.stdout :
             print(line, end="", flush=True)  # stream live
@@ -839,7 +910,7 @@ def filter_deeploc (file, Informations_dict, need_msa, need_pkl) :
     return(new_need_msa, new_need_pkl)
 
 
-def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
+def Generate_scripts (file, Informations_dict, Interaction_file, bait, vram=None) :
     """
     Prepare the list of interaction jobs, taking into account protein lengths and GPU VRAM constraints to avoid out-of-memory (OOM) errors.
 
@@ -854,6 +925,8 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     Informations_dict : dict
     Interaction_file : str
     bait : str
+    vram : float or None
+        VRAM (GiB) of the GPUs used for modeling. If None, read from the first local GPU.
 
     Returns :
     ----------
@@ -868,12 +941,13 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
     regions = Informations_dict["Regions"]
 
     # Estimate max amino acids based on GPU VRAM (choose first GPU as reference)
-    pynvml.nvmlInit()
-    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-    vram = (mem_info.total / 1024**2) * 0.001  # GiB
+    if vram is None :
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        vram = (mem_info.total / 1024**2) * 0.001  # GiB
+        pynvml.nvmlShutdown()
     max_aa = int((0.0000627 + math.sqrt(0.0000627**2 - 4*0.00000332*(3.8 - vram))) / (2*0.00000332))
-    pynvml.nvmlShutdown()
     
     if (Interaction_file == "PPI_int" or Interaction_file == "Compounds") and bait != "" :
         # Determine bait length and region
@@ -977,7 +1051,7 @@ def Generate_scripts (file, Informations_dict, Interaction_file, bait) :
                         else :
                             OOM_int += f"{job_str}\n"
                             result_dict[int_file][f"Reason_for_filtering"] = "Interaction too large for your GPU, possible prey"
-                            
+
     if Interaction_file == "Compounds" :
         Compounds = file.get_compounds()
         vram_length = 1.9 + (-0.0000627) * length + 0.00000332 * length**2 
@@ -1348,7 +1422,7 @@ def manager (jobs_pending, HInt_object, CPU, multi_scoring, send_to_database, In
     scoring_pool.shutdown(wait=True)   # wait last scoring
     manager_proc.shutdown()
 
-def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound, jax_cache_dir) :
+def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database, Path_Pickle_Feature, interaction_type, AF_version, seq_bait, Baits, compound, jax_cache_dir, log_path="./log_file/HInt.log") :
     """
     Run a single AlphaFold job on a specified GPU, monitor its completion, and report results.
 
@@ -1366,6 +1440,7 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
     Baits : list
     compound : str
     jax_cache_dir : str
+    log_path : str
     """
     env = os.environ.copy()
     
@@ -1470,14 +1545,13 @@ def gpu_job_runner (gpu_id, interaction_file, vram, result_queue, Path_Database,
             )
             if pre_ampere :
                 cmd += " --flash_attention_implementation=xla"
-
         if AF_version == "3" and interaction_type == "Compounds" :
             cmd = (f"python ./alphafold3/run_alphafold.py --output_dir=./result_{interaction_type} --db_dir={Path_Database} --model_dir={Path_Database} --json_path=log_file/{file_name}")
             if pre_ampere :
                 cmd += " --flash_attention_implementation=xla"
         logger.info(f"[GPU {gpu_id}] Starting {interaction_file}")
         
-        with open("./log_file/HInt.log", "a") as log_f :
+        with open(log_path, "a") as log_f :
             proc = subprocess.Popen(
                 cmd,
                 shell=True,
