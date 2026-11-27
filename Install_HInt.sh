@@ -7,7 +7,7 @@ set -o pipefail
 # === CONFIG ===
 ENV_NAME="HInt"
 CONDA_BIN="${CONDA_BIN:-conda}"
-CONDA_DIR="${CONDA_DIR:-/lustre/fsn1/worksf/projects/rech/kzc/uwj11ez/conda}"   # envs + caches
+CONDA_DIR="${CONDA_DIR:-/lustre/fsn1/worksf/projects/rech/conda}"   # envs + caches, need to be modify
 ENV_PATH="$CONDA_DIR/envs/$ENV_NAME"                                             # HInt environment only
 
 echo "Conda : $CONDA_BIN"
