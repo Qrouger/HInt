@@ -911,7 +911,7 @@ DEFAULT_RESOURCES = {
     "fetch" : {"cpus" : 2, "mem" : "8G", "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "mem" : "32G", "time" : "01:00:00"},
     "afdb" : {"cpus" : 8, "mem" : "16G", "time" : "12:00:00"},
-    "msa" : {"cpus" : 32, "mem" : "128G", "time" : "24:00:00"},
+    "msa" : {"cpus" : 48, "mem" : "128G", "time" : "24:00:00"},
     "features" : {"cpus" : 16, "mem" : "64G", "time" : "12:00:00"},
     "predict" : {"cpus" : 8, "mem" : "64G", "time" : "48:00:00"},
     "score" : {"cpus" : 32, "mem" : "64G", "time" : "12:00:00"},
@@ -920,7 +920,7 @@ DEFAULT_RESOURCES = {
 # IDRIS Jean Zay : GPU nodes are selected with a constraint and an account <project>@<gpu>, the memory is proportional
 # to the number of CPUs (no --mem), compute nodes have no internet access, the prepost partition has it (max 20h).
 JEAN_ZAY_GPUS = {
-    "a100" : {"constraint" : "a100", "cpus_per_gpu" : 4, "vram" : 80, "qos" : "qos_gpu_a100", "setup" : []},
+    "a100" : {"constraint" : "a100", "cpus_per_gpu" : 4, "vram" : 80, "qos" : "qos_gpu_a100", "setup" : ["module load arch/a100"]},
     "h100" : {"constraint" : "h100", "cpus_per_gpu" : 4, "vram" : 80, "qos" : "qos_gpu_h100", "setup" : ["module load arch/h100"]},
     "v100" : {"constraint" : "v100-32g", "cpus_per_gpu" : 4, "vram" : 32, "qos" : "qos_gpu", "setup" : []},
 }
@@ -929,7 +929,7 @@ JEAN_ZAY_RESOURCES = {
     "fetch" : {"cpus" : 2, "time" : "00:30:00"},
     "prepare" : {"cpus" : 2, "time" : "01:00:00"},
     "afdb" : {"cpus" : 8, "time" : "04:00:00"},
-    "msa" : {"cpus" : None, "time" : "04:00:00"},
+    "msa" : {"cpus" : 64, "time" : "04:00:00"},
     "features" : {"cpus" : 16, "time" : "00:30:00"},
     "predict" : {"cpus" : None, "time" : "05:00:00"},
     "score" : {"cpus" : 10, "time" : "04:00:00"},
