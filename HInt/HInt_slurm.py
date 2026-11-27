@@ -45,6 +45,7 @@ SCRIPT_DIR = "slurm_scripts"
 STATE_FILE = f"{SLURM_DIR}/state.pkl"
 CONFIG_FILE = f"{SLURM_DIR}/config.json"
 NEED_PKL_FILE = f"{SLURM_DIR}/need_pkl.txt"
+MSA_SERVER_MESSAGE = "V100 : MMseqs2-GPU does not run on V100, the missing MSAs are computed by the ColabFold MMseqs2 server (no GPU, internet access) in the features step on prepost"
 JOB_IDS_FILE = f"{SLURM_DIR}/job_ids.json"
 LOCAL_SPECIES_DB = "uniref30_2302_species.sqlite" # in Path_Database, see set_species_env
 LOCAL_SPECIES_FEATURES_CPUS = 6
@@ -294,7 +295,9 @@ def write_need_pkl (state, config) :
             targets.append(bait)
     need_pkl = [prot for prot in targets if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.pkl")]
     without_msa = [prot for prot in need_pkl if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")]
-    if without_msa :
+    if without_msa and config.get("msa_server", False) :
+        logger.info(f"{len(without_msa)} MSAs computed by the ColabFold MMseqs2 server in the features step : {', '.join(without_msa[:20])}{' ...' if len(without_msa) > 20 else ''}")
+    elif without_msa :
         logger.warning(f"{len(without_msa)} proteins have no MSA after the MSA stage : {', '.join(without_msa[:20])}{' ...' if len(without_msa) > 20 else ''}")
     with open(NEED_PKL_FILE, "w") as f :
         f.write("\n".join(need_pkl) + ("\n" if need_pkl else ""))
@@ -525,6 +528,8 @@ def stage_prepare (args, submit_first_round=True) :
             raise RuntimeError(f"No MSA for {len(missing_msa)} proteins ({', '.join(missing_msa[:20])}), e.g. MSAs removed after signal peptide cleavage. "
                                "Submit the pipeline again, the MSA stage will be included.")
         write_need_pkl(state, config)
+    elif rounds and config.get("msa_server", False) and not config.get("single_setup", False) : # no msa job (V100)
+        write_need_pkl(state, config)
     if rounds :
         write_round_jobs(state, 0, config)
     save_state(state)
@@ -555,12 +560,15 @@ def stage_setup (args) :
     state = load_state()
     missing_msa = [prot for prot in state["need_msa"] if not os.path.isfile(f"{Path_Pickle_Feature}/{prot}.a3m")]
     setup_logging("setup")
-    if missing_msa :
+    if missing_msa and config.get("msa_server", False) :
+        logger.warning(f"{len(missing_msa)} MSAs to compute. {MSA_SERVER_MESSAGE}")
+    elif missing_msa :
         logger.info(f"{len(missing_msa)} MSAs to compute : msa job on the GPU nodes")
         submit_round(0, config, submit_msa_jobs(config))
         logger.info("Setup stage done, MSAs and pkl files computed by the msa job")
         return
-    logger.info("No MSA to compute : no GPU job before the predict jobs")
+    if not missing_msa :
+        logger.info("No MSA to compute : no GPU job before the predict jobs")
     write_need_pkl(state, config)
     args.task = 0
     try :
@@ -1094,6 +1102,7 @@ def stage_submit (args) :
         args.features_tasks = 1
         args.features_cpus = args.features_cpus or LOCAL_SPECIES_FEATURES_CPUS
     use_afdb = not args.no_afdb
+    msa_server = args.cluster == "jean-zay" and args.jz_gpu == "v100" # MMseqs2-GPU does not run on V100
     if not args.dry_run :
         open(HINT_LOG, "w").close() # new log for each submission
         if args.start_at in ["fetch", "prepare"] : # new run from the beginning
@@ -1139,6 +1148,7 @@ def stage_submit (args) :
               "gpus_per_task" : args.gpus_per_task,
               "msa_stage" : need_msa,
               "single_setup" : single_setup and n_rounds > 0, # the setup job decides on the msa job
+              "msa_server" : msa_server, # V100 : MSAs by the ColabFold MMseqs2 server
               "local_species" : local_species,
               "features_stage" : need_features,
               "n_rounds" : n_rounds,
@@ -1191,7 +1201,7 @@ def stage_submit (args) :
         if config["afdb_stage"] and need_msa and order <= STAGES.index("afdb") and not single_setup :
             submit("afdb", "afdb", f"{hint} afdb", internet=True)
         # With the setup job, msa and features are submitted by the setup job, only if MSAs are still missing
-        if need_msa and order <= STAGES.index("msa") and not single_setup : # GPU nodes : MMseqs2-GPU
+        if need_msa and order <= STAGES.index("msa") and not single_setup and not msa_server : # GPU nodes : MMseqs2-GPU
             submit("msa", "msa", f"{hint} msa", gpus=args.msa_gpus)
         if need_features and order <= STAGES.index("features") and not single_setup :
             if local_species :
@@ -1214,6 +1224,8 @@ def stage_submit (args) :
                 json.dump(named_ids, f)
 
     if not args.dry_run :
+        if msa_server and need_msa :
+            print(f"\nWARNING : {MSA_SERVER_MESSAGE}. Use --jz_gpu a100 or h100 to compute them with MMseqs2-GPU and the local database.")
         print(f"\nRounds : {n_rounds} | features tasks : {args.features_tasks}{' (local species database)' if local_species else ''} | predict : one task per {args.jobs_per_task} PPI, up to {args.gpus_per_task} GPUs per task, submitted once the job list of each round is known")
         if skipped :
             print(f"Skipped : {', '.join(skipped)} | prepare on {'GPU (DeepLoc/SignalP)' if gpu_for_prepare else 'CPU (DeepLoc and SignalP already done)'}")
