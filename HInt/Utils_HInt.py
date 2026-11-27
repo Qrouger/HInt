@@ -1208,7 +1208,10 @@ def Generate_3D_model (HInt_object, CPU, multi_scoring, send_to_database, Inform
 
     with open("log_file/All_PPI_jobs.txt", "w") as f : #write complete script for informations
         for job, _ in job_with_vram_length :
-            f.write(job)
+            if "\n" not in job :
+                f.write(job+"\n")
+            else :
+                f.write(job)
             
     manager(jobs_pending=list(job_with_vram_length),
             HInt_object=HInt_object,
