@@ -985,7 +985,8 @@ def stage_settings (args, stage, gpus, internet) :
             settings["constraint"] = gpu["constraint"]
             settings["gres"] = f"gpu:{gpus}"
             settings["account"] = args.account or f"{args.jz_project}@{args.jz_gpu}"
-            settings["cpus"] = getattr(args, f"{stage}_cpus") or gpu["cpus_per_gpu"] * gpus
+            msa_cpus = defaults["cpus"] if stage == "msa" else None # MMseqs2 : CPU steps and database cache (memory follows the CPUs)
+            settings["cpus"] = getattr(args, f"{stage}_cpus") or msa_cpus or gpu["cpus_per_gpu"] * gpus
             if not settings["qos"] :
                 settings["qos"] = f"{gpu['qos']}-t4" if hours(settings["time"]) > 20 else f"{gpu['qos']}-t3"
             settings["setup"] = gpu["setup"] + settings["setup"]
